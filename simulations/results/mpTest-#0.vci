@@ -1,0 +1,1686 @@
+                                                                
+version 3
+run mpTest-0-20251001-17:55:47-8848
+attr configname mpTest
+attr datetime 20251001-17:55:47
+attr datetimef 20251001-175547
+attr experiment mpTest
+attr inifile mpTest.ini
+attr iterationvars ""
+attr iterationvarsd ""
+attr iterationvarsf ""
+attr measurement ""
+attr network singledumbbell
+attr processid 8848
+attr repetition 0
+attr replication #0
+attr resultdir results
+attr runnumber 0
+attr seedset 0
+config debug-on-errors true
+config image-path ../../inet4.5/images
+config extends General
+config **.numberOfFlows 1
+config *.client[0].app[0].connectAddress "\"server[0]\""
+config *.client[0].app[0].tOpen 0.00846919251197291s
+config *.client[0].app[0].tSend 0.00846919251197291s
+config **.ppp[*].queue.packetCapacity 432
+config network singledumbbell
+config sim-time-limit 10s
+config record-eventlog false
+config cmdenv-express-mode true
+config cmdenv-redirect-output false
+config cmdenv-output-file dctcpLog.txt
+config **.client*.tcp.conn-8.cmdenv-log-level detail
+config cmdenv-log-prefix "%t | %m |"
+config cmdenv-event-banners false
+config **.cmdenv-log-level off
+config **.**.tcp.conn-*.cwnd:vector(removeRepeats).vector-recording true
+config **.**.tcp.conn-*.rtt:vector(removeRepeats).vector-recording true
+config **.**.tcp.conn-*.srtt:vector(removeRepeats).vector-recording true
+config **.**.tcp.conn-*.throughput:vector(removeRepeats).vector-recording true
+config **.**.tcp.conn-*.**.result-recording-modes vector(removeRepeats)
+config **.**.queue.queueLength:vector(removeRepeats).vector-recording true
+config **.**.queue.queueLength.result-recording-modes vector(removeRepeats)
+config **.**.goodput:vector(removeRepeats).vector-recording true
+config **.**.goodput.result-recording-modes vector(removeRepeats)
+config **.**.bandwidth:vector(removeRepeats).vector-recording true
+config **.**.bandwidth.result-recording-modes vector(removeRepeats)
+config **.**.mbytesInFlight:vector(removeRepeats).vector-recording true
+config **.**.mbytesInFlight.result-recording-modes vector(removeRepeats)
+config **.scalar-recording false
+config **.vector-recording false
+config **.bin-recording false
+config **.goodputInterval 1s
+config **.throughputInterval 1s
+config **.tcp.typename MpTcp
+config **.tcp.tcpAlgorithmClass "\"TcpCubic\""
+config **.tcp.advertisedWindow 200000000
+config **.tcp.windowScalingSupport true
+config **.tcp.windowScalingFactor -1
+config **.tcp.increasedIWEnabled true
+config **.tcp.delayedAcksEnabled false
+config **.tcp.timestampSupport true
+config **.tcp.ecnWillingness false
+config **.tcp.nagleEnabled true
+config **.tcp.stopOperationTimeout 4000s
+config **.tcp.mss 1448
+config **.tcp.sackSupport true
+config **.client[*].numApps 1
+config **.client[*].app[*].typename MpTcpSessionApp
+config *.client[*].app[0].tClose -1s
+config *.client[*].app[0].sendBytes 2GB
+config *.client[*].app[0].dataTransferMode "\"bytecount\""
+config *.client[*].app[0].statistic-recording true
+config **.server[*].numApps 1
+config **.server[*].app[*].typename MpTcpSinkApp
+config **.server[*].app[*].serverThreadModuleType "\"tcpgoodputapplications.applications.tcpapp.TcpGoodputSinkAppThread\""
+config **.**.queue.typename DropTailQueue
+config **.additiveIncreasePercent 0.05
+config **.eta 0.95
+config **.alpha 0.01
+config **.fixedAvgRTTVal 0
+config **.tcp.initialSsthresh 5792000
+
+vector 0 singledumbbell.client[0].lo[0].lo rcvdPkFromHl:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceivedFromUpper
+attr title "packets received from higher layer, packetBytes"
+vector 1 singledumbbell.client[0].lo[0].lo passedUpPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToUpper
+attr title "packets passed to higher layer, packetBytes"
+vector 2 singledumbbell.client[0].lo[0] packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drops: interface down, packetBytes"
+vector 3 singledumbbell.client[0].lo[0] packetDropNoCarrier:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoCarrier(packetDropped)
+attr title "packet drops: no carrier, packetBytes"
+vector 4 singledumbbell.client[0].ppp[0].queue queueLength:vector(removeRepeats) ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+attr source "warmup(atomic(constant0(packetPushEnded) + count(packetPushStarted) - count(packetPulled) - count(packetRemoved) - count(packetDropped)))"
+attr title "queue length, removeRepeats"
+attr unit pk
+vector 5 singledumbbell.client[0].ppp[0].queue queueBitLength:vector ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source "warmup(atomic(constant0(packetPushEnded) + sum(packetLength(packetPushStarted)) - sum(packetLength(packetPulled)) - sum(packetLength(packetRemoved)) - sum(packetLength(packetDropped))))"
+attr title "queue bit length"
+attr unit b
+vector 6 singledumbbell.client[0].ppp[0].queue queueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(packetPulled)
+attr title "queueing times"
+attr unit s
+vector 7 singledumbbell.client[0].ppp[0].queue incomingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPushStarted)
+attr title "incoming packet lengths"
+attr unit b
+vector 8 singledumbbell.client[0].ppp[0].queue incomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPushStarted)
+attr title "incoming datarate"
+attr unit bps
+vector 9 singledumbbell.client[0].ppp[0].queue outgoingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPulled)
+attr title "outgoing packet lengths"
+attr unit b
+vector 10 singledumbbell.client[0].ppp[0].queue outgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPulled)
+attr title "outgoing datarate"
+attr unit bps
+vector 11 singledumbbell.client[0].ppp[0].queue droppedPacketLengthsQueueOverflow:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetDropReasonIsQueueOverflow(packetDropped))
+attr title "dropped packet lengths: queue overflow"
+attr unit b
+vector 12 singledumbbell.client[0].ppp[0].queue flowQueueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(demuxFlow(packetPulled))
+attr title "flow queueing times"
+attr unit s
+vector 13 singledumbbell.client[0].ppp[0].queue flowIncomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPushStarted)))
+attr title "flow specific incoming data rate"
+attr unit bps
+vector 14 singledumbbell.client[0].ppp[0].queue flowOutgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPulled)))
+attr title "flow specific outgoing data rate"
+attr unit bps
+vector 15 singledumbbell.client[0].ppp[0].ppp transmissionState:vector ETV
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source transmissionStateChanged
+attr title "tx state"
+vector 16 singledumbbell.client[0].ppp[0].ppp txPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToLower
+attr title "packets transmitted, packetBytes"
+vector 17 singledumbbell.client[0].ppp[0].ppp rxPkOk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source rxPkOk
+attr title "packets received OK, packetBytes"
+vector 18 singledumbbell.client[0].ppp[0].ppp packetDropIncorrectlyReceived:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsIncorrectlyReceived(packetDropped)
+attr title "packet drop: incorrectly received, packetBytes"
+vector 19 singledumbbell.client[0].ppp[0].ppp packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drop: interface down, packetBytes"
+vector 20 singledumbbell.client[0].ppp[0].ppp rcvdPkFromHl:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceivedFromUpper
+attr title "packets received from higher layer, packetBytes"
+vector 21 singledumbbell.client[0].ppp[0].ppp passedUpPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToUpper
+attr title "packets passed to higher layer, packetBytes"
+vector 22 singledumbbell.client[0].ppp[0] packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drops: interface down, packetBytes"
+vector 23 singledumbbell.client[0].ppp[0] packetDropNoCarrier:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoCarrier(packetDropped)
+attr title "packet drops: no carrier, packetBytes"
+vector 24 singledumbbell.client[0].ipv4.ip packetDropAddressResolutionFailed:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsAddressResolutionFailed(packetDropped)
+attr title "packet drop: address resolution failed, packetBytes"
+vector 25 singledumbbell.client[0].ipv4.ip packetDropHopLimitReached:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsHopLimitReached(packetDropped)
+attr title "packet drop: hop limit reached, packetBytes"
+vector 26 singledumbbell.client[0].ipv4.ip packetDropForwardingDisabled:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsForwardingDisabled(packetDropped)
+attr title "packet drop: forwarding disabled, packetBytes"
+vector 27 singledumbbell.client[0].ipv4.ip packetDropNoInterfaceFound:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoInterfaceFound(packetDropped)
+attr title "packet drop: no interface found, packetBytes"
+vector 28 singledumbbell.client[0].ipv4.ip packetDropNoRouteFound:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoRouteFound(packetDropped)
+attr title "packet drop: no route found, packetBytes"
+vector 29 singledumbbell.client[0].ipv4.ip packetDropUndefined:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsUndefined(packetDropped)
+attr title "packet drop: undefined, packetBytes"
+vector 30 singledumbbell.client[0].ipv4.arp arpRequestSent:vector(packetBytes) ETV
+attr recordingmode vector(packetBytes)
+attr source arpRequestSent
+attr title "ARP request sent, packetBytes"
+vector 31 singledumbbell.client[0].ipv4.arp arpReplySent:vector(packetBytes) ETV
+attr recordingmode vector(packetBytes)
+attr source arpReplySent
+attr title "ARP replies sent, packetBytes"
+vector 32 singledumbbell.client[0].udp packetSent:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSent
+attr title "packets sent, packetBytes"
+vector 33 singledumbbell.client[0].udp packetReceived:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceived
+attr title "packets received, packetBytes"
+vector 34 singledumbbell.client[0].udp passedUpPk:vector(count) ETV
+attr interpolationmode none
+attr recordingmode vector(count)
+attr source packetSentToUpper
+attr title "packets passed up, count"
+vector 35 singledumbbell.client[0].udp droppedPkWrongPort:vector(count) ETV
+attr interpolationmode none
+attr recordingmode vector(count)
+attr source packetDropReasonIsNoPortFound(packetDropped)
+attr title "packets dropped (wrong port), count"
+vector 36 singledumbbell.client[0].udp droppedPkBadChecksum:vector(count) ETV
+attr interpolationmode none
+attr recordingmode vector(count)
+attr source packetDropReasonIsIncorrectlyReceived(packetDropped)
+attr title "packets dropped (checksum error), count"
+vector 37 singledumbbell.client[0].app[0] packetReceived:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceived
+attr title "packets received, packetBytes"
+vector 38 singledumbbell.client[0].app[0] packetSent:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSent
+attr title "packets sent, packetBytes"
+vector 39 singledumbbell.client[0].app[0] endToEndDelay:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source dataAge(packetReceived)
+attr title "end-to-end delay"
+attr unit s
+vector 40 singledumbbell.server[0].lo[0].lo rcvdPkFromHl:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceivedFromUpper
+attr title "packets received from higher layer, packetBytes"
+vector 41 singledumbbell.server[0].lo[0].lo passedUpPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToUpper
+attr title "packets passed to higher layer, packetBytes"
+vector 42 singledumbbell.server[0].lo[0] packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drops: interface down, packetBytes"
+vector 43 singledumbbell.server[0].lo[0] packetDropNoCarrier:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoCarrier(packetDropped)
+attr title "packet drops: no carrier, packetBytes"
+vector 44 singledumbbell.server[0].ppp[0].queue queueLength:vector(removeRepeats) ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+attr source "warmup(atomic(constant0(packetPushEnded) + count(packetPushStarted) - count(packetPulled) - count(packetRemoved) - count(packetDropped)))"
+attr title "queue length, removeRepeats"
+attr unit pk
+vector 45 singledumbbell.server[0].ppp[0].queue queueBitLength:vector ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source "warmup(atomic(constant0(packetPushEnded) + sum(packetLength(packetPushStarted)) - sum(packetLength(packetPulled)) - sum(packetLength(packetRemoved)) - sum(packetLength(packetDropped))))"
+attr title "queue bit length"
+attr unit b
+vector 46 singledumbbell.server[0].ppp[0].queue queueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(packetPulled)
+attr title "queueing times"
+attr unit s
+vector 47 singledumbbell.server[0].ppp[0].queue incomingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPushStarted)
+attr title "incoming packet lengths"
+attr unit b
+vector 48 singledumbbell.server[0].ppp[0].queue incomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPushStarted)
+attr title "incoming datarate"
+attr unit bps
+vector 49 singledumbbell.server[0].ppp[0].queue outgoingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPulled)
+attr title "outgoing packet lengths"
+attr unit b
+vector 50 singledumbbell.server[0].ppp[0].queue outgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPulled)
+attr title "outgoing datarate"
+attr unit bps
+vector 51 singledumbbell.server[0].ppp[0].queue droppedPacketLengthsQueueOverflow:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetDropReasonIsQueueOverflow(packetDropped))
+attr title "dropped packet lengths: queue overflow"
+attr unit b
+vector 52 singledumbbell.server[0].ppp[0].queue flowQueueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(demuxFlow(packetPulled))
+attr title "flow queueing times"
+attr unit s
+vector 53 singledumbbell.server[0].ppp[0].queue flowIncomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPushStarted)))
+attr title "flow specific incoming data rate"
+attr unit bps
+vector 54 singledumbbell.server[0].ppp[0].queue flowOutgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPulled)))
+attr title "flow specific outgoing data rate"
+attr unit bps
+vector 55 singledumbbell.server[0].ppp[0].ppp transmissionState:vector ETV
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source transmissionStateChanged
+attr title "tx state"
+vector 56 singledumbbell.server[0].ppp[0].ppp txPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToLower
+attr title "packets transmitted, packetBytes"
+vector 57 singledumbbell.server[0].ppp[0].ppp rxPkOk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source rxPkOk
+attr title "packets received OK, packetBytes"
+vector 58 singledumbbell.server[0].ppp[0].ppp packetDropIncorrectlyReceived:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsIncorrectlyReceived(packetDropped)
+attr title "packet drop: incorrectly received, packetBytes"
+vector 59 singledumbbell.server[0].ppp[0].ppp packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drop: interface down, packetBytes"
+vector 60 singledumbbell.server[0].ppp[0].ppp rcvdPkFromHl:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceivedFromUpper
+attr title "packets received from higher layer, packetBytes"
+vector 61 singledumbbell.server[0].ppp[0].ppp passedUpPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToUpper
+attr title "packets passed to higher layer, packetBytes"
+vector 62 singledumbbell.server[0].ppp[0] packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drops: interface down, packetBytes"
+vector 63 singledumbbell.server[0].ppp[0] packetDropNoCarrier:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoCarrier(packetDropped)
+attr title "packet drops: no carrier, packetBytes"
+vector 64 singledumbbell.server[0].ipv4.ip packetDropAddressResolutionFailed:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsAddressResolutionFailed(packetDropped)
+attr title "packet drop: address resolution failed, packetBytes"
+vector 65 singledumbbell.server[0].ipv4.ip packetDropHopLimitReached:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsHopLimitReached(packetDropped)
+attr title "packet drop: hop limit reached, packetBytes"
+vector 66 singledumbbell.server[0].ipv4.ip packetDropForwardingDisabled:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsForwardingDisabled(packetDropped)
+attr title "packet drop: forwarding disabled, packetBytes"
+vector 67 singledumbbell.server[0].ipv4.ip packetDropNoInterfaceFound:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoInterfaceFound(packetDropped)
+attr title "packet drop: no interface found, packetBytes"
+vector 68 singledumbbell.server[0].ipv4.ip packetDropNoRouteFound:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoRouteFound(packetDropped)
+attr title "packet drop: no route found, packetBytes"
+vector 69 singledumbbell.server[0].ipv4.ip packetDropUndefined:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsUndefined(packetDropped)
+attr title "packet drop: undefined, packetBytes"
+vector 70 singledumbbell.server[0].ipv4.arp arpRequestSent:vector(packetBytes) ETV
+attr recordingmode vector(packetBytes)
+attr source arpRequestSent
+attr title "ARP request sent, packetBytes"
+vector 71 singledumbbell.server[0].ipv4.arp arpReplySent:vector(packetBytes) ETV
+attr recordingmode vector(packetBytes)
+attr source arpReplySent
+attr title "ARP replies sent, packetBytes"
+vector 72 singledumbbell.server[0].udp packetSent:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSent
+attr title "packets sent, packetBytes"
+vector 73 singledumbbell.server[0].udp packetReceived:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceived
+attr title "packets received, packetBytes"
+vector 74 singledumbbell.server[0].udp passedUpPk:vector(count) ETV
+attr interpolationmode none
+attr recordingmode vector(count)
+attr source packetSentToUpper
+attr title "packets passed up, count"
+vector 75 singledumbbell.server[0].udp droppedPkWrongPort:vector(count) ETV
+attr interpolationmode none
+attr recordingmode vector(count)
+attr source packetDropReasonIsNoPortFound(packetDropped)
+attr title "packets dropped (wrong port), count"
+vector 76 singledumbbell.server[0].udp droppedPkBadChecksum:vector(count) ETV
+attr interpolationmode none
+attr recordingmode vector(count)
+attr source packetDropReasonIsIncorrectlyReceived(packetDropped)
+attr title "packets dropped (checksum error), count"
+vector 77 singledumbbell.server[0].app[0] packetReceived:vector(packetBytes) ETV
+attr checkSignals false
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceived
+attr title "packets received, packetBytes"
+vector 78 singledumbbell.server[0].app[0] endToEndDelay:vector ETV
+attr checkSignals false
+attr interpolationmode none
+attr recordingmode vector
+attr source dataAge(packetReceived)
+attr title "end-to-end delay"
+attr unit s
+vector 79 singledumbbell.router1.lo[0].lo rcvdPkFromHl:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceivedFromUpper
+attr title "packets received from higher layer, packetBytes"
+vector 80 singledumbbell.router1.lo[0].lo passedUpPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToUpper
+attr title "packets passed to higher layer, packetBytes"
+vector 81 singledumbbell.router1.lo[0] packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drops: interface down, packetBytes"
+vector 82 singledumbbell.router1.lo[0] packetDropNoCarrier:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoCarrier(packetDropped)
+attr title "packet drops: no carrier, packetBytes"
+vector 83 singledumbbell.router1.ppp[0].queue queueLength:vector(removeRepeats) ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+attr source "warmup(atomic(constant0(packetPushEnded) + count(packetPushStarted) - count(packetPulled) - count(packetRemoved) - count(packetDropped)))"
+attr title "queue length, removeRepeats"
+attr unit pk
+vector 84 singledumbbell.router1.ppp[0].queue queueBitLength:vector ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source "warmup(atomic(constant0(packetPushEnded) + sum(packetLength(packetPushStarted)) - sum(packetLength(packetPulled)) - sum(packetLength(packetRemoved)) - sum(packetLength(packetDropped))))"
+attr title "queue bit length"
+attr unit b
+vector 85 singledumbbell.router1.ppp[0].queue queueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(packetPulled)
+attr title "queueing times"
+attr unit s
+vector 86 singledumbbell.router1.ppp[0].queue incomingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPushStarted)
+attr title "incoming packet lengths"
+attr unit b
+vector 87 singledumbbell.router1.ppp[0].queue incomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPushStarted)
+attr title "incoming datarate"
+attr unit bps
+vector 88 singledumbbell.router1.ppp[0].queue outgoingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPulled)
+attr title "outgoing packet lengths"
+attr unit b
+vector 89 singledumbbell.router1.ppp[0].queue outgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPulled)
+attr title "outgoing datarate"
+attr unit bps
+vector 90 singledumbbell.router1.ppp[0].queue droppedPacketLengthsQueueOverflow:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetDropReasonIsQueueOverflow(packetDropped))
+attr title "dropped packet lengths: queue overflow"
+attr unit b
+vector 91 singledumbbell.router1.ppp[0].queue flowQueueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(demuxFlow(packetPulled))
+attr title "flow queueing times"
+attr unit s
+vector 92 singledumbbell.router1.ppp[0].queue flowIncomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPushStarted)))
+attr title "flow specific incoming data rate"
+attr unit bps
+vector 93 singledumbbell.router1.ppp[0].queue flowOutgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPulled)))
+attr title "flow specific outgoing data rate"
+attr unit bps
+vector 94 singledumbbell.router1.ppp[0].ppp transmissionState:vector ETV
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source transmissionStateChanged
+attr title "tx state"
+vector 95 singledumbbell.router1.ppp[0].ppp txPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToLower
+attr title "packets transmitted, packetBytes"
+vector 96 singledumbbell.router1.ppp[0].ppp rxPkOk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source rxPkOk
+attr title "packets received OK, packetBytes"
+vector 97 singledumbbell.router1.ppp[0].ppp packetDropIncorrectlyReceived:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsIncorrectlyReceived(packetDropped)
+attr title "packet drop: incorrectly received, packetBytes"
+vector 98 singledumbbell.router1.ppp[0].ppp packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drop: interface down, packetBytes"
+vector 99 singledumbbell.router1.ppp[0].ppp rcvdPkFromHl:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceivedFromUpper
+attr title "packets received from higher layer, packetBytes"
+vector 100 singledumbbell.router1.ppp[0].ppp passedUpPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToUpper
+attr title "packets passed to higher layer, packetBytes"
+vector 101 singledumbbell.router1.ppp[0] packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drops: interface down, packetBytes"
+vector 102 singledumbbell.router1.ppp[0] packetDropNoCarrier:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoCarrier(packetDropped)
+attr title "packet drops: no carrier, packetBytes"
+vector 103 singledumbbell.router1.ppp[1].queue queueLength:vector(removeRepeats) ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+attr source "warmup(atomic(constant0(packetPushEnded) + count(packetPushStarted) - count(packetPulled) - count(packetRemoved) - count(packetDropped)))"
+attr title "queue length, removeRepeats"
+attr unit pk
+vector 104 singledumbbell.router1.ppp[1].queue queueBitLength:vector ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source "warmup(atomic(constant0(packetPushEnded) + sum(packetLength(packetPushStarted)) - sum(packetLength(packetPulled)) - sum(packetLength(packetRemoved)) - sum(packetLength(packetDropped))))"
+attr title "queue bit length"
+attr unit b
+vector 105 singledumbbell.router1.ppp[1].queue queueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(packetPulled)
+attr title "queueing times"
+attr unit s
+vector 106 singledumbbell.router1.ppp[1].queue incomingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPushStarted)
+attr title "incoming packet lengths"
+attr unit b
+vector 107 singledumbbell.router1.ppp[1].queue incomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPushStarted)
+attr title "incoming datarate"
+attr unit bps
+vector 108 singledumbbell.router1.ppp[1].queue outgoingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPulled)
+attr title "outgoing packet lengths"
+attr unit b
+vector 109 singledumbbell.router1.ppp[1].queue outgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPulled)
+attr title "outgoing datarate"
+attr unit bps
+vector 110 singledumbbell.router1.ppp[1].queue droppedPacketLengthsQueueOverflow:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetDropReasonIsQueueOverflow(packetDropped))
+attr title "dropped packet lengths: queue overflow"
+attr unit b
+vector 111 singledumbbell.router1.ppp[1].queue flowQueueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(demuxFlow(packetPulled))
+attr title "flow queueing times"
+attr unit s
+vector 112 singledumbbell.router1.ppp[1].queue flowIncomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPushStarted)))
+attr title "flow specific incoming data rate"
+attr unit bps
+vector 113 singledumbbell.router1.ppp[1].queue flowOutgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPulled)))
+attr title "flow specific outgoing data rate"
+attr unit bps
+vector 114 singledumbbell.router1.ppp[1].ppp transmissionState:vector ETV
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source transmissionStateChanged
+attr title "tx state"
+vector 115 singledumbbell.router1.ppp[1].ppp txPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToLower
+attr title "packets transmitted, packetBytes"
+vector 116 singledumbbell.router1.ppp[1].ppp rxPkOk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source rxPkOk
+attr title "packets received OK, packetBytes"
+vector 117 singledumbbell.router1.ppp[1].ppp packetDropIncorrectlyReceived:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsIncorrectlyReceived(packetDropped)
+attr title "packet drop: incorrectly received, packetBytes"
+vector 118 singledumbbell.router1.ppp[1].ppp packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drop: interface down, packetBytes"
+vector 119 singledumbbell.router1.ppp[1].ppp rcvdPkFromHl:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceivedFromUpper
+attr title "packets received from higher layer, packetBytes"
+vector 120 singledumbbell.router1.ppp[1].ppp passedUpPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToUpper
+attr title "packets passed to higher layer, packetBytes"
+vector 121 singledumbbell.router1.ppp[1] packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drops: interface down, packetBytes"
+vector 122 singledumbbell.router1.ppp[1] packetDropNoCarrier:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoCarrier(packetDropped)
+attr title "packet drops: no carrier, packetBytes"
+vector 123 singledumbbell.router1.ipv4.ip packetDropAddressResolutionFailed:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsAddressResolutionFailed(packetDropped)
+attr title "packet drop: address resolution failed, packetBytes"
+vector 124 singledumbbell.router1.ipv4.ip packetDropHopLimitReached:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsHopLimitReached(packetDropped)
+attr title "packet drop: hop limit reached, packetBytes"
+vector 125 singledumbbell.router1.ipv4.ip packetDropForwardingDisabled:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsForwardingDisabled(packetDropped)
+attr title "packet drop: forwarding disabled, packetBytes"
+vector 126 singledumbbell.router1.ipv4.ip packetDropNoInterfaceFound:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoInterfaceFound(packetDropped)
+attr title "packet drop: no interface found, packetBytes"
+vector 127 singledumbbell.router1.ipv4.ip packetDropNoRouteFound:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoRouteFound(packetDropped)
+attr title "packet drop: no route found, packetBytes"
+vector 128 singledumbbell.router1.ipv4.ip packetDropUndefined:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsUndefined(packetDropped)
+attr title "packet drop: undefined, packetBytes"
+vector 129 singledumbbell.router1.ipv4.arp arpRequestSent:vector(packetBytes) ETV
+attr recordingmode vector(packetBytes)
+attr source arpRequestSent
+attr title "ARP request sent, packetBytes"
+vector 130 singledumbbell.router1.ipv4.arp arpReplySent:vector(packetBytes) ETV
+attr recordingmode vector(packetBytes)
+attr source arpReplySent
+attr title "ARP replies sent, packetBytes"
+vector 131 singledumbbell.router2.lo[0].lo rcvdPkFromHl:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceivedFromUpper
+attr title "packets received from higher layer, packetBytes"
+vector 132 singledumbbell.router2.lo[0].lo passedUpPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToUpper
+attr title "packets passed to higher layer, packetBytes"
+vector 133 singledumbbell.router2.lo[0] packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drops: interface down, packetBytes"
+vector 134 singledumbbell.router2.lo[0] packetDropNoCarrier:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoCarrier(packetDropped)
+attr title "packet drops: no carrier, packetBytes"
+vector 135 singledumbbell.router2.ppp[0].queue queueLength:vector(removeRepeats) ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+attr source "warmup(atomic(constant0(packetPushEnded) + count(packetPushStarted) - count(packetPulled) - count(packetRemoved) - count(packetDropped)))"
+attr title "queue length, removeRepeats"
+attr unit pk
+vector 136 singledumbbell.router2.ppp[0].queue queueBitLength:vector ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source "warmup(atomic(constant0(packetPushEnded) + sum(packetLength(packetPushStarted)) - sum(packetLength(packetPulled)) - sum(packetLength(packetRemoved)) - sum(packetLength(packetDropped))))"
+attr title "queue bit length"
+attr unit b
+vector 137 singledumbbell.router2.ppp[0].queue queueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(packetPulled)
+attr title "queueing times"
+attr unit s
+vector 138 singledumbbell.router2.ppp[0].queue incomingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPushStarted)
+attr title "incoming packet lengths"
+attr unit b
+vector 139 singledumbbell.router2.ppp[0].queue incomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPushStarted)
+attr title "incoming datarate"
+attr unit bps
+vector 140 singledumbbell.router2.ppp[0].queue outgoingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPulled)
+attr title "outgoing packet lengths"
+attr unit b
+vector 141 singledumbbell.router2.ppp[0].queue outgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPulled)
+attr title "outgoing datarate"
+attr unit bps
+vector 142 singledumbbell.router2.ppp[0].queue droppedPacketLengthsQueueOverflow:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetDropReasonIsQueueOverflow(packetDropped))
+attr title "dropped packet lengths: queue overflow"
+attr unit b
+vector 143 singledumbbell.router2.ppp[0].queue flowQueueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(demuxFlow(packetPulled))
+attr title "flow queueing times"
+attr unit s
+vector 144 singledumbbell.router2.ppp[0].queue flowIncomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPushStarted)))
+attr title "flow specific incoming data rate"
+attr unit bps
+vector 145 singledumbbell.router2.ppp[0].queue flowOutgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPulled)))
+attr title "flow specific outgoing data rate"
+attr unit bps
+vector 146 singledumbbell.router2.ppp[0].ppp transmissionState:vector ETV
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source transmissionStateChanged
+attr title "tx state"
+vector 147 singledumbbell.router2.ppp[0].ppp txPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToLower
+attr title "packets transmitted, packetBytes"
+vector 148 singledumbbell.router2.ppp[0].ppp rxPkOk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source rxPkOk
+attr title "packets received OK, packetBytes"
+vector 149 singledumbbell.router2.ppp[0].ppp packetDropIncorrectlyReceived:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsIncorrectlyReceived(packetDropped)
+attr title "packet drop: incorrectly received, packetBytes"
+vector 150 singledumbbell.router2.ppp[0].ppp packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drop: interface down, packetBytes"
+vector 151 singledumbbell.router2.ppp[0].ppp rcvdPkFromHl:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceivedFromUpper
+attr title "packets received from higher layer, packetBytes"
+vector 152 singledumbbell.router2.ppp[0].ppp passedUpPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToUpper
+attr title "packets passed to higher layer, packetBytes"
+vector 153 singledumbbell.router2.ppp[0] packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drops: interface down, packetBytes"
+vector 154 singledumbbell.router2.ppp[0] packetDropNoCarrier:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoCarrier(packetDropped)
+attr title "packet drops: no carrier, packetBytes"
+vector 155 singledumbbell.router2.ppp[1].queue queueLength:vector(removeRepeats) ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+attr source "warmup(atomic(constant0(packetPushEnded) + count(packetPushStarted) - count(packetPulled) - count(packetRemoved) - count(packetDropped)))"
+attr title "queue length, removeRepeats"
+attr unit pk
+vector 156 singledumbbell.router2.ppp[1].queue queueBitLength:vector ETV
+attr autoWarmupFilter false
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source "warmup(atomic(constant0(packetPushEnded) + sum(packetLength(packetPushStarted)) - sum(packetLength(packetPulled)) - sum(packetLength(packetRemoved)) - sum(packetLength(packetDropped))))"
+attr title "queue bit length"
+attr unit b
+vector 157 singledumbbell.router2.ppp[1].queue queueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(packetPulled)
+attr title "queueing times"
+attr unit s
+vector 158 singledumbbell.router2.ppp[1].queue incomingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPushStarted)
+attr title "incoming packet lengths"
+attr unit b
+vector 159 singledumbbell.router2.ppp[1].queue incomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPushStarted)
+attr title "incoming datarate"
+attr unit bps
+vector 160 singledumbbell.router2.ppp[1].queue outgoingPacketLengths:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetPulled)
+attr title "outgoing packet lengths"
+attr unit b
+vector 161 singledumbbell.router2.ppp[1].queue outgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(packetPulled)
+attr title "outgoing datarate"
+attr unit bps
+vector 162 singledumbbell.router2.ppp[1].queue droppedPacketLengthsQueueOverflow:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source packetLength(packetDropReasonIsQueueOverflow(packetDropped))
+attr title "dropped packet lengths: queue overflow"
+attr unit b
+vector 163 singledumbbell.router2.ppp[1].queue flowQueueingTime:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source queueingTime(demuxFlow(packetPulled))
+attr title "flow queueing times"
+attr unit s
+vector 164 singledumbbell.router2.ppp[1].queue flowIncomingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPushStarted)))
+attr title "flow specific incoming data rate"
+attr unit bps
+vector 165 singledumbbell.router2.ppp[1].queue flowOutgoingDataRate:vector ETV
+attr interpolationmode linear
+attr recordingmode vector
+attr source throughput(flowPacketLength(demuxFlow(packetPulled)))
+attr title "flow specific outgoing data rate"
+attr unit bps
+vector 166 singledumbbell.router2.ppp[1].ppp transmissionState:vector ETV
+attr interpolationmode sample-hold
+attr recordingmode vector
+attr source transmissionStateChanged
+attr title "tx state"
+vector 167 singledumbbell.router2.ppp[1].ppp txPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToLower
+attr title "packets transmitted, packetBytes"
+vector 168 singledumbbell.router2.ppp[1].ppp rxPkOk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source rxPkOk
+attr title "packets received OK, packetBytes"
+vector 169 singledumbbell.router2.ppp[1].ppp packetDropIncorrectlyReceived:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsIncorrectlyReceived(packetDropped)
+attr title "packet drop: incorrectly received, packetBytes"
+vector 170 singledumbbell.router2.ppp[1].ppp packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drop: interface down, packetBytes"
+vector 171 singledumbbell.router2.ppp[1].ppp rcvdPkFromHl:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceivedFromUpper
+attr title "packets received from higher layer, packetBytes"
+vector 172 singledumbbell.router2.ppp[1].ppp passedUpPk:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetSentToUpper
+attr title "packets passed to higher layer, packetBytes"
+vector 173 singledumbbell.router2.ppp[1] packetDropInterfaceDown:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsInterfaceDown(packetDropped)
+attr title "packet drops: interface down, packetBytes"
+vector 174 singledumbbell.router2.ppp[1] packetDropNoCarrier:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoCarrier(packetDropped)
+attr title "packet drops: no carrier, packetBytes"
+vector 175 singledumbbell.router2.ipv4.ip packetDropAddressResolutionFailed:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsAddressResolutionFailed(packetDropped)
+attr title "packet drop: address resolution failed, packetBytes"
+vector 176 singledumbbell.router2.ipv4.ip packetDropHopLimitReached:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsHopLimitReached(packetDropped)
+attr title "packet drop: hop limit reached, packetBytes"
+vector 177 singledumbbell.router2.ipv4.ip packetDropForwardingDisabled:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsForwardingDisabled(packetDropped)
+attr title "packet drop: forwarding disabled, packetBytes"
+vector 178 singledumbbell.router2.ipv4.ip packetDropNoInterfaceFound:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoInterfaceFound(packetDropped)
+attr title "packet drop: no interface found, packetBytes"
+vector 179 singledumbbell.router2.ipv4.ip packetDropNoRouteFound:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsNoRouteFound(packetDropped)
+attr title "packet drop: no route found, packetBytes"
+vector 180 singledumbbell.router2.ipv4.ip packetDropUndefined:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetDropReasonIsUndefined(packetDropped)
+attr title "packet drop: undefined, packetBytes"
+vector 181 singledumbbell.router2.ipv4.arp arpRequestSent:vector(packetBytes) ETV
+attr recordingmode vector(packetBytes)
+attr source arpRequestSent
+attr title "ARP request sent, packetBytes"
+vector 182 singledumbbell.router2.ipv4.arp arpReplySent:vector(packetBytes) ETV
+attr recordingmode vector(packetBytes)
+attr source arpReplySent
+attr title "ARP replies sent, packetBytes"
+vector 183 singledumbbell.server[0].tcp.conn-1 state:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 184 singledumbbell.server[0].tcp.conn-1 sndWnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 185 singledumbbell.server[0].tcp.conn-1 rcvWnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 186 singledumbbell.server[0].tcp.conn-1 rcvAdv:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 187 singledumbbell.server[0].tcp.conn-1 sndNxt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 188 singledumbbell.server[0].tcp.conn-1 sndAck:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 189 singledumbbell.server[0].tcp.conn-1 rcvSeq:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 190 singledumbbell.server[0].tcp.conn-1 rcvAck:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 191 singledumbbell.server[0].tcp.conn-1 unacked:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 192 singledumbbell.server[0].tcp.conn-1 dupAcks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 193 singledumbbell.server[0].tcp.conn-1 pipe:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 194 singledumbbell.server[0].tcp.conn-1 sndSacks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 195 singledumbbell.server[0].tcp.conn-1 rcvSacks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 196 singledumbbell.server[0].tcp.conn-1 rcvOooSeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 197 singledumbbell.server[0].tcp.conn-1 rcvNASeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 198 singledumbbell.server[0].tcp.conn-1 sackedBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 199 singledumbbell.server[0].tcp.conn-1 tcpRcvQueueBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 200 singledumbbell.server[0].tcp.conn-1 tcpRcvQueueDrops:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 201 singledumbbell.server[0].tcp.conn-1 tcpRcvPayloadBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 202 singledumbbell.server[0].tcp.conn-1 cwnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 203 singledumbbell.server[0].tcp.conn-1 ssthresh:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 204 singledumbbell.server[0].tcp.conn-1 rtt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 205 singledumbbell.server[0].tcp.conn-1 srtt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 206 singledumbbell.server[0].tcp.conn-1 rttvar:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 207 singledumbbell.server[0].tcp.conn-1 rto:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 208 singledumbbell.server[0].tcp.conn-1 numRtos:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 209 singledumbbell.server[0].tcp.conn-1 load:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 210 singledumbbell.server[0].tcp.conn-1 calcLoad:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 211 singledumbbell.server[0].tcp.conn-1 markingProb:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 212 singledumbbell.server[0].tcp.conn-1 throughput:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 213 singledumbbell.server[0].tcp.conn-1 additiveIncrease:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 214 singledumbbell.server[0].tcp.conn-1 pacingGain:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 215 singledumbbell.server[0].tcp.conn-1 paceRate:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 216 singledumbbell.server[0].tcp.conn-1 recover:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 217 singledumbbell.server[0].tcp.conn-1 lossRecovery:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 218 singledumbbell.server[0].tcp.conn-1 highRxt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 219 singledumbbell.server[0].tcp.conn-1 mDelivered:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 220 singledumbbell.server[0].tcp.conn-1 mFirstSentTime:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 221 singledumbbell.server[0].tcp.conn-1 mLastSentTime:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 222 singledumbbell.server[0].tcp.conn-1 mbytesInFlight:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 223 singledumbbell.server[0].tcp.conn-1 mbytesInFlightTotal:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 224 singledumbbell.server[0].tcp.conn-1 mbytesLoss:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 225 singledumbbell.server[0].tcp.conn-1 msendElapsed:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 226 singledumbbell.server[0].tcp.conn-1 mackElapsed:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 227 singledumbbell.server[0].tcp.conn-1 bicTarget:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 228 singledumbbell.server[0].tcp.conn-1 originalPoint:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 229 singledumbbell.server[0].tcp.conn-1 cwndSeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 230 singledumbbell.server[0].tcp.conn-1 bicK:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 231 singledumbbell.server[0].tcp.conn-1 cnt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 232 singledumbbell.server[0].tcp.conn-1 lastMaxWindow:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 233 singledumbbell.server[0].tcp.conn-1 delayMin:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 234 singledumbbell.server[0].tcp.conn-1 concave:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 235 singledumbbell.server[0].tcp.conn-1 convex:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 236 singledumbbell.server[0].tcp.conn-1 friendly:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 237 singledumbbell.server[0].tcp.conn-1 sndUna:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 238 singledumbbell.server[0].tcp.conn-1 recoveryPoint:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 239 singledumbbell.client[0].tcp.conn-8 state:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 240 singledumbbell.client[0].tcp.conn-8 sndWnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 241 singledumbbell.client[0].tcp.conn-8 rcvWnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 242 singledumbbell.client[0].tcp.conn-8 rcvAdv:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 243 singledumbbell.client[0].tcp.conn-8 sndNxt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 244 singledumbbell.client[0].tcp.conn-8 sndAck:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 245 singledumbbell.client[0].tcp.conn-8 rcvSeq:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 246 singledumbbell.client[0].tcp.conn-8 rcvAck:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 247 singledumbbell.client[0].tcp.conn-8 unacked:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 248 singledumbbell.client[0].tcp.conn-8 dupAcks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 249 singledumbbell.client[0].tcp.conn-8 pipe:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 250 singledumbbell.client[0].tcp.conn-8 sndSacks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 251 singledumbbell.client[0].tcp.conn-8 rcvSacks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 252 singledumbbell.client[0].tcp.conn-8 rcvOooSeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 253 singledumbbell.client[0].tcp.conn-8 rcvNASeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 254 singledumbbell.client[0].tcp.conn-8 sackedBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 255 singledumbbell.client[0].tcp.conn-8 tcpRcvQueueBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 256 singledumbbell.client[0].tcp.conn-8 tcpRcvQueueDrops:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 257 singledumbbell.client[0].tcp.conn-8 tcpRcvPayloadBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 258 singledumbbell.client[0].tcp.conn-8 cwnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 259 singledumbbell.client[0].tcp.conn-8 ssthresh:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 260 singledumbbell.client[0].tcp.conn-8 rtt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 261 singledumbbell.client[0].tcp.conn-8 srtt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 262 singledumbbell.client[0].tcp.conn-8 rttvar:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 263 singledumbbell.client[0].tcp.conn-8 rto:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 264 singledumbbell.client[0].tcp.conn-8 numRtos:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 265 singledumbbell.client[0].tcp.conn-8 load:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 266 singledumbbell.client[0].tcp.conn-8 calcLoad:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 267 singledumbbell.client[0].tcp.conn-8 markingProb:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 268 singledumbbell.client[0].tcp.conn-8 throughput:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 269 singledumbbell.client[0].tcp.conn-8 additiveIncrease:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 270 singledumbbell.client[0].tcp.conn-8 pacingGain:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 271 singledumbbell.client[0].tcp.conn-8 paceRate:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 272 singledumbbell.client[0].tcp.conn-8 recover:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 273 singledumbbell.client[0].tcp.conn-8 lossRecovery:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 274 singledumbbell.client[0].tcp.conn-8 highRxt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 275 singledumbbell.client[0].tcp.conn-8 mDelivered:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 276 singledumbbell.client[0].tcp.conn-8 mFirstSentTime:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 277 singledumbbell.client[0].tcp.conn-8 mLastSentTime:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 278 singledumbbell.client[0].tcp.conn-8 mbytesInFlight:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 279 singledumbbell.client[0].tcp.conn-8 mbytesInFlightTotal:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 280 singledumbbell.client[0].tcp.conn-8 mbytesLoss:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 281 singledumbbell.client[0].tcp.conn-8 msendElapsed:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 282 singledumbbell.client[0].tcp.conn-8 mackElapsed:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 283 singledumbbell.client[0].tcp.conn-8 bicTarget:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 284 singledumbbell.client[0].tcp.conn-8 originalPoint:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 285 singledumbbell.client[0].tcp.conn-8 cwndSeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 286 singledumbbell.client[0].tcp.conn-8 bicK:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 287 singledumbbell.client[0].tcp.conn-8 cnt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 288 singledumbbell.client[0].tcp.conn-8 lastMaxWindow:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 289 singledumbbell.client[0].tcp.conn-8 delayMin:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 290 singledumbbell.client[0].tcp.conn-8 concave:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 291 singledumbbell.client[0].tcp.conn-8 convex:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 292 singledumbbell.client[0].tcp.conn-8 friendly:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 293 singledumbbell.client[0].tcp.conn-8 sndUna:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 294 singledumbbell.client[0].tcp.conn-8 recoveryPoint:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 295 singledumbbell.client[0].tcp.conn-9 state:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 296 singledumbbell.client[0].tcp.conn-9 sndWnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 297 singledumbbell.client[0].tcp.conn-9 rcvWnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 298 singledumbbell.client[0].tcp.conn-9 rcvAdv:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 299 singledumbbell.client[0].tcp.conn-9 sndNxt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 300 singledumbbell.client[0].tcp.conn-9 sndAck:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 301 singledumbbell.client[0].tcp.conn-9 rcvSeq:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 302 singledumbbell.client[0].tcp.conn-9 rcvAck:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 303 singledumbbell.client[0].tcp.conn-9 unacked:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 304 singledumbbell.client[0].tcp.conn-9 dupAcks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 305 singledumbbell.client[0].tcp.conn-9 pipe:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 306 singledumbbell.client[0].tcp.conn-9 sndSacks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 307 singledumbbell.client[0].tcp.conn-9 rcvSacks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 308 singledumbbell.client[0].tcp.conn-9 rcvOooSeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 309 singledumbbell.client[0].tcp.conn-9 rcvNASeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 310 singledumbbell.client[0].tcp.conn-9 sackedBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 311 singledumbbell.client[0].tcp.conn-9 tcpRcvQueueBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 312 singledumbbell.client[0].tcp.conn-9 tcpRcvQueueDrops:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 313 singledumbbell.client[0].tcp.conn-9 tcpRcvPayloadBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 314 singledumbbell.client[0].tcp.conn-9 cwnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 315 singledumbbell.client[0].tcp.conn-9 ssthresh:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 316 singledumbbell.client[0].tcp.conn-9 rtt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 317 singledumbbell.client[0].tcp.conn-9 srtt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 318 singledumbbell.client[0].tcp.conn-9 rttvar:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 319 singledumbbell.client[0].tcp.conn-9 rto:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 320 singledumbbell.client[0].tcp.conn-9 numRtos:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 321 singledumbbell.client[0].tcp.conn-9 load:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 322 singledumbbell.client[0].tcp.conn-9 calcLoad:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 323 singledumbbell.client[0].tcp.conn-9 markingProb:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 324 singledumbbell.client[0].tcp.conn-9 throughput:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 325 singledumbbell.client[0].tcp.conn-9 additiveIncrease:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 326 singledumbbell.client[0].tcp.conn-9 pacingGain:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 327 singledumbbell.client[0].tcp.conn-9 paceRate:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 328 singledumbbell.client[0].tcp.conn-9 recover:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 329 singledumbbell.client[0].tcp.conn-9 lossRecovery:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 330 singledumbbell.client[0].tcp.conn-9 highRxt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 331 singledumbbell.client[0].tcp.conn-9 mDelivered:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 332 singledumbbell.client[0].tcp.conn-9 mFirstSentTime:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 333 singledumbbell.client[0].tcp.conn-9 mLastSentTime:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 334 singledumbbell.client[0].tcp.conn-9 mbytesInFlight:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 335 singledumbbell.client[0].tcp.conn-9 mbytesInFlightTotal:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 336 singledumbbell.client[0].tcp.conn-9 mbytesLoss:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 337 singledumbbell.client[0].tcp.conn-9 msendElapsed:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 338 singledumbbell.client[0].tcp.conn-9 mackElapsed:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 339 singledumbbell.client[0].tcp.conn-9 bicTarget:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 340 singledumbbell.client[0].tcp.conn-9 originalPoint:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 341 singledumbbell.client[0].tcp.conn-9 cwndSeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 342 singledumbbell.client[0].tcp.conn-9 bicK:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 343 singledumbbell.client[0].tcp.conn-9 cnt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 344 singledumbbell.client[0].tcp.conn-9 lastMaxWindow:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 345 singledumbbell.client[0].tcp.conn-9 delayMin:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 346 singledumbbell.client[0].tcp.conn-9 concave:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 347 singledumbbell.client[0].tcp.conn-9 convex:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 348 singledumbbell.client[0].tcp.conn-9 friendly:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 349 singledumbbell.client[0].tcp.conn-9 sndUna:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 350 singledumbbell.client[0].tcp.conn-9 recoveryPoint:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 351 singledumbbell.server[0].tcp.conn-9 state:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 352 singledumbbell.server[0].tcp.conn-9 sndWnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 353 singledumbbell.server[0].tcp.conn-9 rcvWnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 354 singledumbbell.server[0].tcp.conn-9 rcvAdv:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 355 singledumbbell.server[0].tcp.conn-9 sndNxt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 356 singledumbbell.server[0].tcp.conn-9 sndAck:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 357 singledumbbell.server[0].tcp.conn-9 rcvSeq:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 358 singledumbbell.server[0].tcp.conn-9 rcvAck:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 359 singledumbbell.server[0].tcp.conn-9 unacked:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 360 singledumbbell.server[0].tcp.conn-9 dupAcks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 361 singledumbbell.server[0].tcp.conn-9 pipe:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 362 singledumbbell.server[0].tcp.conn-9 sndSacks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 363 singledumbbell.server[0].tcp.conn-9 rcvSacks:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 364 singledumbbell.server[0].tcp.conn-9 rcvOooSeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 365 singledumbbell.server[0].tcp.conn-9 rcvNASeg:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 366 singledumbbell.server[0].tcp.conn-9 sackedBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 367 singledumbbell.server[0].tcp.conn-9 tcpRcvQueueBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 368 singledumbbell.server[0].tcp.conn-9 tcpRcvQueueDrops:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 369 singledumbbell.server[0].tcp.conn-9 tcpRcvPayloadBytes:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 370 singledumbbell.server[0].tcp.conn-9 cwnd:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 371 singledumbbell.server[0].tcp.conn-9 ssthresh:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 372 singledumbbell.server[0].tcp.conn-9 rtt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 373 singledumbbell.server[0].tcp.conn-9 srtt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 374 singledumbbell.server[0].tcp.conn-9 rttvar:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 375 singledumbbell.server[0].tcp.conn-9 rto:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 376 singledumbbell.server[0].tcp.conn-9 numRtos:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 377 singledumbbell.server[0].tcp.conn-9 load:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 378 singledumbbell.server[0].tcp.conn-9 calcLoad:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 379 singledumbbell.server[0].tcp.conn-9 markingProb:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 380 singledumbbell.server[0].tcp.conn-9 throughput:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 381 singledumbbell.server[0].tcp.conn-9 additiveIncrease:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 382 singledumbbell.server[0].tcp.conn-9 pacingGain:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 383 singledumbbell.server[0].tcp.conn-9 paceRate:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 384 singledumbbell.server[0].tcp.conn-9 recover:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 385 singledumbbell.server[0].tcp.conn-9 lossRecovery:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 386 singledumbbell.server[0].tcp.conn-9 highRxt:vector(removeRepeats) ETV
+attr interpolationmode sample-hold
+attr recordingmode vector(removeRepeats)
+vector 387 singledumbbell
