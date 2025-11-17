@@ -27,6 +27,8 @@ class MpTcp : public TcpPaced {
 public:
     MpTcp();
     virtual ~MpTcp();
+
+    virtual MpTcpConnection* getMetaConnection();
 protected:
 
     virtual void initialize(int stage) override;
@@ -34,13 +36,15 @@ protected:
     /** Factory method; may be overriden for customizing Tcp */
     virtual TcpConnection* createConnection(int socketId) override;
 
-    virtual TcpConnection* createSubflowConnection(int socketId);
+    virtual TcpConnection* createSubflowConnection(int socketId, L3Address src, L3Address dest, int srcPort, int destPort);
 
     virtual void handleUpperCommand(cMessage *message) override;
-    virtual void handleLowerPacket(Packet *packet) override;
 
     int mainSocketId;
     bool baseConnectionStarted;
+
+    bool masterCreated;
+
 };
 
 } // namespace tcp

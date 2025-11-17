@@ -47,8 +47,16 @@ TcpSocket* MpTcpSessionApp::createSocket()
     int newPortNumber = portNumber+1;
     portNumber = newPortNumber;
 
-    newSocket->bind(*localAddress ? L3AddressResolver().resolve(localAddress) : L3Address(), newPortNumber);
+    if (localAddress && *localAddress) {
+        auto resolvedAddr = L3AddressResolver().resolve(localAddress);
+        std::cout << "Binding socket to resolved address: " << resolvedAddr
+                  << ", port: " << newPortNumber << std::endl;
+    } else {
+        std::cout << "Binding socket to unspecified address, port: "
+                  << newPortNumber << std::endl;
+    }
 
+    newSocket->bind(*localAddress ? L3AddressResolver().resolve(localAddress) : L3Address(), newPortNumber);
 
     // connect
     const char *connectAddress = par("connectAddress");
@@ -83,8 +91,9 @@ TcpSocket* MpTcpSessionApp::createSocket()
     //proc->finalizeParameters();
    // proc->callInitialize();
 
-    //newSocket->setCallback(proc);
+    newSocket->setCallback(this);
     //proc->init(this, newSocket);
+
 
     socketMap.addSocket(newSocket);
     ///threadSet.insert(proc);
@@ -113,6 +122,51 @@ void MpTcpSessionApp::threadClosed(MpTcpSessionThreadBase *thread)
 
     // remove thread object
     thread->deleteModule();
+}
+
+void MpTcpSessionApp::handleMessageWhenUp(cMessage *msg)
+{
+    if (msg->isSelfMessage()) {
+        handleTimer(msg);
+    }
+    else{
+        TcpSocket *subflowSocket = check_and_cast_nullable<TcpSocket *>(socketMap.findSocketFor(msg));
+        if (subflowSocket)
+            subflowSocket->processMessage(msg);
+        else if (socket.belongsToSocket(msg))
+            socket.processMessage(msg);
+        else {
+            EV_ERROR << "message " << msg->getFullName() << "(" << msg->getClassName() << ") arrived for unknown socket \n";
+            delete msg;
+        }
+    }
+}
+
+void MpTcpSessionApp::sendData()
+{
+    long numBytes = commands[commandIndex].numBytes;
+    EV_INFO << "sending data with " << numBytes << " bytes\n";
+    sendPacket(createDataPacket(numBytes));
+
+    int ci = -1;
+
+    while (++ci < (int)commands.size()) {
+        const Command& cmd = commands[ci];
+        std::cout << "Command Index: " << ci
+                  << " | tSend: " << cmd.tSend
+                  << " | numBytes: " << cmd.numBytes << std::endl;
+    }
+
+    std::cout << "\n commandIndex: " << commandIndex << endl;
+
+    if (++commandIndex < (int)commands.size()) {
+        simtime_t tSend = commands[commandIndex].tSend;
+        scheduleAt(std::max(tSend, simTime()), timeoutMsg);
+    }
+    //else {
+    //    timeoutMsg->setKind(MSGKIND_CLOSE);
+    //   scheduleAt(std::max(tClose, simTime()), timeoutMsg);
+    //}
 }
 
 void MpTcpSessionApp::handleTimer(cMessage *msg)
@@ -152,6 +206,7 @@ void MpTcpSessionThreadBase::socketDeleted(TcpSocket *socket)
         hostmod->socketDeleted(socket);
     }
 }
+
 
 void MpTcpSessionThreadBase::refreshDisplay() const
 {

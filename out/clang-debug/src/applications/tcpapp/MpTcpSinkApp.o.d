@@ -54,7 +54,23 @@
   ../../inet4.5/src/inet/transportlayer/contract/tcp/TcpCommand_m.h \
   ../../inet4.5/src/inet/common/INETDefs_m.h \
   ../../inet4.5/src/inet/networklayer/common/IpProtocolId_m.h \
-  ../../inet4.5/src/inet/networklayer/common/L3Address_m.h
+  ../../inet4.5/src/inet/networklayer/common/L3Address_m.h \
+  applications/tcpapp/../../transportlayer/tcp/TcpOpenSubflowCommand_m.h \
+  ../../inet4.5/src/inet/networklayer/common/L3AddressResolver.h \
+  ../../inet4.5/src/inet/networklayer/contract/IRoutingTable.h \
+  ../../inet4.5/src/inet/networklayer/contract/IRoute.h \
+  ../../inet4.5/src/inet/networklayer/common/NetworkInterface.h \
+  ../../inet4.5/src/inet/common/ModuleRefByPar.h \
+  ../../inet4.5/src/inet/common/ModuleAccess.h \
+  ../../inet4.5/src/inet/common/packet/tag/TagSet.h \
+  ../../inet4.5/src/inet/common/Protocol.h \
+  ../../inet4.5/src/inet/common/Simsignals.h \
+  ../../inet4.5/src/inet/common/Simsignals_m.h \
+  ../../inet4.5/src/inet/common/StringFormat.h \
+  ../../inet4.5/src/inet/networklayer/contract/IInterfaceTable.h \
+  ../../inet4.5/src/inet/queueing/base/PacketProcessorBase.h \
+  ../../inet4.5/src/inet/queueing/contract/IPacketProcessor.h \
+  ../../inet4.5/src/inet/queueing/contract/IPassivePacketSink.h
 ../../inet4.5/src/inet/common/stlutils.h:
 ../../inet4.5/src/inet/common/INETDefs.h:
 ../../inet4.5/src/inet/common/precompiled_debug.h:
@@ -111,3 +127,19 @@ applications/tcpapp/MpTcpSinkApp.h:
 ../../inet4.5/src/inet/common/INETDefs_m.h:
 ../../inet4.5/src/inet/networklayer/common/IpProtocolId_m.h:
 ../../inet4.5/src/inet/networklayer/common/L3Address_m.h:
+applications/tcpapp/../../transportlayer/tcp/TcpOpenSubflowCommand_m.h:
+../../inet4.5/src/inet/networklayer/common/L3AddressResolver.h:
+../../inet4.5/src/inet/networklayer/contract/IRoutingTable.h:
+../../inet4.5/src/inet/networklayer/contract/IRoute.h:
+../../inet4.5/src/inet/networklayer/common/NetworkInterface.h:
+../../inet4.5/src/inet/common/ModuleRefByPar.h:
+../../inet4.5/src/inet/common/ModuleAccess.h:
+../../inet4.5/src/inet/common/packet/tag/TagSet.h:
+../../inet4.5/src/inet/common/Protocol.h:
+../../inet4.5/src/inet/common/Simsignals.h:
+../../inet4.5/src/inet/common/Simsignals_m.h:
+../../inet4.5/src/inet/common/StringFormat.h:
+../../inet4.5/src/inet/networklayer/contract/IInterfaceTable.h:
+../../inet4.5/src/inet/queueing/base/PacketProcessorBase.h:
+../../inet4.5/src/inet/queueing/contract/IPacketProcessor.h:
+../../inet4.5/src/inet/queueing/contract/IPassivePacketSink.h:

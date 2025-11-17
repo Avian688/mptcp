@@ -42,7 +42,10 @@ protected:
     ThreadSet threadSet;
 
     virtual void initialize(int stage) override;
+    virtual void handleMessageWhenUp(cMessage *msg) override;
     virtual void handleTimer(cMessage *msg) override;
+
+    virtual void sendData() override;
     virtual TcpSocket* createSocket();
 
 public:

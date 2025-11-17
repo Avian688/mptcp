@@ -1,8 +1,8 @@
 version 3
-run mpTest-0-20251001-17:55:47-8848
+run mpTest-0-20251113-12:41:28-99701
 attr configname mpTest
-attr datetime 20251001-17:55:47
-attr datetimef 20251001-175547
+attr datetime 20251113-12:41:28
+attr datetimef 20251113-124128
 attr experiment mpTest
 attr inifile mpTest.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network singledumbbell
-attr processid 8848
+attr processid 99701
 attr repetition 0
 attr replication #0
 attr resultdir results
@@ -23,6 +23,7 @@ config **.numberOfFlows 1
 config *.client[0].app[0].connectAddress "\"server[0]\""
 config *.client[0].app[0].tOpen 0.00846919251197291s
 config *.client[0].app[0].tSend 0.00846919251197291s
+config *.client[0].app[0].sendBytes 2GB
 config **.ppp[*].queue.packetCapacity 432
 config network singledumbbell
 config sim-time-limit 10s
@@ -53,7 +54,7 @@ config **.bin-recording false
 config **.goodputInterval 1s
 config **.throughputInterval 1s
 config **.tcp.typename MpTcp
-config **.tcp.tcpAlgorithmClass "\"TcpCubic\""
+config **.tcp.tcpAlgorithmClass "\"MpTcpMetaCubic\""
 config **.tcp.advertisedWindow 200000000
 config **.tcp.windowScalingSupport true
 config **.tcp.windowScalingFactor -1
@@ -1070,617 +1071,619 @@ vector 182 singledumbbell.router2.ipv4.arp arpReplySent:vector(packetBytes) ETV
 attr recordingmode vector(packetBytes)
 attr source arpReplySent
 attr title "ARP replies sent, packetBytes"
-vector 183 singledumbbell.server[0].tcp.conn-1 state:vector(removeRepeats) ETV
-attr interpolationmode sample-hold
-attr recordingmode vector(removeRepeats)
-vector 184 singledumbbell.server[0].tcp.conn-1 sndWnd:vector(removeRepeats) ETV
-attr interpolationmode sample-hold
-attr recordingmode vector(removeRepeats)
-vector 185 singledumbbell.server[0].tcp.conn-1 rcvWnd:vector(removeRepeats) ETV
-attr interpolationmode sample-hold
-attr recordingmode vector(removeRepeats)
-vector 186 singledumbbell.server[0].tcp.conn-1 rcvAdv:vector(removeRepeats) ETV
-attr interpolationmode sample-hold
+vector 183 singledumbbell.server[0].app[0].thread_8 packetReceived:vector(packetBytes) ETV
+attr interpolationmode none
+attr recordingmode vector(packetBytes)
+attr source packetReceived
+attr title "packets received, packetBytes"
+vector 184 singledumbbell.server[0].app[0].thread_8 endToEndDelay:vector ETV
+attr interpolationmode none
+attr recordingmode vector
+attr source dataAge(packetReceived)
+attr title "end-to-end delay"
+attr unit s
+vector 185 singledumbbell.server[0].app[0].thread_8 goodput:vector(removeRepeats) ETV
 attr recordingmode vector(removeRepeats)
-vector 187 singledumbbell.server[0].tcp.conn-1 sndNxt:vector(removeRepeats) ETV
+attr source goodput
+attr unit bps
+vector 186 singledumbbell.server[0].tcp.conn-1 state:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 188 singledumbbell.server[0].tcp.conn-1 sndAck:vector(removeRepeats) ETV
+vector 187 singledumbbell.server[0].tcp.conn-1 sndWnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 189 singledumbbell.server[0].tcp.conn-1 rcvSeq:vector(removeRepeats) ETV
+vector 188 singledumbbell.server[0].tcp.conn-1 rcvWnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 190 singledumbbell.server[0].tcp.conn-1 rcvAck:vector(removeRepeats) ETV
+vector 189 singledumbbell.server[0].tcp.conn-1 rcvAdv:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 191 singledumbbell.server[0].tcp.conn-1 unacked:vector(removeRepeats) ETV
+vector 190 singledumbbell.server[0].tcp.conn-1 sndNxt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 192 singledumbbell.server[0].tcp.conn-1 dupAcks:vector(removeRepeats) ETV
+vector 191 singledumbbell.server[0].tcp.conn-1 sndAck:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 193 singledumbbell.server[0].tcp.conn-1 pipe:vector(removeRepeats) ETV
+vector 192 singledumbbell.server[0].tcp.conn-1 rcvSeq:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 194 singledumbbell.server[0].tcp.conn-1 sndSacks:vector(removeRepeats) ETV
+vector 193 singledumbbell.server[0].tcp.conn-1 rcvAck:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 195 singledumbbell.server[0].tcp.conn-1 rcvSacks:vector(removeRepeats) ETV
+vector 194 singledumbbell.server[0].tcp.conn-1 unacked:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 196 singledumbbell.server[0].tcp.conn-1 rcvOooSeg:vector(removeRepeats) ETV
+vector 195 singledumbbell.server[0].tcp.conn-1 dupAcks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 197 singledumbbell.server[0].tcp.conn-1 rcvNASeg:vector(removeRepeats) ETV
+vector 196 singledumbbell.server[0].tcp.conn-1 pipe:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 198 singledumbbell.server[0].tcp.conn-1 sackedBytes:vector(removeRepeats) ETV
+vector 197 singledumbbell.server[0].tcp.conn-1 sndSacks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 199 singledumbbell.server[0].tcp.conn-1 tcpRcvQueueBytes:vector(removeRepeats) ETV
+vector 198 singledumbbell.server[0].tcp.conn-1 rcvSacks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 200 singledumbbell.server[0].tcp.conn-1 tcpRcvQueueDrops:vector(removeRepeats) ETV
+vector 199 singledumbbell.server[0].tcp.conn-1 rcvOooSeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 201 singledumbbell.server[0].tcp.conn-1 tcpRcvPayloadBytes:vector(removeRepeats) ETV
+vector 200 singledumbbell.server[0].tcp.conn-1 rcvNASeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 202 singledumbbell.server[0].tcp.conn-1 cwnd:vector(removeRepeats) ETV
+vector 201 singledumbbell.server[0].tcp.conn-1 sackedBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 203 singledumbbell.server[0].tcp.conn-1 ssthresh:vector(removeRepeats) ETV
+vector 202 singledumbbell.server[0].tcp.conn-1 tcpRcvQueueBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 204 singledumbbell.server[0].tcp.conn-1 rtt:vector(removeRepeats) ETV
+vector 203 singledumbbell.server[0].tcp.conn-1 tcpRcvQueueDrops:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 205 singledumbbell.server[0].tcp.conn-1 srtt:vector(removeRepeats) ETV
+vector 204 singledumbbell.server[0].tcp.conn-1 tcpRcvPayloadBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 206 singledumbbell.server[0].tcp.conn-1 rttvar:vector(removeRepeats) ETV
+vector 205 singledumbbell.server[0].tcp.conn-1 cwnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 207 singledumbbell.server[0].tcp.conn-1 rto:vector(removeRepeats) ETV
+vector 206 singledumbbell.server[0].tcp.conn-1 ssthresh:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 208 singledumbbell.server[0].tcp.conn-1 numRtos:vector(removeRepeats) ETV
+vector 207 singledumbbell.server[0].tcp.conn-1 rtt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 209 singledumbbell.server[0].tcp.conn-1 load:vector(removeRepeats) ETV
+vector 208 singledumbbell.server[0].tcp.conn-1 srtt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 210 singledumbbell.server[0].tcp.conn-1 calcLoad:vector(removeRepeats) ETV
+vector 209 singledumbbell.server[0].tcp.conn-1 rttvar:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 211 singledumbbell.server[0].tcp.conn-1 markingProb:vector(removeRepeats) ETV
+vector 210 singledumbbell.server[0].tcp.conn-1 rto:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 212 singledumbbell.server[0].tcp.conn-1 throughput:vector(removeRepeats) ETV
+vector 211 singledumbbell.server[0].tcp.conn-1 numRtos:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 213 singledumbbell.server[0].tcp.conn-1 additiveIncrease:vector(removeRepeats) ETV
+vector 212 singledumbbell.server[0].tcp.conn-1 load:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 214 singledumbbell.server[0].tcp.conn-1 pacingGain:vector(removeRepeats) ETV
+vector 213 singledumbbell.server[0].tcp.conn-1 calcLoad:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 215 singledumbbell.server[0].tcp.conn-1 paceRate:vector(removeRepeats) ETV
+vector 214 singledumbbell.server[0].tcp.conn-1 markingProb:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 216 singledumbbell.server[0].tcp.conn-1 recover:vector(removeRepeats) ETV
+vector 215 singledumbbell.server[0].tcp.conn-1 throughput:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 217 singledumbbell.server[0].tcp.conn-1 lossRecovery:vector(removeRepeats) ETV
+vector 216 singledumbbell.server[0].tcp.conn-1 additiveIncrease:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 218 singledumbbell.server[0].tcp.conn-1 highRxt:vector(removeRepeats) ETV
+vector 217 singledumbbell.server[0].tcp.conn-1 pacingGain:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 219 singledumbbell.server[0].tcp.conn-1 mDelivered:vector(removeRepeats) ETV
+vector 218 singledumbbell.server[0].tcp.conn-1 paceRate:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 220 singledumbbell.server[0].tcp.conn-1 mFirstSentTime:vector(removeRepeats) ETV
+vector 219 singledumbbell.server[0].tcp.conn-1 recover:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 221 singledumbbell.server[0].tcp.conn-1 mLastSentTime:vector(removeRepeats) ETV
+vector 220 singledumbbell.server[0].tcp.conn-1 lossRecovery:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 222 singledumbbell.server[0].tcp.conn-1 mbytesInFlight:vector(removeRepeats) ETV
+vector 221 singledumbbell.server[0].tcp.conn-1 highRxt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 223 singledumbbell.server[0].tcp.conn-1 mbytesInFlightTotal:vector(removeRepeats) ETV
+vector 222 singledumbbell.server[0].tcp.conn-1 mDelivered:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 224 singledumbbell.server[0].tcp.conn-1 mbytesLoss:vector(removeRepeats) ETV
+vector 223 singledumbbell.server[0].tcp.conn-1 mFirstSentTime:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 225 singledumbbell.server[0].tcp.conn-1 msendElapsed:vector(removeRepeats) ETV
+vector 224 singledumbbell.server[0].tcp.conn-1 mLastSentTime:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 226 singledumbbell.server[0].tcp.conn-1 mackElapsed:vector(removeRepeats) ETV
+vector 225 singledumbbell.server[0].tcp.conn-1 mbytesInFlight:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 227 singledumbbell.server[0].tcp.conn-1 bicTarget:vector(removeRepeats) ETV
+vector 226 singledumbbell.server[0].tcp.conn-1 mbytesInFlightTotal:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 228 singledumbbell.server[0].tcp.conn-1 originalPoint:vector(removeRepeats) ETV
+vector 227 singledumbbell.server[0].tcp.conn-1 mbytesLoss:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 229 singledumbbell.server[0].tcp.conn-1 cwndSeg:vector(removeRepeats) ETV
+vector 228 singledumbbell.server[0].tcp.conn-1 msendElapsed:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 230 singledumbbell.server[0].tcp.conn-1 bicK:vector(removeRepeats) ETV
+vector 229 singledumbbell.server[0].tcp.conn-1 mackElapsed:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 231 singledumbbell.server[0].tcp.conn-1 cnt:vector(removeRepeats) ETV
+vector 230 singledumbbell.server[0].tcp.conn-1 bicTarget:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 232 singledumbbell.server[0].tcp.conn-1 lastMaxWindow:vector(removeRepeats) ETV
+vector 231 singledumbbell.server[0].tcp.conn-1 originalPoint:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 233 singledumbbell.server[0].tcp.conn-1 delayMin:vector(removeRepeats) ETV
+vector 232 singledumbbell.server[0].tcp.conn-1 cwndSeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 234 singledumbbell.server[0].tcp.conn-1 concave:vector(removeRepeats) ETV
+vector 233 singledumbbell.server[0].tcp.conn-1 bicK:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 235 singledumbbell.server[0].tcp.conn-1 convex:vector(removeRepeats) ETV
+vector 234 singledumbbell.server[0].tcp.conn-1 cnt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 236 singledumbbell.server[0].tcp.conn-1 friendly:vector(removeRepeats) ETV
+vector 235 singledumbbell.server[0].tcp.conn-1 lastMaxWindow:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 237 singledumbbell.server[0].tcp.conn-1 sndUna:vector(removeRepeats) ETV
+vector 236 singledumbbell.server[0].tcp.conn-1 delayMin:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 238 singledumbbell.server[0].tcp.conn-1 recoveryPoint:vector(removeRepeats) ETV
+vector 237 singledumbbell.server[0].tcp.conn-1 concave:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 239 singledumbbell.client[0].tcp.conn-8 state:vector(removeRepeats) ETV
+vector 238 singledumbbell.server[0].tcp.conn-1 convex:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 240 singledumbbell.client[0].tcp.conn-8 sndWnd:vector(removeRepeats) ETV
+vector 239 singledumbbell.server[0].tcp.conn-1 friendly:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 241 singledumbbell.client[0].tcp.conn-8 rcvWnd:vector(removeRepeats) ETV
+vector 240 singledumbbell.server[0].tcp.conn-1 sndUna:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 242 singledumbbell.client[0].tcp.conn-8 rcvAdv:vector(removeRepeats) ETV
+vector 241 singledumbbell.server[0].tcp.conn-1 recoveryPoint:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 243 singledumbbell.client[0].tcp.conn-8 sndNxt:vector(removeRepeats) ETV
+vector 242 singledumbbell.server[0].tcp.conn-8 state:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 244 singledumbbell.client[0].tcp.conn-8 sndAck:vector(removeRepeats) ETV
+vector 243 singledumbbell.server[0].tcp.conn-8 sndWnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 245 singledumbbell.client[0].tcp.conn-8 rcvSeq:vector(removeRepeats) ETV
+vector 244 singledumbbell.server[0].tcp.conn-8 rcvWnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 246 singledumbbell.client[0].tcp.conn-8 rcvAck:vector(removeRepeats) ETV
+vector 245 singledumbbell.server[0].tcp.conn-8 rcvAdv:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 247 singledumbbell.client[0].tcp.conn-8 unacked:vector(removeRepeats) ETV
+vector 246 singledumbbell.server[0].tcp.conn-8 sndNxt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 248 singledumbbell.client[0].tcp.conn-8 dupAcks:vector(removeRepeats) ETV
+vector 247 singledumbbell.server[0].tcp.conn-8 sndAck:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 249 singledumbbell.client[0].tcp.conn-8 pipe:vector(removeRepeats) ETV
+vector 248 singledumbbell.server[0].tcp.conn-8 rcvSeq:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 250 singledumbbell.client[0].tcp.conn-8 sndSacks:vector(removeRepeats) ETV
+vector 249 singledumbbell.server[0].tcp.conn-8 rcvAck:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 251 singledumbbell.client[0].tcp.conn-8 rcvSacks:vector(removeRepeats) ETV
+vector 250 singledumbbell.server[0].tcp.conn-8 unacked:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 252 singledumbbell.client[0].tcp.conn-8 rcvOooSeg:vector(removeRepeats) ETV
+vector 251 singledumbbell.server[0].tcp.conn-8 dupAcks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 253 singledumbbell.client[0].tcp.conn-8 rcvNASeg:vector(removeRepeats) ETV
+vector 252 singledumbbell.server[0].tcp.conn-8 pipe:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 254 singledumbbell.client[0].tcp.conn-8 sackedBytes:vector(removeRepeats) ETV
+vector 253 singledumbbell.server[0].tcp.conn-8 sndSacks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 255 singledumbbell.client[0].tcp.conn-8 tcpRcvQueueBytes:vector(removeRepeats) ETV
+vector 254 singledumbbell.server[0].tcp.conn-8 rcvSacks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 256 singledumbbell.client[0].tcp.conn-8 tcpRcvQueueDrops:vector(removeRepeats) ETV
+vector 255 singledumbbell.server[0].tcp.conn-8 rcvOooSeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 257 singledumbbell.client[0].tcp.conn-8 tcpRcvPayloadBytes:vector(removeRepeats) ETV
+vector 256 singledumbbell.server[0].tcp.conn-8 rcvNASeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 258 singledumbbell.client[0].tcp.conn-8 cwnd:vector(removeRepeats) ETV
+vector 257 singledumbbell.server[0].tcp.conn-8 sackedBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 259 singledumbbell.client[0].tcp.conn-8 ssthresh:vector(removeRepeats) ETV
+vector 258 singledumbbell.server[0].tcp.conn-8 tcpRcvQueueBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 260 singledumbbell.client[0].tcp.conn-8 rtt:vector(removeRepeats) ETV
+vector 259 singledumbbell.server[0].tcp.conn-8 tcpRcvQueueDrops:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 261 singledumbbell.client[0].tcp.conn-8 srtt:vector(removeRepeats) ETV
+vector 260 singledumbbell.server[0].tcp.conn-8 tcpRcvPayloadBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 262 singledumbbell.client[0].tcp.conn-8 rttvar:vector(removeRepeats) ETV
+vector 261 singledumbbell.server[0].tcp.conn-8 cwnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 263 singledumbbell.client[0].tcp.conn-8 rto:vector(removeRepeats) ETV
+vector 262 singledumbbell.server[0].tcp.conn-8 ssthresh:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 264 singledumbbell.client[0].tcp.conn-8 numRtos:vector(removeRepeats) ETV
+vector 263 singledumbbell.server[0].tcp.conn-8 rtt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 265 singledumbbell.client[0].tcp.conn-8 load:vector(removeRepeats) ETV
+vector 264 singledumbbell.server[0].tcp.conn-8 srtt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 266 singledumbbell.client[0].tcp.conn-8 calcLoad:vector(removeRepeats) ETV
+vector 265 singledumbbell.server[0].tcp.conn-8 rttvar:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 267 singledumbbell.client[0].tcp.conn-8 markingProb:vector(removeRepeats) ETV
+vector 266 singledumbbell.server[0].tcp.conn-8 rto:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 268 singledumbbell.client[0].tcp.conn-8 throughput:vector(removeRepeats) ETV
+vector 267 singledumbbell.server[0].tcp.conn-8 numRtos:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 269 singledumbbell.client[0].tcp.conn-8 additiveIncrease:vector(removeRepeats) ETV
+vector 268 singledumbbell.server[0].tcp.conn-8 load:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 270 singledumbbell.client[0].tcp.conn-8 pacingGain:vector(removeRepeats) ETV
+vector 269 singledumbbell.server[0].tcp.conn-8 calcLoad:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 271 singledumbbell.client[0].tcp.conn-8 paceRate:vector(removeRepeats) ETV
+vector 270 singledumbbell.server[0].tcp.conn-8 markingProb:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 272 singledumbbell.client[0].tcp.conn-8 recover:vector(removeRepeats) ETV
+vector 271 singledumbbell.server[0].tcp.conn-8 throughput:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 273 singledumbbell.client[0].tcp.conn-8 lossRecovery:vector(removeRepeats) ETV
+vector 272 singledumbbell.server[0].tcp.conn-8 additiveIncrease:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 274 singledumbbell.client[0].tcp.conn-8 highRxt:vector(removeRepeats) ETV
+vector 273 singledumbbell.server[0].tcp.conn-8 pacingGain:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 275 singledumbbell.client[0].tcp.conn-8 mDelivered:vector(removeRepeats) ETV
+vector 274 singledumbbell.server[0].tcp.conn-8 paceRate:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 276 singledumbbell.client[0].tcp.conn-8 mFirstSentTime:vector(removeRepeats) ETV
+vector 275 singledumbbell.server[0].tcp.conn-8 recover:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 277 singledumbbell.client[0].tcp.conn-8 mLastSentTime:vector(removeRepeats) ETV
+vector 276 singledumbbell.server[0].tcp.conn-8 lossRecovery:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 278 singledumbbell.client[0].tcp.conn-8 mbytesInFlight:vector(removeRepeats) ETV
+vector 277 singledumbbell.server[0].tcp.conn-8 highRxt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 279 singledumbbell.client[0].tcp.conn-8 mbytesInFlightTotal:vector(removeRepeats) ETV
+vector 278 singledumbbell.server[0].tcp.conn-8 mDelivered:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 280 singledumbbell.client[0].tcp.conn-8 mbytesLoss:vector(removeRepeats) ETV
+vector 279 singledumbbell.server[0].tcp.conn-8 mFirstSentTime:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 281 singledumbbell.client[0].tcp.conn-8 msendElapsed:vector(removeRepeats) ETV
+vector 280 singledumbbell.server[0].tcp.conn-8 mLastSentTime:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 282 singledumbbell.client[0].tcp.conn-8 mackElapsed:vector(removeRepeats) ETV
+vector 281 singledumbbell.server[0].tcp.conn-8 mbytesInFlight:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 283 singledumbbell.client[0].tcp.conn-8 bicTarget:vector(removeRepeats) ETV
+vector 282 singledumbbell.server[0].tcp.conn-8 mbytesInFlightTotal:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 284 singledumbbell.client[0].tcp.conn-8 originalPoint:vector(removeRepeats) ETV
+vector 283 singledumbbell.server[0].tcp.conn-8 mbytesLoss:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 285 singledumbbell.client[0].tcp.conn-8 cwndSeg:vector(removeRepeats) ETV
+vector 284 singledumbbell.server[0].tcp.conn-8 msendElapsed:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 286 singledumbbell.client[0].tcp.conn-8 bicK:vector(removeRepeats) ETV
+vector 285 singledumbbell.server[0].tcp.conn-8 mackElapsed:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 287 singledumbbell.client[0].tcp.conn-8 cnt:vector(removeRepeats) ETV
+vector 286 singledumbbell.server[0].tcp.conn-8 bicTarget:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 288 singledumbbell.client[0].tcp.conn-8 lastMaxWindow:vector(removeRepeats) ETV
+vector 287 singledumbbell.server[0].tcp.conn-8 originalPoint:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 289 singledumbbell.client[0].tcp.conn-8 delayMin:vector(removeRepeats) ETV
+vector 288 singledumbbell.server[0].tcp.conn-8 cwndSeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 290 singledumbbell.client[0].tcp.conn-8 concave:vector(removeRepeats) ETV
+vector 289 singledumbbell.server[0].tcp.conn-8 bicK:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 291 singledumbbell.client[0].tcp.conn-8 convex:vector(removeRepeats) ETV
+vector 290 singledumbbell.server[0].tcp.conn-8 cnt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 292 singledumbbell.client[0].tcp.conn-8 friendly:vector(removeRepeats) ETV
+vector 291 singledumbbell.server[0].tcp.conn-8 lastMaxWindow:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 293 singledumbbell.client[0].tcp.conn-8 sndUna:vector(removeRepeats) ETV
+vector 292 singledumbbell.server[0].tcp.conn-8 delayMin:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 294 singledumbbell.client[0].tcp.conn-8 recoveryPoint:vector(removeRepeats) ETV
+vector 293 singledumbbell.server[0].tcp.conn-8 concave:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 295 singledumbbell.client[0].tcp.conn-9 state:vector(removeRepeats) ETV
+vector 294 singledumbbell.server[0].tcp.conn-8 convex:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 296 singledumbbell.client[0].tcp.conn-9 sndWnd:vector(removeRepeats) ETV
+vector 295 singledumbbell.server[0].tcp.conn-8 friendly:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 297 singledumbbell.client[0].tcp.conn-9 rcvWnd:vector(removeRepeats) ETV
+vector 296 singledumbbell.server[0].tcp.conn-8 sndUna:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 298 singledumbbell.client[0].tcp.conn-9 rcvAdv:vector(removeRepeats) ETV
+vector 297 singledumbbell.server[0].tcp.conn-8 recoveryPoint:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 299 singledumbbell.client[0].tcp.conn-9 sndNxt:vector(removeRepeats) ETV
+vector 298 singledumbbell.client[0].tcp.conn-9 state:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 300 singledumbbell.client[0].tcp.conn-9 sndAck:vector(removeRepeats) ETV
+vector 299 singledumbbell.client[0].tcp.conn-9 sndWnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 301 singledumbbell.client[0].tcp.conn-9 rcvSeq:vector(removeRepeats) ETV
+vector 300 singledumbbell.client[0].tcp.conn-9 rcvWnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 302 singledumbbell.client[0].tcp.conn-9 rcvAck:vector(removeRepeats) ETV
+vector 301 singledumbbell.client[0].tcp.conn-9 rcvAdv:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 303 singledumbbell.client[0].tcp.conn-9 unacked:vector(removeRepeats) ETV
+vector 302 singledumbbell.client[0].tcp.conn-9 sndNxt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 304 singledumbbell.client[0].tcp.conn-9 dupAcks:vector(removeRepeats) ETV
+vector 303 singledumbbell.client[0].tcp.conn-9 sndAck:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 305 singledumbbell.client[0].tcp.conn-9 pipe:vector(removeRepeats) ETV
+vector 304 singledumbbell.client[0].tcp.conn-9 rcvSeq:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 306 singledumbbell.client[0].tcp.conn-9 sndSacks:vector(removeRepeats) ETV
+vector 305 singledumbbell.client[0].tcp.conn-9 rcvAck:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 307 singledumbbell.client[0].tcp.conn-9 rcvSacks:vector(removeRepeats) ETV
+vector 306 singledumbbell.client[0].tcp.conn-9 unacked:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 308 singledumbbell.client[0].tcp.conn-9 rcvOooSeg:vector(removeRepeats) ETV
+vector 307 singledumbbell.client[0].tcp.conn-9 dupAcks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 309 singledumbbell.client[0].tcp.conn-9 rcvNASeg:vector(removeRepeats) ETV
+vector 308 singledumbbell.client[0].tcp.conn-9 pipe:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 310 singledumbbell.client[0].tcp.conn-9 sackedBytes:vector(removeRepeats) ETV
+vector 309 singledumbbell.client[0].tcp.conn-9 sndSacks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 311 singledumbbell.client[0].tcp.conn-9 tcpRcvQueueBytes:vector(removeRepeats) ETV
+vector 310 singledumbbell.client[0].tcp.conn-9 rcvSacks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 312 singledumbbell.client[0].tcp.conn-9 tcpRcvQueueDrops:vector(removeRepeats) ETV
+vector 311 singledumbbell.client[0].tcp.conn-9 rcvOooSeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 313 singledumbbell.client[0].tcp.conn-9 tcpRcvPayloadBytes:vector(removeRepeats) ETV
+vector 312 singledumbbell.client[0].tcp.conn-9 rcvNASeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 314 singledumbbell.client[0].tcp.conn-9 cwnd:vector(removeRepeats) ETV
+vector 313 singledumbbell.client[0].tcp.conn-9 sackedBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 315 singledumbbell.client[0].tcp.conn-9 ssthresh:vector(removeRepeats) ETV
+vector 314 singledumbbell.client[0].tcp.conn-9 tcpRcvQueueBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 316 singledumbbell.client[0].tcp.conn-9 rtt:vector(removeRepeats) ETV
+vector 315 singledumbbell.client[0].tcp.conn-9 tcpRcvQueueDrops:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 317 singledumbbell.client[0].tcp.conn-9 srtt:vector(removeRepeats) ETV
+vector 316 singledumbbell.client[0].tcp.conn-9 tcpRcvPayloadBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 318 singledumbbell.client[0].tcp.conn-9 rttvar:vector(removeRepeats) ETV
+vector 317 singledumbbell.client[0].tcp.conn-9 cwnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 319 singledumbbell.client[0].tcp.conn-9 rto:vector(removeRepeats) ETV
+vector 318 singledumbbell.client[0].tcp.conn-9 ssthresh:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 320 singledumbbell.client[0].tcp.conn-9 numRtos:vector(removeRepeats) ETV
+vector 319 singledumbbell.client[0].tcp.conn-9 rtt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 321 singledumbbell.client[0].tcp.conn-9 load:vector(removeRepeats) ETV
+vector 320 singledumbbell.client[0].tcp.conn-9 srtt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 322 singledumbbell.client[0].tcp.conn-9 calcLoad:vector(removeRepeats) ETV
+vector 321 singledumbbell.client[0].tcp.conn-9 rttvar:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 323 singledumbbell.client[0].tcp.conn-9 markingProb:vector(removeRepeats) ETV
+vector 322 singledumbbell.client[0].tcp.conn-9 rto:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 324 singledumbbell.client[0].tcp.conn-9 throughput:vector(removeRepeats) ETV
+vector 323 singledumbbell.client[0].tcp.conn-9 numRtos:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 325 singledumbbell.client[0].tcp.conn-9 additiveIncrease:vector(removeRepeats) ETV
+vector 324 singledumbbell.client[0].tcp.conn-9 load:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 326 singledumbbell.client[0].tcp.conn-9 pacingGain:vector(removeRepeats) ETV
+vector 325 singledumbbell.client[0].tcp.conn-9 calcLoad:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 327 singledumbbell.client[0].tcp.conn-9 paceRate:vector(removeRepeats) ETV
+vector 326 singledumbbell.client[0].tcp.conn-9 markingProb:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 328 singledumbbell.client[0].tcp.conn-9 recover:vector(removeRepeats) ETV
+vector 327 singledumbbell.client[0].tcp.conn-9 throughput:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 329 singledumbbell.client[0].tcp.conn-9 lossRecovery:vector(removeRepeats) ETV
+vector 328 singledumbbell.client[0].tcp.conn-9 additiveIncrease:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 330 singledumbbell.client[0].tcp.conn-9 highRxt:vector(removeRepeats) ETV
+vector 329 singledumbbell.client[0].tcp.conn-9 pacingGain:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 331 singledumbbell.client[0].tcp.conn-9 mDelivered:vector(removeRepeats) ETV
+vector 330 singledumbbell.client[0].tcp.conn-9 paceRate:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 332 singledumbbell.client[0].tcp.conn-9 mFirstSentTime:vector(removeRepeats) ETV
+vector 331 singledumbbell.client[0].tcp.conn-9 recover:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 333 singledumbbell.client[0].tcp.conn-9 mLastSentTime:vector(removeRepeats) ETV
+vector 332 singledumbbell.client[0].tcp.conn-9 lossRecovery:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 334 singledumbbell.client[0].tcp.conn-9 mbytesInFlight:vector(removeRepeats) ETV
+vector 333 singledumbbell.client[0].tcp.conn-9 highRxt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 335 singledumbbell.client[0].tcp.conn-9 mbytesInFlightTotal:vector(removeRepeats) ETV
+vector 334 singledumbbell.client[0].tcp.conn-9 mDelivered:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 336 singledumbbell.client[0].tcp.conn-9 mbytesLoss:vector(removeRepeats) ETV
+vector 335 singledumbbell.client[0].tcp.conn-9 mFirstSentTime:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 337 singledumbbell.client[0].tcp.conn-9 msendElapsed:vector(removeRepeats) ETV
+vector 336 singledumbbell.client[0].tcp.conn-9 mLastSentTime:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 338 singledumbbell.client[0].tcp.conn-9 mackElapsed:vector(removeRepeats) ETV
+vector 337 singledumbbell.client[0].tcp.conn-9 mbytesInFlight:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 339 singledumbbell.client[0].tcp.conn-9 bicTarget:vector(removeRepeats) ETV
+vector 338 singledumbbell.client[0].tcp.conn-9 mbytesInFlightTotal:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 340 singledumbbell.client[0].tcp.conn-9 originalPoint:vector(removeRepeats) ETV
+vector 339 singledumbbell.client[0].tcp.conn-9 mbytesLoss:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 341 singledumbbell.client[0].tcp.conn-9 cwndSeg:vector(removeRepeats) ETV
+vector 340 singledumbbell.client[0].tcp.conn-9 msendElapsed:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 342 singledumbbell.client[0].tcp.conn-9 bicK:vector(removeRepeats) ETV
+vector 341 singledumbbell.client[0].tcp.conn-9 mackElapsed:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 343 singledumbbell.client[0].tcp.conn-9 cnt:vector(removeRepeats) ETV
+vector 342 singledumbbell.client[0].tcp.conn-9 bicTarget:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 344 singledumbbell.client[0].tcp.conn-9 lastMaxWindow:vector(removeRepeats) ETV
+vector 343 singledumbbell.client[0].tcp.conn-9 originalPoint:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 345 singledumbbell.client[0].tcp.conn-9 delayMin:vector(removeRepeats) ETV
+vector 344 singledumbbell.client[0].tcp.conn-9 cwndSeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 346 singledumbbell.client[0].tcp.conn-9 concave:vector(removeRepeats) ETV
+vector 345 singledumbbell.client[0].tcp.conn-9 bicK:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 347 singledumbbell.client[0].tcp.conn-9 convex:vector(removeRepeats) ETV
+vector 346 singledumbbell.client[0].tcp.conn-9 cnt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 348 singledumbbell.client[0].tcp.conn-9 friendly:vector(removeRepeats) ETV
+vector 347 singledumbbell.client[0].tcp.conn-9 lastMaxWindow:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 349 singledumbbell.client[0].tcp.conn-9 sndUna:vector(removeRepeats) ETV
+vector 348 singledumbbell.client[0].tcp.conn-9 delayMin:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 350 singledumbbell.client[0].tcp.conn-9 recoveryPoint:vector(removeRepeats) ETV
+vector 349 singledumbbell.client[0].tcp.conn-9 concave:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 351 singledumbbell.server[0].tcp.conn-9 state:vector(removeRepeats) ETV
+vector 350 singledumbbell.client[0].tcp.conn-9 convex:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 352 singledumbbell.server[0].tcp.conn-9 sndWnd:vector(removeRepeats) ETV
+vector 351 singledumbbell.client[0].tcp.conn-9 friendly:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 353 singledumbbell.server[0].tcp.conn-9 rcvWnd:vector(removeRepeats) ETV
+vector 352 singledumbbell.client[0].tcp.conn-9 sndUna:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 354 singledumbbell.server[0].tcp.conn-9 rcvAdv:vector(removeRepeats) ETV
+vector 353 singledumbbell.client[0].tcp.conn-9 recoveryPoint:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 355 singledumbbell.server[0].tcp.conn-9 sndNxt:vector(removeRepeats) ETV
+vector 354 singledumbbell.client[0].tcp.conn-10 state:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 356 singledumbbell.server[0].tcp.conn-9 sndAck:vector(removeRepeats) ETV
+vector 355 singledumbbell.client[0].tcp.conn-10 sndWnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 357 singledumbbell.server[0].tcp.conn-9 rcvSeq:vector(removeRepeats) ETV
+vector 356 singledumbbell.client[0].tcp.conn-10 rcvWnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 358 singledumbbell.server[0].tcp.conn-9 rcvAck:vector(removeRepeats) ETV
+vector 357 singledumbbell.client[0].tcp.conn-10 rcvAdv:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 359 singledumbbell.server[0].tcp.conn-9 unacked:vector(removeRepeats) ETV
+vector 358 singledumbbell.client[0].tcp.conn-10 sndNxt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 360 singledumbbell.server[0].tcp.conn-9 dupAcks:vector(removeRepeats) ETV
+vector 359 singledumbbell.client[0].tcp.conn-10 sndAck:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 361 singledumbbell.server[0].tcp.conn-9 pipe:vector(removeRepeats) ETV
+vector 360 singledumbbell.client[0].tcp.conn-10 rcvSeq:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 362 singledumbbell.server[0].tcp.conn-9 sndSacks:vector(removeRepeats) ETV
+vector 361 singledumbbell.client[0].tcp.conn-10 rcvAck:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 363 singledumbbell.server[0].tcp.conn-9 rcvSacks:vector(removeRepeats) ETV
+vector 362 singledumbbell.client[0].tcp.conn-10 unacked:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 364 singledumbbell.server[0].tcp.conn-9 rcvOooSeg:vector(removeRepeats) ETV
+vector 363 singledumbbell.client[0].tcp.conn-10 dupAcks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 365 singledumbbell.server[0].tcp.conn-9 rcvNASeg:vector(removeRepeats) ETV
+vector 364 singledumbbell.client[0].tcp.conn-10 pipe:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 366 singledumbbell.server[0].tcp.conn-9 sackedBytes:vector(removeRepeats) ETV
+vector 365 singledumbbell.client[0].tcp.conn-10 sndSacks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 367 singledumbbell.server[0].tcp.conn-9 tcpRcvQueueBytes:vector(removeRepeats) ETV
+vector 366 singledumbbell.client[0].tcp.conn-10 rcvSacks:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 368 singledumbbell.server[0].tcp.conn-9 tcpRcvQueueDrops:vector(removeRepeats) ETV
+vector 367 singledumbbell.client[0].tcp.conn-10 rcvOooSeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 369 singledumbbell.server[0].tcp.conn-9 tcpRcvPayloadBytes:vector(removeRepeats) ETV
+vector 368 singledumbbell.client[0].tcp.conn-10 rcvNASeg:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 370 singledumbbell.server[0].tcp.conn-9 cwnd:vector(removeRepeats) ETV
+vector 369 singledumbbell.client[0].tcp.conn-10 sackedBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 371 singledumbbell.server[0].tcp.conn-9 ssthresh:vector(removeRepeats) ETV
+vector 370 singledumbbell.client[0].tcp.conn-10 tcpRcvQueueBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 372 singledumbbell.server[0].tcp.conn-9 rtt:vector(removeRepeats) ETV
+vector 371 singledumbbell.client[0].tcp.conn-10 tcpRcvQueueDrops:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 373 singledumbbell.server[0].tcp.conn-9 srtt:vector(removeRepeats) ETV
+vector 372 singledumbbell.client[0].tcp.conn-10 tcpRcvPayloadBytes:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 374 singledumbbell.server[0].tcp.conn-9 rttvar:vector(removeRepeats) ETV
+vector 373 singledumbbell.client[0].tcp.conn-10 cwnd:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 375 singledumbbell.server[0].tcp.conn-9 rto:vector(removeRepeats) ETV
+vector 374 singledumbbell.client[0].tcp.conn-10 ssthresh:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 376 singledumbbell.server[0].tcp.conn-9 numRtos:vector(removeRepeats) ETV
+vector 375 singledumbbell.client[0].tcp.conn-10 rtt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 377 singledumbbell.server[0].tcp.conn-9 load:vector(removeRepeats) ETV
+vector 376 singledumbbell.client[0].tcp.conn-10 srtt:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 378 singledumbbell.server[0].tcp.conn-9 calcLoad:vector(removeRepeats) ETV
+vector 377 singledumbbell.client[0].tcp.conn-10 rttvar:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 379 singledumbbell.server[0].tcp.conn-9 markingProb:vector(removeRepeats) ETV
+vector 378 singledumbbell.client[0].tcp.conn-10 rto:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 380 singledumbbell.server[0].tcp.conn-9 throughput:vector(removeRepeats) ETV
+vector 379 singledumbbell.client[0].tcp.conn-10 numRtos:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 381 singledumbbell.server[0].tcp.conn-9 additiveIncrease:vector(removeRepeats) ETV
+vector 380 singledumbbell.client[0].tcp.conn-10 load:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 382 singledumbbell.server[0].tcp.conn-9 pacingGain:vector(removeRepeats) ETV
+vector 381 singledumbbell.client[0].tcp.conn-10 calcLoad:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 383 singledumbbell.server[0].tcp.conn-9 paceRate:vector(removeRepeats) ETV
+vector 382 singledumbbell.client[0].tcp.conn-10 markingProb:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 384 singledumbbell.server[0].tcp.conn-9 recover:vector(removeRepeats) ETV
+vector 383 singledumbbell.client[0].tcp.conn-10 throughput:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 385 singledumbbell.server[0].tcp.conn-9 lossRecovery:vector(removeRepeats) ETV
+vector 384 singledumbbell.client[0].tcp.conn-10 additiveIncrease:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 386 singledumbbell.server[0].tcp.conn-9 highRxt:vector(removeRepeats) ETV
+vector 385 singledumbbell.client[0].tcp.conn-10 pacingGain:vector(removeRepeats) ETV
 attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
-vector 387 singledumbbell.server[0].tcp.conn-9 mDelivered:vector(removeRepeats) ETV
-attr i
+vector 386 singledumbbell.client[0].tcp.conn-1

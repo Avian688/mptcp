@@ -17,6 +17,18 @@
   ../../inet4.5/src/inet/common/IntrusivePtr.h \
   ../../inet4.5/src/inet/common/Units.h \
   ../../inet4.5/src/inet/common/INETMath.h \
+  transportlayer/tcp/TcpOpenSubflowCommand_m.h \
+  ../../inet4.5/src/inet/transportlayer/contract/tcp/TcpCommand_m.h \
+  ../../inet4.5/src/inet/networklayer/common/IpProtocolId_m.h \
+  ../../inet4.5/src/inet/networklayer/common/L3Address_m.h \
+  ../../inet4.5/src/inet/networklayer/common/L3Address.h \
+  ../../inet4.5/src/inet/linklayer/common/MacAddress.h \
+  ../../inet4.5/src/inet/networklayer/common/ModuleIdAddress.h \
+  ../../inet4.5/src/inet/networklayer/common/ModulePathAddress.h \
+  ../../inet4.5/src/inet/networklayer/contract/clns/ClnsAddress.h \
+  ../../inet4.5/src/inet/networklayer/contract/ipv4/Ipv4Address.h \
+  ../../inet4.5/src/inet/networklayer/contract/ipv6/Ipv6Address.h \
+  ../../inet4.5/src/inet/networklayer/common/InterfaceToken.h \
   ../../inet4.5/src/inet/networklayer/ipv4/Ipv4Header_m.h \
   ../../inet4.5/src/inet/common/TlvOptions_m.h \
   ../../inet4.5/src/inet/common/packet/chunk/Chunk_m.h \
@@ -24,10 +36,6 @@
   ../../inet4.5/src/inet/common/packet/chunk/BitCountChunk.h \
   ../../inet4.5/src/inet/common/packet/chunk/Chunk.h \
   ../../inet4.5/src/inet/common/MemoryInputStream.h \
-  ../../inet4.5/src/inet/linklayer/common/MacAddress.h \
-  ../../inet4.5/src/inet/networklayer/contract/ipv4/Ipv4Address.h \
-  ../../inet4.5/src/inet/networklayer/contract/ipv6/Ipv6Address.h \
-  ../../inet4.5/src/inet/networklayer/common/InterfaceToken.h \
   ../../inet4.5/src/inet/common/MemoryOutputStream.h \
   ../../inet4.5/src/inet/common/TemporarySharedPtr.h \
   ../../inet4.5/src/inet/common/packet/tag/IRegionTaggedObject.h \
@@ -42,16 +50,10 @@
   ../../inet4.5/src/inet/common/packet/chunk/FieldsChunk.h \
   ../../inet4.5/src/inet/common/packet/chunk/SequenceChunk.h \
   ../../inet4.5/src/inet/common/packet/chunk/SliceChunk.h \
-  ../../inet4.5/src/inet/networklayer/common/IpProtocolId_m.h \
   ../../inet4.5/src/inet/networklayer/contract/NetworkHeaderBase_m.h \
   ../../inet4.5/src/inet/common/ProtocolTag_m.h \
   ../../inet4.5/src/inet/common/Protocol_m.h \
   ../../inet4.5/src/inet/common/Protocol.h \
-  ../../inet4.5/src/inet/networklayer/common/L3Address_m.h \
-  ../../inet4.5/src/inet/networklayer/common/L3Address.h \
-  ../../inet4.5/src/inet/networklayer/common/ModuleIdAddress.h \
-  ../../inet4.5/src/inet/networklayer/common/ModulePathAddress.h \
-  ../../inet4.5/src/inet/networklayer/contract/clns/ClnsAddress.h \
   ../../inet4.5/src/inet/networklayer/contract/ipv4/Ipv4Address_m.h \
   ../../inet4.5/src/inet/transportlayer/common/CrcMode_m.h \
   ../../inet4.5/src/inet/common/ProtocolGroup.h \
@@ -68,7 +70,6 @@
   ../../inet4.5/src/inet/common/lifecycle/OperationalBase.h \
   ../../inet4.5/src/inet/common/lifecycle/OperationalMixin.h \
   ../../inet4.5/src/inet/common/lifecycle/ILifecycle.h \
-  ../../inet4.5/src/inet/transportlayer/contract/tcp/TcpCommand_m.h \
   ../../inet4.5/src/inet/transportlayer/tcp_common/TcpCrcInsertionHook.h \
   ../../inet4.5/src/inet/networklayer/contract/INetfilter.h \
   ../../inet4.5/src/inet/common/stlutils.h \
@@ -110,6 +111,13 @@
   transportlayer/tcp/MpTcpConnection.h \
   ../../inet4.5/src/inet/common/socket/SocketMap.h \
   ../../inet4.5/src/inet/common/socket/ISocket.h \
+  transportlayer/tcp/MpTcpConnectionBase.h \
+  ../../inet4.5/src/inet/transportlayer/tcp/TcpSendQueue.h \
+  ../../inet4.5/src/inet/common/packet/ChunkQueue.h \
+  ../../inet4.5/src/inet/transportlayer/tcp/TcpReceiveQueue.h \
+  ../../inet4.5/src/inet/common/packet/ReorderBuffer.h \
+  ../../inet4.5/src/inet/common/packet/ChunkBuffer.h \
+  ../../inet4.5/src/inet/transportlayer/tcp/TcpSackRexmitQueue.h \
   transportlayer/tcp/SubflowConnection.h
 ../../inet4.5/src/inet/common/socket/SocketTag_m.h:
 /Users/av288/omnetpp-6.1/include/omnetpp.h:
@@ -129,6 +137,18 @@
 ../../inet4.5/src/inet/common/IntrusivePtr.h:
 ../../inet4.5/src/inet/common/Units.h:
 ../../inet4.5/src/inet/common/INETMath.h:
+transportlayer/tcp/TcpOpenSubflowCommand_m.h:
+../../inet4.5/src/inet/transportlayer/contract/tcp/TcpCommand_m.h:
+../../inet4.5/src/inet/networklayer/common/IpProtocolId_m.h:
+../../inet4.5/src/inet/networklayer/common/L3Address_m.h:
+../../inet4.5/src/inet/networklayer/common/L3Address.h:
+../../inet4.5/src/inet/linklayer/common/MacAddress.h:
+../../inet4.5/src/inet/networklayer/common/ModuleIdAddress.h:
+../../inet4.5/src/inet/networklayer/common/ModulePathAddress.h:
+../../inet4.5/src/inet/networklayer/contract/clns/ClnsAddress.h:
+../../inet4.5/src/inet/networklayer/contract/ipv4/Ipv4Address.h:
+../../inet4.5/src/inet/networklayer/contract/ipv6/Ipv6Address.h:
+../../inet4.5/src/inet/networklayer/common/InterfaceToken.h:
 ../../inet4.5/src/inet/networklayer/ipv4/Ipv4Header_m.h:
 ../../inet4.5/src/inet/common/TlvOptions_m.h:
 ../../inet4.5/src/inet/common/packet/chunk/Chunk_m.h:
@@ -136,10 +156,6 @@
 ../../inet4.5/src/inet/common/packet/chunk/BitCountChunk.h:
 ../../inet4.5/src/inet/common/packet/chunk/Chunk.h:
 ../../inet4.5/src/inet/common/MemoryInputStream.h:
-../../inet4.5/src/inet/linklayer/common/MacAddress.h:
-../../inet4.5/src/inet/networklayer/contract/ipv4/Ipv4Address.h:
-../../inet4.5/src/inet/networklayer/contract/ipv6/Ipv6Address.h:
-../../inet4.5/src/inet/networklayer/common/InterfaceToken.h:
 ../../inet4.5/src/inet/common/MemoryOutputStream.h:
 ../../inet4.5/src/inet/common/TemporarySharedPtr.h:
 ../../inet4.5/src/inet/common/packet/tag/IRegionTaggedObject.h:
@@ -154,16 +170,10 @@
 ../../inet4.5/src/inet/common/packet/chunk/FieldsChunk.h:
 ../../inet4.5/src/inet/common/packet/chunk/SequenceChunk.h:
 ../../inet4.5/src/inet/common/packet/chunk/SliceChunk.h:
-../../inet4.5/src/inet/networklayer/common/IpProtocolId_m.h:
 ../../inet4.5/src/inet/networklayer/contract/NetworkHeaderBase_m.h:
 ../../inet4.5/src/inet/common/ProtocolTag_m.h:
 ../../inet4.5/src/inet/common/Protocol_m.h:
 ../../inet4.5/src/inet/common/Protocol.h:
-../../inet4.5/src/inet/networklayer/common/L3Address_m.h:
-../../inet4.5/src/inet/networklayer/common/L3Address.h:
-../../inet4.5/src/inet/networklayer/common/ModuleIdAddress.h:
-../../inet4.5/src/inet/networklayer/common/ModulePathAddress.h:
-../../inet4.5/src/inet/networklayer/contract/clns/ClnsAddress.h:
 ../../inet4.5/src/inet/networklayer/contract/ipv4/Ipv4Address_m.h:
 ../../inet4.5/src/inet/transportlayer/common/CrcMode_m.h:
 ../../inet4.5/src/inet/common/ProtocolGroup.h:
@@ -180,7 +190,6 @@ transportlayer/tcp/MpTcp.h:
 ../../inet4.5/src/inet/common/lifecycle/OperationalBase.h:
 ../../inet4.5/src/inet/common/lifecycle/OperationalMixin.h:
 ../../inet4.5/src/inet/common/lifecycle/ILifecycle.h:
-../../inet4.5/src/inet/transportlayer/contract/tcp/TcpCommand_m.h:
 ../../inet4.5/src/inet/transportlayer/tcp_common/TcpCrcInsertionHook.h:
 ../../inet4.5/src/inet/networklayer/contract/INetfilter.h:
 ../../inet4.5/src/inet/common/stlutils.h:
@@ -222,4 +231,11 @@ transportlayer/tcp/../../../../tcpPaced/src/transportlayer/tcp/flavours/../TcpPa
 transportlayer/tcp/MpTcpConnection.h:
 ../../inet4.5/src/inet/common/socket/SocketMap.h:
 ../../inet4.5/src/inet/common/socket/ISocket.h:
+transportlayer/tcp/MpTcpConnectionBase.h:
+../../inet4.5/src/inet/transportlayer/tcp/TcpSendQueue.h:
+../../inet4.5/src/inet/common/packet/ChunkQueue.h:
+../../inet4.5/src/inet/transportlayer/tcp/TcpReceiveQueue.h:
+../../inet4.5/src/inet/common/packet/ReorderBuffer.h:
+../../inet4.5/src/inet/common/packet/ChunkBuffer.h:
+../../inet4.5/src/inet/transportlayer/tcp/TcpSackRexmitQueue.h:
 transportlayer/tcp/SubflowConnection.h:

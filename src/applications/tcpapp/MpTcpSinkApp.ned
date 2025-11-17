@@ -14,7 +14,8 @@ import inet.applications.tcpapp.TcpSinkApp;
 //
 module MpTcpSinkApp extends TcpSinkApp
 {
-    
+	parameters:
+        @class(inet::MpTcpSinkApp);
 }
 
 

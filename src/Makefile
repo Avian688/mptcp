@@ -33,12 +33,21 @@ OBJS = \
     $O/applications/tcpapp/MpTcpSinkApp.o \
     $O/transportlayer/tcp/MpTcp.o \
     $O/transportlayer/tcp/MpTcpConnection.o \
+    $O/transportlayer/tcp/MpTcpConnectionBase.o \
     $O/transportlayer/tcp/SubflowConnection.o \
-    $O/transportlayer/tcp/TcpOpenSubflowCommand_m.o
+    $O/transportlayer/tcp/flavours/MpTcpCubicBase.o \
+    $O/transportlayer/tcp/flavours/MpTcpFamily.o \
+    $O/transportlayer/tcp/flavours/MpTcpMetaCubic.o \
+    $O/transportlayer/tcp/flavours/MpTcpSubflowCubic.o \
+    $O/common/DataSequenceNumberTag_m.o \
+    $O/transportlayer/tcp/TcpOpenSubflowCommand_m.o \
+    $O/transportlayer/tcp/flavours/MpTcpCubicState_m.o
 
 # Message files
 MSGFILES = \
-    transportlayer/tcp/TcpOpenSubflowCommand.msg
+    common/DataSequenceNumberTag.msg \
+    transportlayer/tcp/TcpOpenSubflowCommand.msg \
+    transportlayer/tcp/flavours/MpTcpCubicState.msg
 
 # SM files
 SMFILES =

@@ -14,7 +14,7 @@
 // 
 
 #include "inet/common/socket/SocketTag_m.h"
-
+#include "TcpOpenSubflowCommand_m.h"
 #include <inet/networklayer/ipv4/Ipv4Header_m.h>
 
 #include "MpTcp.h"
@@ -39,22 +39,21 @@ void MpTcp::initialize(int stage)
     if (stage == INITSTAGE_LOCAL) {
         baseConnectionStarted = false;
         mainSocketId = -1;
+        masterCreated = false;
     }
 }
 
 void MpTcp::handleUpperCommand(cMessage *msg)
 {
-    std::cout << "\n Step 1.1 getting socket tag" << endl;
     int socketId = check_and_cast<ITaggedObject *>(msg)->getTags().getTag<SocketReq>()->getSocketId();
-    std::cout << "\n Step 1.2 getting socket tag" << endl;
     TcpConnection *conn = findConnForApp(socketId);
 
     if (!conn) {
         if(!baseConnectionStarted){
-            conn = createConnection(socketId);
+            conn = createConnection(socketId); //Creating Meta Socket
         }
         else{
-            conn = createSubflowConnection(socketId);
+            conn = createSubflowConnection(socketId, L3Address(), L3Address(), 0, 0);
         }
 
         // add into appConnMap here; it'll be added to connMap during processing
@@ -65,7 +64,7 @@ void MpTcp::handleUpperCommand(cMessage *msg)
     }
 
     if (!conn->processAppCommand(msg)){
-        std::cout << "\n REMOVING CONNECTION AT SIMTIME: " << simTime() << endl;
+        std::cout << "\n REMOVING CONNECTION: " << conn->getClassAndFullName() << endl;
         std::cout << "\n MSG: " << msg->str() << endl;
         removeConnection(conn);
     }
@@ -83,98 +82,27 @@ TcpConnection* MpTcp::createConnection(int socketId)
     return module;
 }
 
-TcpConnection* MpTcp::createSubflowConnection(int socketId)
+TcpConnection* MpTcp::createSubflowConnection(int socketId, L3Address src, L3Address dest, int srcPort, int destPort)
 {
+    bool isMaster = false;
+    if(!masterCreated){
+        isMaster = true;
+        masterCreated = false;
+    }
     auto moduleType = cModuleType::get("mptcp.transportlayer.tcp.SubflowConnection");
     char submoduleName[24];
     sprintf(submoduleName, "conn-%d", socketId);
-    auto module = check_and_cast<TcpConnection*>(moduleType->createScheduleInit(submoduleName, this));
-    module->initConnection(this, socketId);
+    auto module = check_and_cast<SubflowConnection*>(moduleType->createScheduleInit(submoduleName, this));
+    MpTcpConnection* metaConn = check_and_cast<MpTcpConnection*>(tcpAppConnMap[mainSocketId]);
+    module->initSubflowConnection(this, socketId, metaConn, isMaster);
+    metaConn->addSubflow(module);
+
     return module;
 }
 
-void MpTcp::handleLowerPacket(Packet *packet)
+MpTcpConnection* MpTcp::getMetaConnection()
 {
-    auto protocol = packet->getTag<PacketProtocolTag>()->getProtocol();
-    if (protocol == &Protocol::tcp) {
-        if (!checkCrc(packet)) {
-            EV_WARN << "Tcp segment has wrong CRC, dropped\n";
-            PacketDropDetails details;
-            details.setReason(INCORRECTLY_RECEIVED);
-            emit(packetDroppedSignal, packet, &details);
-            delete packet;
-            return;
-        }
-
-        // must be a TcpHeader
-        auto tcpHeader = packet->peekAtFront<TcpHeader>();
-
-        // get src/dest addresses
-        L3Address srcAddr, destAddr;
-        srcAddr = packet->getTag<L3AddressInd>()->getSrcAddress();
-        destAddr = packet->getTag<L3AddressInd>()->getDestAddress();
-        int ecn = 0;
-        if (auto ecnTag = packet->findTag<EcnInd>())
-            ecn = ecnTag->getExplicitCongestionNotification();
-        ASSERT(ecn != -1);
-
-        // process segment
-        SubflowConnection *conn = dynamic_cast<SubflowConnection*>(findConnForSegment(tcpHeader, srcAddr, destAddr));
-        //RECEIVER - If conn is not found, you need to create a new sublo
-        if (conn) {
-            TcpStateVariables *state = conn->getState();
-            if (state && state->ect) {
-                // This may be true only in receiver side. According to RFC 3168, page 20:
-                // pure acknowledgement packets (e.g., packets that do not contain
-                // any accompanying data) MUST be sent with the not-ECT codepoint.
-                state->gotCeIndication = (ecn == 3);
-            }
-
-            bool ret = conn->processTCPSegment(packet, tcpHeader, srcAddr, destAddr);
-            if (!ret)
-                removeConnection(conn);
-        }
-        else {
-            //We need to create a socket, and then pass that socket ID here!
-            std::cout << "\n Step 2.1 getting socket tag" << endl;
-            int socketId = tcpHeader->getTag<SocketReq>()->getSocketId();
-            //Now create socket given this socket ID
-            if(socketId){
-                std::cout << "\n Step 2.2" << endl;
-                conn = check_and_cast<SubflowConnection*>(createSubflowConnection(socketId));
-                tcpAppConnMap[socketId] = conn;
-                std::cout << "\n SOCKET ID: " << socketId << endl;
-                //TcpConnection *conn = findConnForSegment(tcpHeader, srcAddr, destAddr);
-                TcpStateVariables *state = conn->getState();
-                conn->openNewSocket(mainSocketId);
-                std::cout << "\n Step 2.3" << endl;
-                if (state && state->ect) {
-                    // This may be true only in receiver side. According to RFC 3168, page 20:
-                    // pure acknowledgement packets (e.g., packets that do not contain
-                    // any accompanying data) MUST be sent with the not-ECT codepoint.
-                    state->gotCeIndication = (ecn == 3);
-                }
-                std::cout << "\n Step 2.4" << endl;
-                std::cout << "\n srcAddr " << srcAddr << endl;
-                std::cout << "\n destAddr " << destAddr <<  endl;
-
-                //bool ret = conn->processTCPSegment(packet, tcpHeader, srcAddr, destAddr);
-                std::cout << "\n Step 2.5" << endl;
-                //if (!ret)
-                //    removeConnection(conn);
-
-            }
-            else{
-                segmentArrivalWhileClosed(packet, tcpHeader, srcAddr, destAddr);
-            }
-        }
-    }
-    else if (protocol == &Protocol::icmpv4 || protocol == &Protocol::icmpv6) {
-        EV_DETAIL << "ICMP error received -- discarding\n"; // FIXME can ICMP packets really make it up to Tcp???
-        delete packet;
-    }
-    else
-        throw cRuntimeError("Unknown protocol: '%s'", (protocol != nullptr ? protocol->getName() : "<nullptr>"));
+ return check_and_cast<MpTcpConnection*>(tcpAppConnMap[mainSocketId]);
 }
 
 }
