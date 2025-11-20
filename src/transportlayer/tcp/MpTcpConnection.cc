@@ -46,6 +46,7 @@ void MpTcpConnection::process_OPEN_ACTIVE(TcpEventCode& event, TcpCommand *tcpCo
             remoteAddr = openCmd->getRemoteAddr();
             localPort = openCmd->getLocalPort();
             remotePort = openCmd->getRemotePort();
+            state->sack_support = false;
 
             if (remoteAddr.isUnspecified() || remotePort == -1)
                 throw cRuntimeError(tcpMain, "Error processing command OPEN_ACTIVE: remote address and port must be specified");

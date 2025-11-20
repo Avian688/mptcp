@@ -652,6 +652,53 @@ void SubflowConnection::enqueueDataFromMeta(uint32_t bytes)
     sendQueue->enqueueAppData(msg);
 }
 
+bool SubflowConnection::sendDataDuringLossRecovery(uint32_t congestionWindow)
+{
+    bool sentData = false;
+    // RFC 3517 pages 7 and 8: "(5) In order to take advantage of potential additional available
+    // cwnd, proceed to step (C) below.
+    // (...)
+    // (C) If cwnd - pipe >= 1 SMSS the sender SHOULD transmit one or more
+    // segments as follows:
+    // (...)
+    // (C.5) If cwnd - pipe >= 1 SMSS, return to (C.1)"
+    uint32_t availableWindow = (state->pipe > congestionWindow) ? 0 : congestionWindow - state->pipe;
+    if (availableWindow >= (int)state->snd_mss) { // Note: Typecast needed to avoid prohibited transmissions
+        // RFC 3517 pages 7 and 8: "(C.1) The scoreboard MUST be queried via NextSeg () for the
+        // sequence number range of the next segment to transmit (if any),
+        // and the given segment sent.  If NextSeg () returns failure (no
+        // data to send) return without sending anything (i.e., terminate
+        // steps C.1 -- C.5)."
+
+        uint32_t seqNum;
+
+        if (!nextSeg(seqNum, state->lossRecovery)){ // if nextSeg() returns false (=failure): terminate steps C.1 -- C.5
+            sentData = false;
+        }
+
+        if(sentData == false){
+            enqueueDataFromMeta(state->snd_mss);
+            if (!nextSeg(seqNum, state->lossRecovery)){ // if nextSeg() returns false (=failure): terminate steps C.1 -- C.5
+                return false;
+            }
+        }
+
+        uint32_t sentBytes = sendSegmentDuringLossRecoveryPhase(seqNum);
+
+        if(sentBytes > 0){
+            return true;
+        }
+        else{
+            return false;
+        }
+        //m_bytesInFlight += sentBytes;
+        // RFC 3517 page 8: "(C.4) The estimate of the amount of data outstanding in the
+        // network must be updated by incrementing pipe by the number of
+        // octets transmitted in (C.1)."
+    }
+    return false;
+}
+
 void SubflowConnection::invokeSendCommand()
 {
     tcpAlgorithm->sendCommandInvoked();
