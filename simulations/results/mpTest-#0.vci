@@ -1,9 +1,9 @@
                                                                 
 version 3
-run mpTest-0-20251119-17:47:54-46996
+run mpTest-0-20251121-15:38:14-15465
 attr configname mpTest
-attr datetime 20251119-17:47:54
-attr datetimef 20251119-174754
+attr datetime 20251121-15:38:14
+attr datetimef 20251121-153814
 attr experiment mpTest
 attr inifile mpTest.ini
 attr iterationvars ""
@@ -11,7 +11,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network singledumbbell
-attr processid 46996
+attr processid 15465
 attr repetition 0
 attr replication #0
 attr resultdir results
@@ -1761,10 +1761,4 @@ attr interpolationmode sample-hold
 attr recordingmode vector(removeRepeats)
 vector 410 singledumbbell.client[0].tcp.conn-10 paceValue ETV
 vector 411 singledumbbell.client[0].tcp.conn-9 paceValue ETV
-4	85855 124265 0 10240 0 0.031136063712 4838 0 432 1092883 327935267
-44	210120 9 0 0 0 0 1 0 0 0 0
-83	210129 9 0 0 0 0 1 0 0 0 0
-103	210138 10 0 0 0 0 1 0 0 0 0
-135	210148 10 0 0 0 0 1 0 0 0 0
-155	210158 10 0 0 0 0 1 0 0 0 0
-4	210168 1296 10243 10351 0.031136226912 0.031164998112 48 431 432 20712 8937240
+103	85855 974222 0 555906 0 2.099116647712 32768 0 432 13642084 5817920124

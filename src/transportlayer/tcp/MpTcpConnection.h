@@ -59,10 +59,14 @@ class MpTcpConnection : public MpTcpConnectionBase
     virtual uint32_t sendSegment(uint32_t bytes) override;
 
     /** Get data from the meta-scheduler for sending */
-    virtual uint32_t getMetaSegment(uint32_t bytes);
+    virtual uint32_t getSegment(uint32_t bytes);
 
     /** Identifies this class as the meta connection */
     virtual bool isMeta() const override { return true; }
+
+    virtual uint32_t getBytesAvailable();
+
+    virtual uint32_t getSndMax();
 
   protected:
     /** Meta connection state machine states */

@@ -70,6 +70,8 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual void invokeSendCommand();
 
+    virtual bool nextSeg(uint32_t& seqNum, bool isRecovery) override;
+
   protected:
     MpTcpConnection *metaConn = nullptr;  // Pointer to meta connection
     bool isMaster = false;                 // True for initial subflow

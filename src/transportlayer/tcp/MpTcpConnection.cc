@@ -480,16 +480,29 @@ uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
    return 0;
 }
 
-uint32_t MpTcpConnection::getMetaSegment(uint32_t bytes)
+uint32_t MpTcpConnection::getSegment(uint32_t bytes)
 {
     uint32_t bytesAvailable = sendQueue->getBytesAvailable(state->snd_nxt);
     if(bytesAvailable <= bytes){
+        state->snd_nxt += bytesAvailable;
         return bytesAvailable;
     }
     else{
+        state->snd_nxt += bytes;
         return bytes;
     }
 }
+
+uint32_t MpTcpConnection::getBytesAvailable()
+{
+    return sendQueue->getBytesAvailable(state->snd_max);
+}
+
+uint32_t MpTcpConnection::getSndMax()
+{
+    return state->snd_max;
+}
+
 
 }
 }
