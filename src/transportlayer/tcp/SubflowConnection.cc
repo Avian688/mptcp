@@ -586,7 +586,7 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     state->snd_nxt += metaBytes;
 
     if(!isRetransmission){ // Must be from meta socket.
-
+        metaConn->sendSegment(metaBytes);
     }
 
 
@@ -782,8 +782,20 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
     // HighData+1 MUST be returned."
     {
         if(metaConn->nextUnsentSeg(seqNum)){
-            enqueueDataFromMeta(state->snd_mss);
             isRetransmission = false;
+
+            uint32_t buffered = sendQueue->getBytesAvailable(state->snd_max);
+            if(buffered <= 0){
+                enqueueDataFromMeta(state->snd_mss); //TODO Run Packet scheduler and see if any other subflows need/can send packets
+            }
+            uint32_t maxWindow = state->snd_wnd;
+            // effectiveWindow: number of bytes we're allowed to send now
+            uint32_t effectiveWin = maxWindow - state->pipe;
+            if (effectiveWin >= state->snd_mss) {
+                seqNum = state->snd_max; // HighData = snd_max
+                return true;
+            }
+
             return true;
         }
     }

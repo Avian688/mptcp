@@ -1,0 +1,1091 @@
+version 3
+run mpTest-0-20251124-16:52:01-43154
+attr configname mpTest
+attr datetime 20251124-16:52:01
+attr datetimef 20251124-165201
+attr experiment mpTest
+attr inifile mpTest.ini
+attr iterationvars ""
+attr iterationvarsd ""
+attr iterationvarsf ""
+attr measurement ""
+attr network singledumbbell
+attr processid 43154
+attr repetition 0
+attr replication #0
+attr resultdir results
+attr runnumber 0
+attr seedset 0
+config debug-on-errors true
+config image-path ../../inet4.5/images
+config extends General
+config **.numberOfFlows 1
+config *.client[0].app[0].connectAddress "\"server[0]\""
+config *.client[0].app[0].tOpen 0.00846919251197291s
+config *.client[0].app[0].tSend 0.00846919251197291s
+config *.client[0].app[0].sendBytes 2GB
+config **.ppp[*].queue.packetCapacity 10
+config network singledumbbell
+config sim-time-limit 2s
+config record-eventlog false
+config cmdenv-express-mode true
+config cmdenv-redirect-output false
+config cmdenv-output-file dctcpLog.txt
+config **.client*.tcp.conn-8.cmdenv-log-level detail
+config cmdenv-log-prefix "%t | %m |"
+config cmdenv-event-banners false
+config **.cmdenv-log-level off
+config **.**.tcp.conn-*.cwnd:vector(removeRepeats).vector-recording true
+config **.**.tcp.conn-*.rtt:vector(removeRepeats).vector-recording true
+config **.**.tcp.conn-*.srtt:vector(removeRepeats).vector-recording true
+config **.**.tcp.conn-*.throughput:vector(removeRepeats).vector-recording true
+config **.**.tcp.conn-*.**.result-recording-modes vector(removeRepeats)
+config **.**.queue.queueLength:vector(removeRepeats).vector-recording true
+config **.**.queue.queueLength.result-recording-modes vector(removeRepeats)
+config **.**.goodput:vector(removeRepeats).vector-recording true
+config **.**.goodput.result-recording-modes vector(removeRepeats)
+config **.**.bandwidth:vector(removeRepeats).vector-recording true
+config **.**.bandwidth.result-recording-modes vector(removeRepeats)
+config **.**.mbytesInFlight:vector(removeRepeats).vector-recording true
+config **.**.mbytesInFlight.result-recording-modes vector(removeRepeats)
+config **.scalar-recording false
+config **.vector-recording true
+config **.bin-recording false
+config **.goodputInterval 1s
+config **.throughputInterval 1s
+config **.tcp.typename MpTcp
+config **.tcp.tcpAlgorithmClass "\"MpTcpMetaCubic\""
+config **.tcp.advertisedWindow 200000000
+config **.tcp.windowScalingSupport true
+config **.tcp.windowScalingFactor -1
+config **.tcp.increasedIWEnabled true
+config **.tcp.delayedAcksEnabled false
+config **.tcp.timestampSupport true
+config **.tcp.ecnWillingness false
+config **.tcp.nagleEnabled true
+config **.tcp.stopOperationTimeout 4000s
+config **.tcp.mss 1448
+config **.tcp.sackSupport true
+config **.client[*].numApps 1
+config **.client[*].app[*].typename MpTcpSessionApp
+config *.client[*].app[0].tClose -1s
+config *.client[*].app[0].sendBytes 2GB
+config *.client[*].app[0].dataTransferMode "\"bytecount\""
+config *.client[*].app[0].statistic-recording true
+config **.server[*].numApps 1
+config **.server[*].app[*].typename MpTcpSinkApp
+config **.server[*].app[*].serverThreadModuleType "\"tcpgoodputapplications.applications.tcpapp.TcpGoodputSinkAppThread\""
+config **.**.queue.typename DropTailQueue
+config **.additiveIncreasePercent 0.05
+config **.eta 0.95
+config **.alpha 0.01
+config **.fixedAvgRTTVal 0
+config **.tcp.initialSsthresh 5792000
+
+par singledumbbell.client[0].pppg$o[0].channel typename "\"mptcp.simulations.singledumbbell.standardLine\""
+par singledumbbell.client[0].pppg$o[0].channel disabled false
+attr mutable ""
+par singledumbbell.client[0].pppg$o[0].channel delay 0.00475s
+attr mutable ""
+attr unit s
+par singledumbbell.client[0].pppg$o[0].channel datarate 1e+10bps
+attr mutable ""
+attr unit bps
+par singledumbbell.client[0].pppg$o[0].channel ber 0
+attr mutable ""
+par singledumbbell.client[0].pppg$o[0].channel per 0
+attr mutable ""
+par singledumbbell.router1.pppg$o[0].channel typename "\"mptcp.simulations.singledumbbell.standardLine\""
+par singledumbbell.router1.pppg$o[0].channel disabled false
+attr mutable ""
+par singledumbbell.router1.pppg$o[0].channel delay 0.00475s
+attr mutable ""
+attr unit s
+par singledumbbell.router1.pppg$o[0].channel datarate 1e+10bps
+attr mutable ""
+attr unit bps
+par singledumbbell.router1.pppg$o[0].channel ber 0
+attr mutable ""
+par singledumbbell.router1.pppg$o[0].channel per 0
+attr mutable ""
+par singledumbbell.server[0].pppg$o[0].channel typename "\"mptcp.simulations.singledumbbell.standardLine\""
+par singledumbbell.server[0].pppg$o[0].channel disabled false
+attr mutable ""
+par singledumbbell.server[0].pppg$o[0].channel delay 0.00475s
+attr mutable ""
+attr unit s
+par singledumbbell.server[0].pppg$o[0].channel datarate 1e+10bps
+attr mutable ""
+attr unit bps
+par singledumbbell.server[0].pppg$o[0].channel ber 0
+attr mutable ""
+par singledumbbell.server[0].pppg$o[0].channel per 0
+attr mutable ""
+par singledumbbell.router2.pppg$o[0].channel typename "\"mptcp.simulations.singledumbbell.standardLine\""
+par singledumbbell.router2.pppg$o[0].channel disabled false
+attr mutable ""
+par singledumbbell.router2.pppg$o[0].channel delay 0.00475s
+attr mutable ""
+attr unit s
+par singledumbbell.router2.pppg$o[0].channel datarate 1e+10bps
+attr mutable ""
+attr unit bps
+par singledumbbell.router2.pppg$o[0].channel ber 0
+attr mutable ""
+par singledumbbell.router2.pppg$o[0].channel per 0
+attr mutable ""
+par singledumbbell.router1.pppg$o[1].channel typename "\"mptcp.simulations.singledumbbell.bottleneckLine\""
+par singledumbbell.router1.pppg$o[1].channel disabled false
+attr mutable ""
+par singledumbbell.router1.pppg$o[1].channel delay 0.0005s
+attr mutable ""
+attr unit s
+par singledumbbell.router1.pppg$o[1].channel datarate 5e+07bps
+attr mutable ""
+attr unit bps
+par singledumbbell.router1.pppg$o[1].channel ber 0
+attr mutable ""
+par singledumbbell.router1.pppg$o[1].channel per 0
+attr mutable ""
+par singledumbbell.router2.pppg$o[1].channel typename "\"mptcp.simulations.singledumbbell.bottleneckLine\""
+par singledumbbell.router2.pppg$o[1].channel disabled false
+attr mutable ""
+par singledumbbell.router2.pppg$o[1].channel delay 0.0005s
+attr mutable ""
+attr unit s
+par singledumbbell.router2.pppg$o[1].channel datarate 5e+07bps
+attr mutable ""
+attr unit bps
+par singledumbbell.router2.pppg$o[1].channel ber 0
+attr mutable ""
+par singledumbbell.router2.pppg$o[1].channel per 0
+attr mutable ""
+par singledumbbell.client[0].pppg$i[0].channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].ppp[0].phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].interfaceTable typename "\"inet.networklayer.common.InterfaceTable\""
+par singledumbbell.client[0].interfaceTable displayAddresses false
+par singledumbbell.client[0].cb typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.client[0].cb displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.client[0].cb forwardServiceRegistration true
+par singledumbbell.client[0].cb forwardProtocolRegistration true
+par singledumbbell.client[0].bl typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.client[0].bl displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.client[0].bl forwardServiceRegistration true
+par singledumbbell.client[0].bl forwardProtocolRegistration true
+par singledumbbell.client[0].li typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.client[0].li displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.client[0].li forwardServiceRegistration true
+par singledumbbell.client[0].li forwardProtocolRegistration true
+par singledumbbell.client[0].lo[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].lo[0].lo.upperLayerOut.channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].lo[0].lo typename "\"inet.linklayer.loopback.Loopback\""
+par singledumbbell.client[0].lo[0].lo interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].lo[0].lo mtu 4470B
+attr unit B
+par singledumbbell.client[0].lo[0] typename "\"inet.linklayer.loopback.LoopbackInterface\""
+par singledumbbell.client[0].lo[0] displayStringTextFormat "\"%a (%i)\\n%m\""
+par singledumbbell.client[0].lo[0] recordPcap false
+par singledumbbell.client[0].lo[0] numPcapRecorders 0
+par singledumbbell.client[0].lo[0] interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].ppp[0].phys$i.channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].ppp[0].ppp.phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].ppp[0].ppp.upperLayerOut.channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].ppp[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].ppp[0].queue typename "\"inet.queueing.queue.DropTailQueue\""
+par singledumbbell.client[0].ppp[0].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
+par singledumbbell.client[0].ppp[0].queue packetCapacity 10
+par singledumbbell.client[0].ppp[0].queue dataCapacity -1b
+attr unit b
+par singledumbbell.client[0].ppp[0].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
+par singledumbbell.client[0].ppp[0].queue comparatorClass "\"\""
+par singledumbbell.client[0].ppp[0].queue bufferModule "\"\""
+par singledumbbell.client[0].ppp[0].ppp typename "\"inet.linklayer.ppp.Ppp\""
+par singledumbbell.client[0].ppp[0].ppp interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].ppp[0].ppp displayStringTextFormat "\"rate: %b\\nsent: %s, rcvd: %r\\nqueue: %q, drop: %d\""
+par singledumbbell.client[0].ppp[0].ppp sendRawBytes false
+par singledumbbell.client[0].ppp[0].ppp mtu 4470B
+attr unit B
+par singledumbbell.client[0].ppp[0].ppp stopOperationExtraTime -1s
+attr unit s
+par singledumbbell.client[0].ppp[0].ppp stopOperationTimeout 2s
+attr unit s
+par singledumbbell.client[0].ppp[0] typename "\"inet.linklayer.ppp.PppInterface\""
+par singledumbbell.client[0].ppp[0] displayStringTextFormat "\"%a (%i)\\n%m\""
+par singledumbbell.client[0].ppp[0] recordPcap false
+par singledumbbell.client[0].ppp[0] numPcapRecorders 0
+par singledumbbell.client[0].ppp[0] interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].ipv4.transportIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].ipv4.up.out[0].channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].ipv4.lp.out[2].channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].ipv4.ifIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.client[0].ipv4.configurator typename "\"inet.networklayer.configurator.ipv4.Ipv4NodeConfigurator\""
+par singledumbbell.client[0].ipv4.configurator interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].ipv4.configurator routingTableModule "\"singledumbbell.client[0].ipv4.routingTable\""
+par singledumbbell.client[0].ipv4.configurator networkConfiguratorModule "\"configurator\""
+par singledumbbell.client[0].ipv4.configurator configureRoutingTable true
+par singledumbbell.client[0].ipv4.routingTable typename "\"inet.networklayer.ipv4.Ipv4RoutingTable\""
+par singledumbbell.client[0].ipv4.routingTable interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].ipv4.routingTable routerId "\"auto\""
+par singledumbbell.client[0].ipv4.routingTable netmaskRoutes "\"*\""
+par singledumbbell.client[0].ipv4.routingTable forwarding false
+par singledumbbell.client[0].ipv4.routingTable multicastForwarding false
+par singledumbbell.client[0].ipv4.routingTable useAdminDist false
+par singledumbbell.client[0].ipv4.routingTable routingFile "\"\""
+par singledumbbell.client[0].ipv4.natTable typename "\"inet.networklayer.ipv4.Ipv4NatTable\""
+par singledumbbell.client[0].ipv4.natTable networkProtocolModule "\"^.ip\""
+par singledumbbell.client[0].ipv4.natTable config "<config/> at content:1"
+par singledumbbell.client[0].ipv4.up typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.client[0].ipv4.up displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.client[0].ipv4.up forwardServiceRegistration true
+par singledumbbell.client[0].ipv4.up forwardProtocolRegistration true
+par singledumbbell.client[0].ipv4.igmp typename "\"inet.networklayer.ipv4.Igmpv2\""
+par singledumbbell.client[0].ipv4.igmp interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].ipv4.igmp routingTableModule "\"singledumbbell.client[0].ipv4.routingTable\""
+par singledumbbell.client[0].ipv4.igmp crcMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.client[0].ipv4.igmp enabled true
+par singledumbbell.client[0].ipv4.igmp robustnessVariable 2
+par singledumbbell.client[0].ipv4.igmp queryInterval 125s
+attr unit s
+par singledumbbell.client[0].ipv4.igmp queryResponseInterval 10s
+attr unit s
+par singledumbbell.client[0].ipv4.igmp groupMembershipInterval 260s
+attr unit s
+par singledumbbell.client[0].ipv4.igmp otherQuerierPresentInterval 255s
+attr unit s
+par singledumbbell.client[0].ipv4.igmp startupQueryInterval 31.25s
+attr unit s
+par singledumbbell.client[0].ipv4.igmp startupQueryCount 2
+par singledumbbell.client[0].ipv4.igmp lastMemberQueryInterval 1s
+attr unit s
+par singledumbbell.client[0].ipv4.igmp lastMemberQueryCount 2
+par singledumbbell.client[0].ipv4.igmp unsolicitedReportInterval 10s
+attr unit s
+par singledumbbell.client[0].ipv4.icmp typename "\"inet.networklayer.ipv4.Icmp\""
+par singledumbbell.client[0].ipv4.icmp interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].ipv4.icmp routingTableModule "\"singledumbbell.client[0].ipv4.routingTable\""
+par singledumbbell.client[0].ipv4.icmp crcMode "\"declared\""
+attr enum declared,computed
+attr mutable ""
+par singledumbbell.client[0].ipv4.icmp quoteLength 8B
+attr mutable ""
+attr unit B
+par singledumbbell.client[0].ipv4.mp typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.client[0].ipv4.mp displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.client[0].ipv4.mp forwardServiceRegistration true
+par singledumbbell.client[0].ipv4.mp forwardProtocolRegistration true
+par singledumbbell.client[0].ipv4.ip typename "\"inet.networklayer.ipv4.Ipv4\""
+par singledumbbell.client[0].ipv4.ip interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].ipv4.ip routingTableModule "\"singledumbbell.client[0].ipv4.routingTable\""
+par singledumbbell.client[0].ipv4.ip arpModule "\"singledumbbell.client[0].ipv4.arp\""
+par singledumbbell.client[0].ipv4.ip icmpModule "\"singledumbbell.client[0].ipv4.icmp\""
+par singledumbbell.client[0].ipv4.ip crcMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.client[0].ipv4.ip timeToLive 32
+par singledumbbell.client[0].ipv4.ip multicastTimeToLive 32
+par singledumbbell.client[0].ipv4.ip fragmentTimeout 60s
+attr unit s
+par singledumbbell.client[0].ipv4.ip limitedBroadcast false
+par singledumbbell.client[0].ipv4.ip directBroadcastInterfaces "\"\""
+par singledumbbell.client[0].ipv4.arp typename "\"inet.networklayer.arp.ipv4.Arp\""
+par singledumbbell.client[0].ipv4.arp interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].ipv4.arp routingTableModule "\"singledumbbell.client[0].ipv4.routingTable\""
+par singledumbbell.client[0].ipv4.arp retryTimeout 1s
+attr unit s
+par singledumbbell.client[0].ipv4.arp retryCount 3
+par singledumbbell.client[0].ipv4.arp cacheTimeout 120s
+attr unit s
+par singledumbbell.client[0].ipv4.arp proxyArpInterfaces "\"\""
+par singledumbbell.client[0].ipv4.lp typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.client[0].ipv4.lp displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.client[0].ipv4.lp forwardServiceRegistration true
+par singledumbbell.client[0].ipv4.lp forwardProtocolRegistration true
+par singledumbbell.client[0].ipv4 typename "\"inet.networklayer.ipv4.Ipv4NetworkLayer\""
+par singledumbbell.client[0].ipv4 forwarding false
+par singledumbbell.client[0].ipv4 multicastForwarding false
+par singledumbbell.client[0].ipv4 interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].ipv4 displayStringTextFormat "\"%i\""
+par singledumbbell.client[0].nl typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.client[0].nl displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.client[0].nl forwardServiceRegistration true
+par singledumbbell.client[0].nl forwardProtocolRegistration true
+par singledumbbell.client[0].udp typename "\"inet.transportlayer.udp.Udp\""
+par singledumbbell.client[0].udp interfaceTableModule "\"singledumbbell.client[0].interfaceTable\""
+par singledumbbell.client[0].udp icmpModule "\"^.ipv4.icmp\""
+par singledumbbell.client[0].udp icmpv6Module "\"^.ipv6.icmpv6\""
+par singledumbbell.client[0].udp crcMode "\"declared\""
+attr enum disabled,declared,computed
+par singledumbbell.client[0].udp defaultMulticastLoop true
+par singledumbbell.client[0].tcp.conn-9 typename "\"mptcp.transportlayer.tcp.MpTcpConnection\""
+par singledumbbell.client[0].tcp.conn-10 typename "\"mptcp.transportlayer.tcp.SubflowConnection\""
+par singledumbbell.client[0].tcp typename "\"mptcp.transportlayer.tcp.MpTcp\""
+par singledumbbell.client[0].tcp crcMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.client[0].tcp advertisedWindow 200000000
+par singledumbbell.client[0].tcp delayedAcksEnabled false
+par singledumbbell.client[0].tcp nagleEnabled true
+par singledumbbell.client[0].tcp limitedTransmitEnabled false
+par singledumbbell.client[0].tcp increasedIWEnabled true
+par singledumbbell.client[0].tcp sackSupport true
+par singledumbbell.client[0].tcp windowScalingSupport true
+par singledumbbell.client[0].tcp windowScalingFactor -1
+par singledumbbell.client[0].tcp timestampSupport true
+par singledumbbell.client[0].tcp mss 1448
+par singledumbbell.client[0].tcp msl 120s
+attr unit s
+par singledumbbell.client[0].tcp tcpAlgorithmClass "\"MpTcpMetaCubic\""
+par singledumbbell.client[0].tcp useDataNotification false
+par singledumbbell.client[0].tcp dupthresh 3
+par singledumbbell.client[0].tcp initialSsthresh 5792000
+par singledumbbell.client[0].tcp stopOperationExtraTime 0s
+attr unit s
+par singledumbbell.client[0].tcp stopOperationTimeout 4000s
+attr unit s
+par singledumbbell.client[0].tcp ecnWillingness false
+par singledumbbell.client[0].tcp dctcpGamma 0.0625
+par singledumbbell.client[0].tcp throughputInterval 1s
+attr unit s
+par singledumbbell.client[0].tn typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.client[0].tn displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.client[0].tn forwardServiceRegistration true
+par singledumbbell.client[0].tn forwardProtocolRegistration true
+par singledumbbell.client[0].app[0] typename "\"mptcp.applications.tcpapp.MpTcpSessionApp\""
+par singledumbbell.client[0].app[0] localAddress "\"\""
+par singledumbbell.client[0].app[0] localPort -1
+par singledumbbell.client[0].app[0] active true
+par singledumbbell.client[0].app[0] connectAddress "\"server[0]\""
+par singledumbbell.client[0].app[0] connectPort 1000
+par singledumbbell.client[0].app[0] dataTransferMode "\"bytecount\""
+attr enum bytecount,object,bytestream
+par singledumbbell.client[0].app[0] tOpen 0.00846919s
+attr unit s
+par singledumbbell.client[0].app[0] tSend 0.00846919s
+attr unit s
+par singledumbbell.client[0].app[0] sendBytes 2000000000B
+attr unit B
+par singledumbbell.client[0].app[0] sendScript "\"\""
+par singledumbbell.client[0].app[0] tClose -1s
+attr unit s
+par singledumbbell.client[0].app[0] timeToLive -1
+par singledumbbell.client[0].app[0] dscp -1
+par singledumbbell.client[0].app[0] tos -1
+par singledumbbell.client[0].app[0] stopOperationExtraTime -1s
+attr unit s
+par singledumbbell.client[0].app[0] stopOperationTimeout 2s
+attr unit s
+par singledumbbell.client[0].at typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.client[0].at displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.client[0].at forwardServiceRegistration true
+par singledumbbell.client[0].at forwardProtocolRegistration true
+par singledumbbell.client[0] typename "\"inet.node.inet.StandardHost\""
+par singledumbbell.client[0] hasStatus false
+par singledumbbell.client[0] osgModel "\"\""
+par singledumbbell.client[0] osgModelColor "\"\""
+par singledumbbell.client[0] canvasImage "\"\""
+par singledumbbell.client[0] canvasImageColor "\"\""
+par singledumbbell.client[0] recordPcap false
+par singledumbbell.client[0] numPcapRecorders 0
+par singledumbbell.client[0] numLoInterfaces 1
+par singledumbbell.client[0] numWlanInterfaces 0
+par singledumbbell.client[0] numEthInterfaces 0
+par singledumbbell.client[0] numPppInterfaces 0
+par singledumbbell.client[0] numTunInterfaces 0
+par singledumbbell.client[0] numVirtInterfaces 0
+par singledumbbell.client[0] fcsMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.client[0] hasIpv4 true
+par singledumbbell.client[0] hasIpv6 false
+par singledumbbell.client[0] hasGn false
+par singledumbbell.client[0] forwarding false
+par singledumbbell.client[0] multicastForwarding false
+par singledumbbell.client[0] hasUdp true
+par singledumbbell.client[0] hasTcp true
+par singledumbbell.client[0] hasSctp false
+par singledumbbell.client[0] numApps 1
+par singledumbbell.configurator typename "\"tcppaced.networklayer.configurator.ipv4.AutoNetworkConfigurator\""
+par singledumbbell.configurator minLinkWeight 0.001
+par singledumbbell.configurator configureIsolatedNetworksSeparatly false
+par singledumbbell.configurator config "<config>...</config> at content:1"
+par singledumbbell.configurator assignAddresses true
+par singledumbbell.configurator assignUniqueAddresses true
+par singledumbbell.configurator assignDisjunctSubnetAddresses true
+par singledumbbell.configurator addStaticRoutes true
+par singledumbbell.configurator addDefaultRoutes true
+par singledumbbell.configurator addSubnetRoutes true
+par singledumbbell.configurator addDirectRoutes true
+par singledumbbell.configurator optimizeRoutes true
+par singledumbbell.configurator dumpTopology false
+par singledumbbell.configurator dumpLinks false
+par singledumbbell.configurator dumpAddresses false
+par singledumbbell.configurator dumpRoutes false
+par singledumbbell.configurator dumpConfig "\"\""
+par singledumbbell.configurator updateInterval 0.001s
+attr unit s
+par singledumbbell.server[0].pppg$i[0].channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].ppp[0].phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].interfaceTable typename "\"inet.networklayer.common.InterfaceTable\""
+par singledumbbell.server[0].interfaceTable displayAddresses false
+par singledumbbell.server[0].cb typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.server[0].cb displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.server[0].cb forwardServiceRegistration true
+par singledumbbell.server[0].cb forwardProtocolRegistration true
+par singledumbbell.server[0].bl typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.server[0].bl displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.server[0].bl forwardServiceRegistration true
+par singledumbbell.server[0].bl forwardProtocolRegistration true
+par singledumbbell.server[0].li typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.server[0].li displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.server[0].li forwardServiceRegistration true
+par singledumbbell.server[0].li forwardProtocolRegistration true
+par singledumbbell.server[0].lo[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].lo[0].lo.upperLayerOut.channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].lo[0].lo typename "\"inet.linklayer.loopback.Loopback\""
+par singledumbbell.server[0].lo[0].lo interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].lo[0].lo mtu 4470B
+attr unit B
+par singledumbbell.server[0].lo[0] typename "\"inet.linklayer.loopback.LoopbackInterface\""
+par singledumbbell.server[0].lo[0] displayStringTextFormat "\"%a (%i)\\n%m\""
+par singledumbbell.server[0].lo[0] recordPcap false
+par singledumbbell.server[0].lo[0] numPcapRecorders 0
+par singledumbbell.server[0].lo[0] interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].ppp[0].phys$i.channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].ppp[0].ppp.phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].ppp[0].ppp.upperLayerOut.channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].ppp[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].ppp[0].queue typename "\"inet.queueing.queue.DropTailQueue\""
+par singledumbbell.server[0].ppp[0].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
+par singledumbbell.server[0].ppp[0].queue packetCapacity 10
+par singledumbbell.server[0].ppp[0].queue dataCapacity -1b
+attr unit b
+par singledumbbell.server[0].ppp[0].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
+par singledumbbell.server[0].ppp[0].queue comparatorClass "\"\""
+par singledumbbell.server[0].ppp[0].queue bufferModule "\"\""
+par singledumbbell.server[0].ppp[0].ppp typename "\"inet.linklayer.ppp.Ppp\""
+par singledumbbell.server[0].ppp[0].ppp interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].ppp[0].ppp displayStringTextFormat "\"rate: %b\\nsent: %s, rcvd: %r\\nqueue: %q, drop: %d\""
+par singledumbbell.server[0].ppp[0].ppp sendRawBytes false
+par singledumbbell.server[0].ppp[0].ppp mtu 4470B
+attr unit B
+par singledumbbell.server[0].ppp[0].ppp stopOperationExtraTime -1s
+attr unit s
+par singledumbbell.server[0].ppp[0].ppp stopOperationTimeout 2s
+attr unit s
+par singledumbbell.server[0].ppp[0] typename "\"inet.linklayer.ppp.PppInterface\""
+par singledumbbell.server[0].ppp[0] displayStringTextFormat "\"%a (%i)\\n%m\""
+par singledumbbell.server[0].ppp[0] recordPcap false
+par singledumbbell.server[0].ppp[0] numPcapRecorders 0
+par singledumbbell.server[0].ppp[0] interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].ipv4.transportIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].ipv4.up.out[0].channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].ipv4.lp.out[2].channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].ipv4.ifIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.server[0].ipv4.configurator typename "\"inet.networklayer.configurator.ipv4.Ipv4NodeConfigurator\""
+par singledumbbell.server[0].ipv4.configurator interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].ipv4.configurator routingTableModule "\"singledumbbell.server[0].ipv4.routingTable\""
+par singledumbbell.server[0].ipv4.configurator networkConfiguratorModule "\"configurator\""
+par singledumbbell.server[0].ipv4.configurator configureRoutingTable true
+par singledumbbell.server[0].ipv4.routingTable typename "\"inet.networklayer.ipv4.Ipv4RoutingTable\""
+par singledumbbell.server[0].ipv4.routingTable interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].ipv4.routingTable routerId "\"auto\""
+par singledumbbell.server[0].ipv4.routingTable netmaskRoutes "\"*\""
+par singledumbbell.server[0].ipv4.routingTable forwarding false
+par singledumbbell.server[0].ipv4.routingTable multicastForwarding false
+par singledumbbell.server[0].ipv4.routingTable useAdminDist false
+par singledumbbell.server[0].ipv4.routingTable routingFile "\"\""
+par singledumbbell.server[0].ipv4.natTable typename "\"inet.networklayer.ipv4.Ipv4NatTable\""
+par singledumbbell.server[0].ipv4.natTable networkProtocolModule "\"^.ip\""
+par singledumbbell.server[0].ipv4.natTable config "<config/> at content:1"
+par singledumbbell.server[0].ipv4.up typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.server[0].ipv4.up displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.server[0].ipv4.up forwardServiceRegistration true
+par singledumbbell.server[0].ipv4.up forwardProtocolRegistration true
+par singledumbbell.server[0].ipv4.igmp typename "\"inet.networklayer.ipv4.Igmpv2\""
+par singledumbbell.server[0].ipv4.igmp interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].ipv4.igmp routingTableModule "\"singledumbbell.server[0].ipv4.routingTable\""
+par singledumbbell.server[0].ipv4.igmp crcMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.server[0].ipv4.igmp enabled true
+par singledumbbell.server[0].ipv4.igmp robustnessVariable 2
+par singledumbbell.server[0].ipv4.igmp queryInterval 125s
+attr unit s
+par singledumbbell.server[0].ipv4.igmp queryResponseInterval 10s
+attr unit s
+par singledumbbell.server[0].ipv4.igmp groupMembershipInterval 260s
+attr unit s
+par singledumbbell.server[0].ipv4.igmp otherQuerierPresentInterval 255s
+attr unit s
+par singledumbbell.server[0].ipv4.igmp startupQueryInterval 31.25s
+attr unit s
+par singledumbbell.server[0].ipv4.igmp startupQueryCount 2
+par singledumbbell.server[0].ipv4.igmp lastMemberQueryInterval 1s
+attr unit s
+par singledumbbell.server[0].ipv4.igmp lastMemberQueryCount 2
+par singledumbbell.server[0].ipv4.igmp unsolicitedReportInterval 10s
+attr unit s
+par singledumbbell.server[0].ipv4.icmp typename "\"inet.networklayer.ipv4.Icmp\""
+par singledumbbell.server[0].ipv4.icmp interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].ipv4.icmp routingTableModule "\"singledumbbell.server[0].ipv4.routingTable\""
+par singledumbbell.server[0].ipv4.icmp crcMode "\"declared\""
+attr enum declared,computed
+attr mutable ""
+par singledumbbell.server[0].ipv4.icmp quoteLength 8B
+attr mutable ""
+attr unit B
+par singledumbbell.server[0].ipv4.mp typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.server[0].ipv4.mp displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.server[0].ipv4.mp forwardServiceRegistration true
+par singledumbbell.server[0].ipv4.mp forwardProtocolRegistration true
+par singledumbbell.server[0].ipv4.ip typename "\"inet.networklayer.ipv4.Ipv4\""
+par singledumbbell.server[0].ipv4.ip interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].ipv4.ip routingTableModule "\"singledumbbell.server[0].ipv4.routingTable\""
+par singledumbbell.server[0].ipv4.ip arpModule "\"singledumbbell.server[0].ipv4.arp\""
+par singledumbbell.server[0].ipv4.ip icmpModule "\"singledumbbell.server[0].ipv4.icmp\""
+par singledumbbell.server[0].ipv4.ip crcMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.server[0].ipv4.ip timeToLive 32
+par singledumbbell.server[0].ipv4.ip multicastTimeToLive 32
+par singledumbbell.server[0].ipv4.ip fragmentTimeout 60s
+attr unit s
+par singledumbbell.server[0].ipv4.ip limitedBroadcast false
+par singledumbbell.server[0].ipv4.ip directBroadcastInterfaces "\"\""
+par singledumbbell.server[0].ipv4.arp typename "\"inet.networklayer.arp.ipv4.Arp\""
+par singledumbbell.server[0].ipv4.arp interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].ipv4.arp routingTableModule "\"singledumbbell.server[0].ipv4.routingTable\""
+par singledumbbell.server[0].ipv4.arp retryTimeout 1s
+attr unit s
+par singledumbbell.server[0].ipv4.arp retryCount 3
+par singledumbbell.server[0].ipv4.arp cacheTimeout 120s
+attr unit s
+par singledumbbell.server[0].ipv4.arp proxyArpInterfaces "\"\""
+par singledumbbell.server[0].ipv4.lp typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.server[0].ipv4.lp displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.server[0].ipv4.lp forwardServiceRegistration true
+par singledumbbell.server[0].ipv4.lp forwardProtocolRegistration true
+par singledumbbell.server[0].ipv4 typename "\"inet.networklayer.ipv4.Ipv4NetworkLayer\""
+par singledumbbell.server[0].ipv4 forwarding false
+par singledumbbell.server[0].ipv4 multicastForwarding false
+par singledumbbell.server[0].ipv4 interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].ipv4 displayStringTextFormat "\"%i\""
+par singledumbbell.server[0].nl typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.server[0].nl displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.server[0].nl forwardServiceRegistration true
+par singledumbbell.server[0].nl forwardProtocolRegistration true
+par singledumbbell.server[0].udp typename "\"inet.transportlayer.udp.Udp\""
+par singledumbbell.server[0].udp interfaceTableModule "\"singledumbbell.server[0].interfaceTable\""
+par singledumbbell.server[0].udp icmpModule "\"^.ipv4.icmp\""
+par singledumbbell.server[0].udp icmpv6Module "\"^.ipv6.icmpv6\""
+par singledumbbell.server[0].udp crcMode "\"declared\""
+attr enum disabled,declared,computed
+par singledumbbell.server[0].udp defaultMulticastLoop true
+par singledumbbell.server[0].tcp.conn-1 typename "\"mptcp.transportlayer.tcp.MpTcpConnection\""
+par singledumbbell.server[0].tcp.conn-8 typename "\"mptcp.transportlayer.tcp.SubflowConnection\""
+par singledumbbell.server[0].tcp typename "\"mptcp.transportlayer.tcp.MpTcp\""
+par singledumbbell.server[0].tcp crcMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.server[0].tcp advertisedWindow 200000000
+par singledumbbell.server[0].tcp delayedAcksEnabled false
+par singledumbbell.server[0].tcp nagleEnabled true
+par singledumbbell.server[0].tcp limitedTransmitEnabled false
+par singledumbbell.server[0].tcp increasedIWEnabled true
+par singledumbbell.server[0].tcp sackSupport true
+par singledumbbell.server[0].tcp windowScalingSupport true
+par singledumbbell.server[0].tcp windowScalingFactor -1
+par singledumbbell.server[0].tcp timestampSupport true
+par singledumbbell.server[0].tcp mss 1448
+par singledumbbell.server[0].tcp msl 120s
+attr unit s
+par singledumbbell.server[0].tcp tcpAlgorithmClass "\"MpTcpMetaCubic\""
+par singledumbbell.server[0].tcp useDataNotification false
+par singledumbbell.server[0].tcp dupthresh 3
+par singledumbbell.server[0].tcp initialSsthresh 5792000
+par singledumbbell.server[0].tcp stopOperationExtraTime 0s
+attr unit s
+par singledumbbell.server[0].tcp stopOperationTimeout 4000s
+attr unit s
+par singledumbbell.server[0].tcp ecnWillingness false
+par singledumbbell.server[0].tcp dctcpGamma 0.0625
+par singledumbbell.server[0].tcp throughputInterval 1s
+attr unit s
+par singledumbbell.server[0].tn typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.server[0].tn displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.server[0].tn forwardServiceRegistration true
+par singledumbbell.server[0].tn forwardProtocolRegistration true
+par singledumbbell.server[0].app[0].thread_8 typename "\"tcpgoodputapplications.applications.tcpapp.TcpGoodputSinkAppThread\""
+par singledumbbell.server[0].app[0].thread_8 goodputInterval 1s
+attr unit s
+par singledumbbell.server[0].app[0] typename "\"mptcp.applications.tcpapp.MpTcpSinkApp\""
+par singledumbbell.server[0].app[0] localAddress "\"\""
+par singledumbbell.server[0].app[0] localPort 1000
+par singledumbbell.server[0].app[0] serverThreadModuleType "\"tcpgoodputapplications.applications.tcpapp.TcpGoodputSinkAppThread\""
+par singledumbbell.server[0].app[0] stopOperationExtraTime -1s
+attr unit s
+par singledumbbell.server[0].app[0] stopOperationTimeout 2s
+attr unit s
+par singledumbbell.server[0].at typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.server[0].at displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.server[0].at forwardServiceRegistration true
+par singledumbbell.server[0].at forwardProtocolRegistration true
+par singledumbbell.server[0] typename "\"inet.node.inet.StandardHost\""
+par singledumbbell.server[0] hasStatus false
+par singledumbbell.server[0] osgModel "\"\""
+par singledumbbell.server[0] osgModelColor "\"\""
+par singledumbbell.server[0] canvasImage "\"\""
+par singledumbbell.server[0] canvasImageColor "\"\""
+par singledumbbell.server[0] recordPcap false
+par singledumbbell.server[0] numPcapRecorders 0
+par singledumbbell.server[0] numLoInterfaces 1
+par singledumbbell.server[0] numWlanInterfaces 0
+par singledumbbell.server[0] numEthInterfaces 0
+par singledumbbell.server[0] numPppInterfaces 0
+par singledumbbell.server[0] numTunInterfaces 0
+par singledumbbell.server[0] numVirtInterfaces 0
+par singledumbbell.server[0] fcsMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.server[0] hasIpv4 true
+par singledumbbell.server[0] hasIpv6 false
+par singledumbbell.server[0] hasGn false
+par singledumbbell.server[0] forwarding false
+par singledumbbell.server[0] multicastForwarding false
+par singledumbbell.server[0] hasUdp true
+par singledumbbell.server[0] hasTcp true
+par singledumbbell.server[0] hasSctp false
+par singledumbbell.server[0] numApps 1
+par singledumbbell.router1.pppg$i[0].channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ppp[0].phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.pppg$i[1].channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ppp[1].phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.interfaceTable typename "\"inet.networklayer.common.InterfaceTable\""
+par singledumbbell.router1.interfaceTable displayAddresses false
+par singledumbbell.router1.cb typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router1.cb displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router1.cb forwardServiceRegistration true
+par singledumbbell.router1.cb forwardProtocolRegistration true
+par singledumbbell.router1.bl typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router1.bl displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router1.bl forwardServiceRegistration true
+par singledumbbell.router1.bl forwardProtocolRegistration true
+par singledumbbell.router1.li typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router1.li displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router1.li forwardServiceRegistration true
+par singledumbbell.router1.li forwardProtocolRegistration true
+par singledumbbell.router1.lo[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.lo[0].lo.upperLayerOut.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.lo[0].lo typename "\"inet.linklayer.loopback.Loopback\""
+par singledumbbell.router1.lo[0].lo interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.lo[0].lo mtu 4470B
+attr unit B
+par singledumbbell.router1.lo[0] typename "\"inet.linklayer.loopback.LoopbackInterface\""
+par singledumbbell.router1.lo[0] displayStringTextFormat "\"%a (%i)\\n%m\""
+par singledumbbell.router1.lo[0] recordPcap false
+par singledumbbell.router1.lo[0] numPcapRecorders 0
+par singledumbbell.router1.lo[0] interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ppp[0].phys$i.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ppp[0].ppp.phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ppp[0].ppp.upperLayerOut.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ppp[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ppp[0].queue typename "\"inet.queueing.queue.DropTailQueue\""
+par singledumbbell.router1.ppp[0].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
+par singledumbbell.router1.ppp[0].queue packetCapacity 10
+par singledumbbell.router1.ppp[0].queue dataCapacity -1b
+attr unit b
+par singledumbbell.router1.ppp[0].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
+par singledumbbell.router1.ppp[0].queue comparatorClass "\"\""
+par singledumbbell.router1.ppp[0].queue bufferModule "\"\""
+par singledumbbell.router1.ppp[0].ppp typename "\"inet.linklayer.ppp.Ppp\""
+par singledumbbell.router1.ppp[0].ppp interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ppp[0].ppp displayStringTextFormat "\"rate: %b\\nsent: %s, rcvd: %r\\nqueue: %q, drop: %d\""
+par singledumbbell.router1.ppp[0].ppp sendRawBytes false
+par singledumbbell.router1.ppp[0].ppp mtu 4470B
+attr unit B
+par singledumbbell.router1.ppp[0].ppp stopOperationExtraTime -1s
+attr unit s
+par singledumbbell.router1.ppp[0].ppp stopOperationTimeout 2s
+attr unit s
+par singledumbbell.router1.ppp[0] typename "\"inet.linklayer.ppp.PppInterface\""
+par singledumbbell.router1.ppp[0] displayStringTextFormat "\"%a (%i)\\n%m\""
+par singledumbbell.router1.ppp[0] recordPcap false
+par singledumbbell.router1.ppp[0] numPcapRecorders 0
+par singledumbbell.router1.ppp[0] interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ppp[1].phys$i.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ppp[1].ppp.phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ppp[1].ppp.upperLayerOut.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ppp[1].upperLayerIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ppp[1].queue typename "\"inet.queueing.queue.DropTailQueue\""
+par singledumbbell.router1.ppp[1].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
+par singledumbbell.router1.ppp[1].queue packetCapacity 10
+par singledumbbell.router1.ppp[1].queue dataCapacity -1b
+attr unit b
+par singledumbbell.router1.ppp[1].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
+par singledumbbell.router1.ppp[1].queue comparatorClass "\"\""
+par singledumbbell.router1.ppp[1].queue bufferModule "\"\""
+par singledumbbell.router1.ppp[1].ppp typename "\"inet.linklayer.ppp.Ppp\""
+par singledumbbell.router1.ppp[1].ppp interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ppp[1].ppp displayStringTextFormat "\"rate: %b\\nsent: %s, rcvd: %r\\nqueue: %q, drop: %d\""
+par singledumbbell.router1.ppp[1].ppp sendRawBytes false
+par singledumbbell.router1.ppp[1].ppp mtu 4470B
+attr unit B
+par singledumbbell.router1.ppp[1].ppp stopOperationExtraTime -1s
+attr unit s
+par singledumbbell.router1.ppp[1].ppp stopOperationTimeout 2s
+attr unit s
+par singledumbbell.router1.ppp[1] typename "\"inet.linklayer.ppp.PppInterface\""
+par singledumbbell.router1.ppp[1] displayStringTextFormat "\"%a (%i)\\n%m\""
+par singledumbbell.router1.ppp[1] recordPcap false
+par singledumbbell.router1.ppp[1] numPcapRecorders 0
+par singledumbbell.router1.ppp[1] interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ipv4.transportIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ipv4.up.out[0].channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ipv4.lp.out[2].channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ipv4.ifIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router1.ipv4.configurator typename "\"inet.networklayer.configurator.ipv4.Ipv4NodeConfigurator\""
+par singledumbbell.router1.ipv4.configurator interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ipv4.configurator routingTableModule "\"singledumbbell.router1.ipv4.routingTable\""
+par singledumbbell.router1.ipv4.configurator networkConfiguratorModule "\"configurator\""
+par singledumbbell.router1.ipv4.configurator configureRoutingTable true
+par singledumbbell.router1.ipv4.routingTable typename "\"inet.networklayer.ipv4.Ipv4RoutingTable\""
+par singledumbbell.router1.ipv4.routingTable interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ipv4.routingTable routerId "\"auto\""
+par singledumbbell.router1.ipv4.routingTable netmaskRoutes "\"*\""
+par singledumbbell.router1.ipv4.routingTable forwarding true
+par singledumbbell.router1.ipv4.routingTable multicastForwarding false
+par singledumbbell.router1.ipv4.routingTable useAdminDist false
+par singledumbbell.router1.ipv4.routingTable routingFile "\"\""
+par singledumbbell.router1.ipv4.natTable typename "\"inet.networklayer.ipv4.Ipv4NatTable\""
+par singledumbbell.router1.ipv4.natTable networkProtocolModule "\"^.ip\""
+par singledumbbell.router1.ipv4.natTable config "<config/> at content:1"
+par singledumbbell.router1.ipv4.up typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router1.ipv4.up displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router1.ipv4.up forwardServiceRegistration true
+par singledumbbell.router1.ipv4.up forwardProtocolRegistration true
+par singledumbbell.router1.ipv4.igmp typename "\"inet.networklayer.ipv4.Igmpv2\""
+par singledumbbell.router1.ipv4.igmp interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ipv4.igmp routingTableModule "\"singledumbbell.router1.ipv4.routingTable\""
+par singledumbbell.router1.ipv4.igmp crcMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.router1.ipv4.igmp enabled true
+par singledumbbell.router1.ipv4.igmp robustnessVariable 2
+par singledumbbell.router1.ipv4.igmp queryInterval 125s
+attr unit s
+par singledumbbell.router1.ipv4.igmp queryResponseInterval 10s
+attr unit s
+par singledumbbell.router1.ipv4.igmp groupMembershipInterval 260s
+attr unit s
+par singledumbbell.router1.ipv4.igmp otherQuerierPresentInterval 255s
+attr unit s
+par singledumbbell.router1.ipv4.igmp startupQueryInterval 31.25s
+attr unit s
+par singledumbbell.router1.ipv4.igmp startupQueryCount 2
+par singledumbbell.router1.ipv4.igmp lastMemberQueryInterval 1s
+attr unit s
+par singledumbbell.router1.ipv4.igmp lastMemberQueryCount 2
+par singledumbbell.router1.ipv4.igmp unsolicitedReportInterval 10s
+attr unit s
+par singledumbbell.router1.ipv4.icmp typename "\"inet.networklayer.ipv4.Icmp\""
+par singledumbbell.router1.ipv4.icmp interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ipv4.icmp routingTableModule "\"singledumbbell.router1.ipv4.routingTable\""
+par singledumbbell.router1.ipv4.icmp crcMode "\"declared\""
+attr enum declared,computed
+attr mutable ""
+par singledumbbell.router1.ipv4.icmp quoteLength 8B
+attr mutable ""
+attr unit B
+par singledumbbell.router1.ipv4.mp typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router1.ipv4.mp displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router1.ipv4.mp forwardServiceRegistration true
+par singledumbbell.router1.ipv4.mp forwardProtocolRegistration true
+par singledumbbell.router1.ipv4.ip typename "\"inet.networklayer.ipv4.Ipv4\""
+par singledumbbell.router1.ipv4.ip interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ipv4.ip routingTableModule "\"singledumbbell.router1.ipv4.routingTable\""
+par singledumbbell.router1.ipv4.ip arpModule "\"singledumbbell.router1.ipv4.arp\""
+par singledumbbell.router1.ipv4.ip icmpModule "\"singledumbbell.router1.ipv4.icmp\""
+par singledumbbell.router1.ipv4.ip crcMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.router1.ipv4.ip timeToLive 32
+par singledumbbell.router1.ipv4.ip multicastTimeToLive 32
+par singledumbbell.router1.ipv4.ip fragmentTimeout 60s
+attr unit s
+par singledumbbell.router1.ipv4.ip limitedBroadcast false
+par singledumbbell.router1.ipv4.ip directBroadcastInterfaces "\"\""
+par singledumbbell.router1.ipv4.arp typename "\"inet.networklayer.arp.ipv4.Arp\""
+par singledumbbell.router1.ipv4.arp interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ipv4.arp routingTableModule "\"singledumbbell.router1.ipv4.routingTable\""
+par singledumbbell.router1.ipv4.arp retryTimeout 1s
+attr unit s
+par singledumbbell.router1.ipv4.arp retryCount 3
+par singledumbbell.router1.ipv4.arp cacheTimeout 120s
+attr unit s
+par singledumbbell.router1.ipv4.arp proxyArpInterfaces "\"*\""
+par singledumbbell.router1.ipv4.lp typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router1.ipv4.lp displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router1.ipv4.lp forwardServiceRegistration true
+par singledumbbell.router1.ipv4.lp forwardProtocolRegistration true
+par singledumbbell.router1.ipv4 typename "\"inet.networklayer.ipv4.Ipv4NetworkLayer\""
+par singledumbbell.router1.ipv4 forwarding true
+par singledumbbell.router1.ipv4 multicastForwarding false
+par singledumbbell.router1.ipv4 interfaceTableModule "\"singledumbbell.router1.interfaceTable\""
+par singledumbbell.router1.ipv4 displayStringTextFormat "\"%i\""
+par singledumbbell.router1.nl typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router1.nl displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router1.nl forwardServiceRegistration true
+par singledumbbell.router1.nl forwardProtocolRegistration true
+par singledumbbell.router1.tn typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router1.tn displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router1.tn forwardServiceRegistration true
+par singledumbbell.router1.tn forwardProtocolRegistration true
+par singledumbbell.router1.at typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router1.at displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router1.at forwardServiceRegistration true
+par singledumbbell.router1.at forwardProtocolRegistration true
+par singledumbbell.router1 typename "\"inet.node.inet.Router\""
+par singledumbbell.router1 hasStatus false
+par singledumbbell.router1 osgModel "\"\""
+par singledumbbell.router1 osgModelColor "\"\""
+par singledumbbell.router1 canvasImage "\"\""
+par singledumbbell.router1 canvasImageColor "\"\""
+par singledumbbell.router1 recordPcap false
+par singledumbbell.router1 numPcapRecorders 0
+par singledumbbell.router1 numLoInterfaces 1
+par singledumbbell.router1 numWlanInterfaces 0
+par singledumbbell.router1 numEthInterfaces 0
+par singledumbbell.router1 numPppInterfaces 0
+par singledumbbell.router1 numTunInterfaces 0
+par singledumbbell.router1 numVirtInterfaces 0
+par singledumbbell.router1 fcsMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.router1 hasIpv4 true
+par singledumbbell.router1 hasIpv6 false
+par singledumbbell.router1 hasGn false
+par singledumbbell.router1 forwarding true
+par singledumbbell.router1 multicastForwarding false
+par singledumbbell.router1 hasUdp false
+par singledumbbell.router1 hasTcp false
+par singledumbbell.router1 hasSctp false
+par singledumbbell.router1 numApps 0
+par singledumbbell.router1 hasEigrp false
+par singledumbbell.router1 hasOspf false
+par singledumbbell.router1 hasRip false
+par singledumbbell.router1 hasBgp false
+par singledumbbell.router1 hasPim false
+par singledumbbell.router1 hasDhcp false
+par singledumbbell.router2.pppg$i[0].channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ppp[0].phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.pppg$i[1].channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ppp[1].phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.interfaceTable typename "\"inet.networklayer.common.InterfaceTable\""
+par singledumbbell.router2.interfaceTable displayAddresses false
+par singledumbbell.router2.cb typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router2.cb displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router2.cb forwardServiceRegistration true
+par singledumbbell.router2.cb forwardProtocolRegistration true
+par singledumbbell.router2.bl typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router2.bl displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router2.bl forwardServiceRegistration true
+par singledumbbell.router2.bl forwardProtocolRegistration true
+par singledumbbell.router2.li typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router2.li displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router2.li forwardServiceRegistration true
+par singledumbbell.router2.li forwardProtocolRegistration true
+par singledumbbell.router2.lo[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.lo[0].lo.upperLayerOut.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.lo[0].lo typename "\"inet.linklayer.loopback.Loopback\""
+par singledumbbell.router2.lo[0].lo interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.lo[0].lo mtu 4470B
+attr unit B
+par singledumbbell.router2.lo[0] typename "\"inet.linklayer.loopback.LoopbackInterface\""
+par singledumbbell.router2.lo[0] displayStringTextFormat "\"%a (%i)\\n%m\""
+par singledumbbell.router2.lo[0] recordPcap false
+par singledumbbell.router2.lo[0] numPcapRecorders 0
+par singledumbbell.router2.lo[0] interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ppp[0].phys$i.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ppp[0].ppp.phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ppp[0].ppp.upperLayerOut.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ppp[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ppp[0].queue typename "\"inet.queueing.queue.DropTailQueue\""
+par singledumbbell.router2.ppp[0].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
+par singledumbbell.router2.ppp[0].queue packetCapacity 10
+par singledumbbell.router2.ppp[0].queue dataCapacity -1b
+attr unit b
+par singledumbbell.router2.ppp[0].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
+par singledumbbell.router2.ppp[0].queue comparatorClass "\"\""
+par singledumbbell.router2.ppp[0].queue bufferModule "\"\""
+par singledumbbell.router2.ppp[0].ppp typename "\"inet.linklayer.ppp.Ppp\""
+par singledumbbell.router2.ppp[0].ppp interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ppp[0].ppp displayStringTextFormat "\"rate: %b\\nsent: %s, rcvd: %r\\nqueue: %q, drop: %d\""
+par singledumbbell.router2.ppp[0].ppp sendRawBytes false
+par singledumbbell.router2.ppp[0].ppp mtu 4470B
+attr unit B
+par singledumbbell.router2.ppp[0].ppp stopOperationExtraTime -1s
+attr unit s
+par singledumbbell.router2.ppp[0].ppp stopOperationTimeout 2s
+attr unit s
+par singledumbbell.router2.ppp[0] typename "\"inet.linklayer.ppp.PppInterface\""
+par singledumbbell.router2.ppp[0] displayStringTextFormat "\"%a (%i)\\n%m\""
+par singledumbbell.router2.ppp[0] recordPcap false
+par singledumbbell.router2.ppp[0] numPcapRecorders 0
+par singledumbbell.router2.ppp[0] interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ppp[1].phys$i.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ppp[1].ppp.phys$o.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ppp[1].ppp.upperLayerOut.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ppp[1].upperLayerIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ppp[1].queue typename "\"inet.queueing.queue.DropTailQueue\""
+par singledumbbell.router2.ppp[1].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
+par singledumbbell.router2.ppp[1].queue packetCapacity 10
+par singledumbbell.router2.ppp[1].queue dataCapacity -1b
+attr unit b
+par singledumbbell.router2.ppp[1].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
+par singledumbbell.router2.ppp[1].queue comparatorClass "\"\""
+par singledumbbell.router2.ppp[1].queue bufferModule "\"\""
+par singledumbbell.router2.ppp[1].ppp typename "\"inet.linklayer.ppp.Ppp\""
+par singledumbbell.router2.ppp[1].ppp interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ppp[1].ppp displayStringTextFormat "\"rate: %b\\nsent: %s, rcvd: %r\\nqueue: %q, drop: %d\""
+par singledumbbell.router2.ppp[1].ppp sendRawBytes false
+par singledumbbell.router2.ppp[1].ppp mtu 4470B
+attr unit B
+par singledumbbell.router2.ppp[1].ppp stopOperationExtraTime -1s
+attr unit s
+par singledumbbell.router2.ppp[1].ppp stopOperationTimeout 2s
+attr unit s
+par singledumbbell.router2.ppp[1] typename "\"inet.linklayer.ppp.PppInterface\""
+par singledumbbell.router2.ppp[1] displayStringTextFormat "\"%a (%i)\\n%m\""
+par singledumbbell.router2.ppp[1] recordPcap false
+par singledumbbell.router2.ppp[1] numPcapRecorders 0
+par singledumbbell.router2.ppp[1] interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ipv4.transportIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ipv4.up.out[0].channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ipv4.lp.out[2].channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ipv4.ifIn.channel typename "\"ned.IdealChannel\""
+par singledumbbell.router2.ipv4.configurator typename "\"inet.networklayer.configurator.ipv4.Ipv4NodeConfigurator\""
+par singledumbbell.router2.ipv4.configurator interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ipv4.configurator routingTableModule "\"singledumbbell.router2.ipv4.routingTable\""
+par singledumbbell.router2.ipv4.configurator networkConfiguratorModule "\"configurator\""
+par singledumbbell.router2.ipv4.configurator configureRoutingTable true
+par singledumbbell.router2.ipv4.routingTable typename "\"inet.networklayer.ipv4.Ipv4RoutingTable\""
+par singledumbbell.router2.ipv4.routingTable interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ipv4.routingTable routerId "\"auto\""
+par singledumbbell.router2.ipv4.routingTable netmaskRoutes "\"*\""
+par singledumbbell.router2.ipv4.routingTable forwarding true
+par singledumbbell.router2.ipv4.routingTable multicastForwarding false
+par singledumbbell.router2.ipv4.routingTable useAdminDist false
+par singledumbbell.router2.ipv4.routingTable routingFile "\"\""
+par singledumbbell.router2.ipv4.natTable typename "\"inet.networklayer.ipv4.Ipv4NatTable\""
+par singledumbbell.router2.ipv4.natTable networkProtocolModule "\"^.ip\""
+par singledumbbell.router2.ipv4.natTable config "<config/> at content:1"
+par singledumbbell.router2.ipv4.up typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router2.ipv4.up displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router2.ipv4.up forwardServiceRegistration true
+par singledumbbell.router2.ipv4.up forwardProtocolRegistration true
+par singledumbbell.router2.ipv4.igmp typename "\"inet.networklayer.ipv4.Igmpv2\""
+par singledumbbell.router2.ipv4.igmp interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ipv4.igmp routingTableModule "\"singledumbbell.router2.ipv4.routingTable\""
+par singledumbbell.router2.ipv4.igmp crcMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.router2.ipv4.igmp enabled true
+par singledumbbell.router2.ipv4.igmp robustnessVariable 2
+par singledumbbell.router2.ipv4.igmp queryInterval 125s
+attr unit s
+par singledumbbell.router2.ipv4.igmp queryResponseInterval 10s
+attr unit s
+par singledumbbell.router2.ipv4.igmp groupMembershipInterval 260s
+attr unit s
+par singledumbbell.router2.ipv4.igmp otherQuerierPresentInterval 255s
+attr unit s
+par singledumbbell.router2.ipv4.igmp startupQueryInterval 31.25s
+attr unit s
+par singledumbbell.router2.ipv4.igmp startupQueryCount 2
+par singledumbbell.router2.ipv4.igmp lastMemberQueryInterval 1s
+attr unit s
+par singledumbbell.router2.ipv4.igmp lastMemberQueryCount 2
+par singledumbbell.router2.ipv4.igmp unsolicitedReportInterval 10s
+attr unit s
+par singledumbbell.router2.ipv4.icmp typename "\"inet.networklayer.ipv4.Icmp\""
+par singledumbbell.router2.ipv4.icmp interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ipv4.icmp routingTableModule "\"singledumbbell.router2.ipv4.routingTable\""
+par singledumbbell.router2.ipv4.icmp crcMode "\"declared\""
+attr enum declared,computed
+attr mutable ""
+par singledumbbell.router2.ipv4.icmp quoteLength 8B
+attr mutable ""
+attr unit B
+par singledumbbell.router2.ipv4.mp typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router2.ipv4.mp displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router2.ipv4.mp forwardServiceRegistration true
+par singledumbbell.router2.ipv4.mp forwardProtocolRegistration true
+par singledumbbell.router2.ipv4.ip typename "\"inet.networklayer.ipv4.Ipv4\""
+par singledumbbell.router2.ipv4.ip interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ipv4.ip routingTableModule "\"singledumbbell.router2.ipv4.routingTable\""
+par singledumbbell.router2.ipv4.ip arpModule "\"singledumbbell.router2.ipv4.arp\""
+par singledumbbell.router2.ipv4.ip icmpModule "\"singledumbbell.router2.ipv4.icmp\""
+par singledumbbell.router2.ipv4.ip crcMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.router2.ipv4.ip timeToLive 32
+par singledumbbell.router2.ipv4.ip multicastTimeToLive 32
+par singledumbbell.router2.ipv4.ip fragmentTimeout 60s
+attr unit s
+par singledumbbell.router2.ipv4.ip limitedBroadcast false
+par singledumbbell.router2.ipv4.ip directBroadcastInterfaces "\"\""
+par singledumbbell.router2.ipv4.arp typename "\"inet.networklayer.arp.ipv4.Arp\""
+par singledumbbell.router2.ipv4.arp interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ipv4.arp routingTableModule "\"singledumbbell.router2.ipv4.routingTable\""
+par singledumbbell.router2.ipv4.arp retryTimeout 1s
+attr unit s
+par singledumbbell.router2.ipv4.arp retryCount 3
+par singledumbbell.router2.ipv4.arp cacheTimeout 120s
+attr unit s
+par singledumbbell.router2.ipv4.arp proxyArpInterfaces "\"*\""
+par singledumbbell.router2.ipv4.lp typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router2.ipv4.lp displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router2.ipv4.lp forwardServiceRegistration true
+par singledumbbell.router2.ipv4.lp forwardProtocolRegistration true
+par singledumbbell.router2.ipv4 typename "\"inet.networklayer.ipv4.Ipv4NetworkLayer\""
+par singledumbbell.router2.ipv4 forwarding true
+par singledumbbell.router2.ipv4 multicastForwarding false
+par singledumbbell.router2.ipv4 interfaceTableModule "\"singledumbbell.router2.interfaceTable\""
+par singledumbbell.router2.ipv4 displayStringTextFormat "\"%i\""
+par singledumbbell.router2.nl typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router2.nl displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router2.nl forwardServiceRegistration true
+par singledumbbell.router2.nl forwardProtocolRegistration true
+par singledumbbell.router2.tn typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router2.tn displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router2.tn forwardServiceRegistration true
+par singledumbbell.router2.tn forwardProtocolRegistration true
+par singledumbbell.router2.at typename "\"inet.common.MessageDispatcher\""
+par singledumbbell.router2.at displayStringTextFormat "\"processed %p pk (%l)\""
+par singledumbbell.router2.at forwardServiceRegistration true
+par singledumbbell.router2.at forwardProtocolRegistration true
+par singledumbbell.router2 typename "\"inet.node.inet.Router\""
+par singledumbbell.router2 hasStatus false
+par singledumbbell.router2 osgModel "\"\""
+par singledumbbell.router2 osgModelColor "\"\""
+par singledumbbell.router2 canvasImage "\"\""
+par singledumbbell.router2 canvasImageColor "\"\""
+par singledumbbell.router2 recordPcap false
+par singledumbbell.router2 numPcapRecorders 0
+par singledumbbell.router2 numLoInterfaces 1
+par singledumbbell.router2 numWlanInterfaces 0
+par singledumbbell.router2 numEthInterfaces 0
+par singledumbbell.router2 numPppInterfaces 0
+par singledumbbell.router2 numTunInterfaces 0
+par singledumbbell.router2 numVirtInterfaces 0
+par singledumbbell.router2 fcsMode "\"declared\""
+attr enum declared,computed
+par singledumbbell.router2 hasIpv4 true
+par singledumbbell.router2 hasIpv6 false
+par singledumbbell.router2 hasGn false
+par singledumbbell.router2 forwarding true
+par singledumbbell.router2 multicastForwarding false
+par singledumbbell.router2 hasUdp false
+par singledumbbell.router2 hasTcp false
+par singledumbbell.router2 hasSctp false
+par singledumbbell.router2 numApps 0
+par singledumbbell.router2 hasEigrp false
+par singledumbbell.router2 hasOspf false
+par singledumbbell.router2 hasRip false
+par singledumbbell.router2 hasBgp false
+par singledumbbell.router2 hasPim false
+par singledumbbell.router2 hasDhcp false
+par singledumbbell.scenarioManager typename "\"inet.common.scenario.ScenarioManager\""
+par singledumbbell.scenarioManager script "<script/> at content:1"
+par singledumbbell typename "\"mptcp.simulations.singledumbbell\""
+par singledumbbell numberOfFlows 1
+

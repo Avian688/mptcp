@@ -485,6 +485,7 @@ uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
     if (seqGreater(state->snd_nxt, state->snd_max))
             state->snd_max = state->snd_nxt;
 
+    emit(sndNxtSignal, state->snd_nxt);
     return 0;
 }
 
