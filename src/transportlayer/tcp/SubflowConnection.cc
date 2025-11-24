@@ -585,6 +585,11 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 
     state->snd_nxt += metaBytes;
 
+    if(!isRetransmission){ // Must be from meta socket.
+
+    }
+
+
     // check if afterRto bit can be reset
     if (state->afterRto && seqGE(state->snd_nxt, state->snd_max))
         state->afterRto = false;
@@ -648,7 +653,7 @@ void SubflowConnection::sendEstabIndicationToApp()
 
 void SubflowConnection::enqueueDataFromMeta(uint32_t bytes)
 {
-    if(metaConn->getMetaSegment(bytes) >=bytes) {
+    if(metaConn->getSegment(bytes) >= bytes) {
         Packet *msg = new Packet("Packet");
         const uint32_t packetSize = bytes;
         Ptr<Chunk> packetBytes = makeShared<ByteCountChunk>(B(packetSize));
@@ -659,7 +664,7 @@ void SubflowConnection::enqueueDataFromMeta(uint32_t bytes)
 
 bool SubflowConnection::sendDataDuringLossRecovery(uint32_t congestionWindow)
 {
-    bool sentData = false;
+    isRetransmission = false;
     // RFC 3517 pages 7 and 8: "(5) In order to take advantage of potential additional available
     // cwnd, proceed to step (C) below.
     // (...)
@@ -683,14 +688,7 @@ bool SubflowConnection::sendDataDuringLossRecovery(uint32_t congestionWindow)
         uint32_t seqNum;
 
         if (!nextSeg(seqNum, state->lossRecovery)){ // if nextSeg() returns false (=failure): terminate steps C.1 -- C.5
-            sentData = false;
-        }
-
-        if(sentData == false){
-            enqueueDataFromMeta(state->snd_mss);
-            if (!nextSeg(seqNum, state->lossRecovery)){ // if nextSeg() returns false (=failure): terminate steps C.1 -- C.5
-                return false;
-            }
+            return false;
         }
 
         uint32_t sentBytes = sendSegmentDuringLossRecoveryPhase(seqNum);
@@ -763,6 +761,7 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
                 //std::cout << "\n HIGHEST SACKED SEQ NUM: " << highestSackedSeqNum << endl;
                 //std::cout << "\n FOUND LOST PACKET: " << s2 << endl;
                 seqNum = s2;
+                isRetransmission = true;
                 return true;
             }
             else if(seqPerRule3 == 0 && isRecovery)
@@ -782,14 +781,9 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
     // octets of previously unsent data starting with sequence number
     // HighData+1 MUST be returned."
     {
-        // check how many unsent bytes we have
-        uint32_t buffered = metaConn->getBytesAvailable();
-        uint32_t maxWindow = state->snd_wnd;
-        // effectiveWindow: number of bytes we're allowed to send now
-        uint32_t effectiveWin = maxWindow - state->pipe;
-
-        if (buffered > 0 && effectiveWin >= state->snd_mss) {
-            seqNum = metaConn->getSndMax(); // HighData = snd_max
+        if(metaConn->nextUnsentSeg(seqNum)){
+            enqueueDataFromMeta(state->snd_mss);
+            isRetransmission = false;
             return true;
         }
     }
@@ -840,6 +834,7 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
         if(isSeqPerRule3Valid)
         {
             std::cout << "\n WEIRD EDGE CASE HAPPENING" << endl;
+            isRetransmission = true;
             seqNum = seqPerRule3;
             return true;
         }
@@ -857,6 +852,81 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
     seqNum = 0;
 
     return false;
+}
+
+uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
+{
+    //ASSERT(state->sack_enabled && state->lossRecovery);
+
+    if(!isRetransmission){ //Not retransmission, must be from meta socket
+        state->snd_nxt = seqNum = state->snd_max;
+    }
+    else{
+        // start sending from seqNum
+        state->snd_nxt = seqNum;
+    }
+
+    uint32_t old_highRxt = rexmitQueue->getHighestRexmittedSeqNum();
+
+    // no need to check cwnd and rwnd - has already be done before
+    // no need to check nagle - sending mss bytes
+    uint32_t sentBytes = sendSegment(state->snd_mss);
+
+    uint32_t sentSeqNum = seqNum + sentBytes;
+
+    if (state->send_fin && sentSeqNum == state->snd_fin_seq)
+        sentSeqNum = sentSeqNum + 1;
+
+    ASSERT(seqLE(state->snd_nxt, sentSeqNum));
+
+    // RFC 3517 page 8: "(C.2) If any of the data octets sent in (C.1) are below HighData,
+    // HighRxt MUST be set to the highest sequence number of the
+    // retransmitted segment."
+    if (seqLess(seqNum, state->snd_max)) { // HighData = snd_max
+        state->highRxt = rexmitQueue->getHighestRexmittedSeqNum();
+    }
+
+    // RFC 3517 page 8: "(C.3) If any of the data octets sent in (C.1) are above HighData,
+    // HighData must be updated to reflect the transmission of
+    // previously unsent data."
+    if (seqGreater(sentSeqNum, state->snd_max)) // HighData = snd_max
+        state->snd_max = sentSeqNum;
+
+    emit(unackedSignal, state->snd_max - state->snd_una);
+
+    // RFC 3517, page 9: "6   Managing the RTO Timer
+    //
+    // The standard TCP RTO estimator is defined in [RFC2988].  Due to the
+    // fact that the SACK algorithm in this document can have an impact on
+    // the behavior of the estimator, implementers may wish to consider how
+    // the timer is managed.  [RFC2988] calls for the RTO timer to be
+    // re-armed each time an ACK arrives that advances the cumulative ACK
+    // point.  Because the algorithm presented in this document can keep the
+    // ACK clock going through a fairly significant loss event,
+    // (comparatively longer than the algorithm described in [RFC2581]), on
+    // some networks the loss event could last longer than the RTO.  In this
+    // case the RTO timer would expire prematurely and a segment that need
+    // not be retransmitted would be resent.
+    //
+    // Therefore we give implementers the latitude to use the standard
+    // [RFC2988] style RTO management or, optionally, a more careful variant
+    // that re-arms the RTO timer on each retransmission that is sent during
+    // recovery MAY be used.  This provides a more conservative timer than
+    // specified in [RFC2988], and so may not always be an attractive
+    // alternative.  However, in some cases it may prevent needless
+    // retransmissions, go-back-N transmission and further reduction of the
+    // congestion window."
+    tcpAlgorithm->ackSent();
+
+    if (old_highRxt != state->highRxt) {
+        // Note: Restart of REXMIT timer on retransmission is not part of RFC 2581, however optional in RFC 3517 if sent during recovery.
+        EV_INFO << "Retransmission sent during recovery, restarting REXMIT timer.\n";
+        tcpAlgorithm->restartRexmitTimer();
+    }
+    else // don't measure RTT for retransmitted packets
+        tcpAlgorithm->dataSent(seqNum); // seqNum = old_snd_nxt
+
+    return sentBytes;
 }
 
 void SubflowConnection::invokeSendCommand()

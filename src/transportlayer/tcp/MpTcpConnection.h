@@ -66,7 +66,7 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual uint32_t getBytesAvailable();
 
-    virtual uint32_t getSndMax();
+    virtual bool nextUnsentSeg(uint32_t& seqNum);
 
   protected:
     /** Meta connection state machine states */

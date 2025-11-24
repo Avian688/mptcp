@@ -72,9 +72,12 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual bool nextSeg(uint32_t& seqNum, bool isRecovery) override;
 
+    virtual uint32_t sendSegmentDuringLossRecoveryPhase(uint32_t seqNum) override;
+
   protected:
     MpTcpConnection *metaConn = nullptr;  // Pointer to meta connection
     bool isMaster = false;                 // True for initial subflow
+    bool isRetransmission = false;
 
     /** Send SYN including MP_JOIN / MP_CAPABLE options. */
     virtual void sendSyn() override ;

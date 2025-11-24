@@ -476,31 +476,46 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
 }
 
 uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
-{ //MpTcpConenction shouldnt send packets! Subflows control this. Eearly ver
-   return 0;
+{ //MpTcpConnection shouldnt send packets! Subflows control this.
+    state->snd_nxt += bytes;
+
+    if (state->afterRto && seqGE(state->snd_nxt, state->snd_max))
+            state->afterRto = false;
+
+    if (seqGreater(state->snd_nxt, state->snd_max))
+            state->snd_max = state->snd_nxt;
+
+    return 0;
 }
 
 uint32_t MpTcpConnection::getSegment(uint32_t bytes)
 {
     uint32_t bytesAvailable = sendQueue->getBytesAvailable(state->snd_nxt);
     if(bytesAvailable <= bytes){
-        state->snd_nxt += bytesAvailable;
         return bytesAvailable;
     }
     else{
-        state->snd_nxt += bytes;
         return bytes;
     }
+}
+
+bool MpTcpConnection::nextUnsentSeg(uint32_t& seqNum)
+{
+    uint32_t buffered = getBytesAvailable();
+    uint32_t maxWindow = state->snd_wnd;
+    // effectiveWindow: number of bytes we're allowed to send now
+    uint32_t effectiveWin = maxWindow - state->pipe;
+
+    if (buffered > 0 && effectiveWin >= state->snd_mss) {
+        seqNum = state->snd_max; // HighData = snd_max
+        return true;
+    }
+    return false;
 }
 
 uint32_t MpTcpConnection::getBytesAvailable()
 {
     return sendQueue->getBytesAvailable(state->snd_max);
-}
-
-uint32_t MpTcpConnection::getSndMax()
-{
-    return state->snd_max;
 }
 
 
