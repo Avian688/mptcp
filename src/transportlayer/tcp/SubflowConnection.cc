@@ -524,15 +524,13 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
 
 uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 {
-    uint32_t metaBytes = bytes;
-
     // FIXME check it: where is the right place for the next code (sacked/rexmitted)
     if (state->sack_enabled && state->afterRto) {
         // check rexmitQ and try to forward snd_nxt before sending new data
         uint32_t forward = rexmitQueue->checkRexmitQueueForSackedOrRexmittedSegments(state->snd_nxt);
 
         if (forward > 0) {
-            EV_INFO << "sendSegment(" << metaBytes << ") forwarded " << forward << " bytes of snd_nxt from " << state->snd_nxt;
+            EV_INFO << "sendSegment(" << bytes << ") forwarded " << forward << " bytes of snd_nxt from " << state->snd_nxt;
             state->snd_nxt += forward;
             EV_INFO << " to " << state->snd_nxt << endl;
             EV_DETAIL << rexmitQueue->detailedInfo();
@@ -541,8 +539,8 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 
     uint32_t buffered = sendQueue->getBytesAvailable(state->snd_nxt);
 
-    if (metaBytes > buffered) // last segment?
-        metaBytes = buffered;
+    if (bytes > buffered) // last segment?
+        bytes = buffered;
 
     // if header options will be added, this could reduce the number of data bytes allowed for this segment,
     // because following condition must to be respected:
@@ -556,11 +554,11 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     //ASSERT(options_len < state->snd_mss);
 
     //if (bytes + options_len > state->snd_mss)
-    metaBytes = state->snd_mss;
-    uint32_t sentBytes = metaBytes;
+    bytes = state->snd_mss;
+    uint32_t sentBytes = bytes;
 
     // send one segment of 'bytes' bytes from snd_nxt, and advance snd_nxt
-    Packet *tcpSegment = sendQueue->createSegmentWithBytes(state->snd_nxt, metaBytes);
+    Packet *tcpSegment = sendQueue->createSegmentWithBytes(state->snd_nxt, bytes);
     const auto& tcpHeader = makeShared<TcpHeader>();
     tcpHeader->setSequenceNo(state->snd_nxt);
     ASSERT(tcpHeader != nullptr);
@@ -581,12 +579,12 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 
     // TODO when to set PSH bit?
     // TODO set URG bit if needed
-    ASSERT(metaBytes == tcpSegment->getByteLength());
+    ASSERT(bytes == tcpSegment->getByteLength());
 
-    state->snd_nxt += metaBytes;
+    state->snd_nxt += bytes;
 
     if(!isRetransmission){ // Must be from meta socket.
-        metaConn->sendSegment(metaBytes);
+        metaConn->sendSegment(bytes);
     }
 
 
@@ -795,8 +793,9 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
                 seqNum = state->snd_max; // HighData = snd_max
                 return true;
             }
-
-            return true;
+        }
+        else{
+            std::cout << "\n Meta Connection bottlenecking sending data" << endl;
         }
     }
 
@@ -870,14 +869,6 @@ uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
 {
     //ASSERT(state->sack_enabled && state->lossRecovery);
 
-    if(!isRetransmission){ //Not retransmission, must be from meta socket
-        state->snd_nxt = seqNum = state->snd_max;
-    }
-    else{
-        // start sending from seqNum
-        state->snd_nxt = seqNum;
-    }
-
     uint32_t old_highRxt = rexmitQueue->getHighestRexmittedSeqNum();
 
     // no need to check cwnd and rwnd - has already be done before
@@ -889,7 +880,13 @@ uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
     if (state->send_fin && sentSeqNum == state->snd_fin_seq)
         sentSeqNum = sentSeqNum + 1;
 
+
+    std::cout << "snd_nxt=" << state->snd_nxt
+              << ", sentSeqNum=" << sentSeqNum
+              << std::endl;
+
     ASSERT(seqLE(state->snd_nxt, sentSeqNum));
+
 
     // RFC 3517 page 8: "(C.2) If any of the data octets sent in (C.1) are below HighData,
     // HighRxt MUST be set to the highest sequence number of the

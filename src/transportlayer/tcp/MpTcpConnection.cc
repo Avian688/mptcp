@@ -503,6 +503,10 @@ uint32_t MpTcpConnection::getSegment(uint32_t bytes)
 bool MpTcpConnection::nextUnsentSeg(uint32_t& seqNum)
 {
     uint32_t buffered = getBytesAvailable();
+    if(buffered > 0){
+        seqNum = state->snd_max;
+        return true;
+    }
     uint32_t maxWindow = state->snd_wnd;
     // effectiveWindow: number of bytes we're allowed to send now
     uint32_t effectiveWin = maxWindow - state->pipe;
