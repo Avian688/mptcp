@@ -491,7 +491,7 @@ uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
 
 uint32_t MpTcpConnection::getSegment(uint32_t bytes)
 {
-    uint32_t bytesAvailable = sendQueue->getBytesAvailable(state->snd_nxt);
+    uint32_t bytesAvailable = sendQueue->getBytesAvailable(state->snd_max);
     if(bytesAvailable <= bytes){
         return bytesAvailable;
     }

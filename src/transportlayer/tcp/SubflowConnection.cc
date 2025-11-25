@@ -785,13 +785,13 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
             isRetransmission = false;
 
             uint32_t buffered = sendQueue->getBytesAvailable(state->snd_max);
-            if(buffered <= 0){
-                enqueueDataFromMeta(state->snd_mss); //TODO Run Packet scheduler and see if any other subflows need/can send packets
-            }
             uint32_t maxWindow = state->snd_wnd;
             // effectiveWindow: number of bytes we're allowed to send now
             uint32_t effectiveWin = maxWindow - state->pipe;
             if (effectiveWin >= state->snd_mss) {
+                if(buffered <= 0){
+                    enqueueDataFromMeta(state->snd_mss); //TODO Run Packet scheduler and see if any other subflows need/can send packets
+                }
                 seqNum = state->snd_max; // HighData = snd_max
                 return true;
             }

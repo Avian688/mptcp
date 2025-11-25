@@ -1,8 +1,8 @@
 version 3
-run mpTest-0-20251124-16:52:01-43154
+run mpTest-0-20251125-14:55:07-7211
 attr configname mpTest
-attr datetime 20251124-16:52:01
-attr datetimef 20251124-165201
+attr datetime 20251125-14:55:07
+attr datetimef 20251125-145507
 attr experiment mpTest
 attr inifile mpTest.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network singledumbbell
-attr processid 43154
+attr processid 7211
 attr repetition 0
 attr replication #0
 attr resultdir results
@@ -24,9 +24,9 @@ config *.client[0].app[0].connectAddress "\"server[0]\""
 config *.client[0].app[0].tOpen 0.00846919251197291s
 config *.client[0].app[0].tSend 0.00846919251197291s
 config *.client[0].app[0].sendBytes 2GB
-config **.ppp[*].queue.packetCapacity 10
+config **.ppp[*].queue.packetCapacity 100
 config network singledumbbell
-config sim-time-limit 2s
+config sim-time-limit 5s
 config record-eventlog false
 config cmdenv-express-mode true
 config cmdenv-redirect-output false
@@ -193,7 +193,7 @@ par singledumbbell.client[0].ppp[0].ppp.upperLayerOut.channel typename "\"ned.Id
 par singledumbbell.client[0].ppp[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
 par singledumbbell.client[0].ppp[0].queue typename "\"inet.queueing.queue.DropTailQueue\""
 par singledumbbell.client[0].ppp[0].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
-par singledumbbell.client[0].ppp[0].queue packetCapacity 10
+par singledumbbell.client[0].ppp[0].queue packetCapacity 100
 par singledumbbell.client[0].ppp[0].queue dataCapacity -1b
 attr unit b
 par singledumbbell.client[0].ppp[0].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
@@ -454,7 +454,7 @@ par singledumbbell.server[0].ppp[0].ppp.upperLayerOut.channel typename "\"ned.Id
 par singledumbbell.server[0].ppp[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
 par singledumbbell.server[0].ppp[0].queue typename "\"inet.queueing.queue.DropTailQueue\""
 par singledumbbell.server[0].ppp[0].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
-par singledumbbell.server[0].ppp[0].queue packetCapacity 10
+par singledumbbell.server[0].ppp[0].queue packetCapacity 100
 par singledumbbell.server[0].ppp[0].queue dataCapacity -1b
 attr unit b
 par singledumbbell.server[0].ppp[0].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
@@ -685,7 +685,7 @@ par singledumbbell.router1.ppp[0].ppp.upperLayerOut.channel typename "\"ned.Idea
 par singledumbbell.router1.ppp[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
 par singledumbbell.router1.ppp[0].queue typename "\"inet.queueing.queue.DropTailQueue\""
 par singledumbbell.router1.ppp[0].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
-par singledumbbell.router1.ppp[0].queue packetCapacity 10
+par singledumbbell.router1.ppp[0].queue packetCapacity 100
 par singledumbbell.router1.ppp[0].queue dataCapacity -1b
 attr unit b
 par singledumbbell.router1.ppp[0].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
@@ -712,7 +712,7 @@ par singledumbbell.router1.ppp[1].ppp.upperLayerOut.channel typename "\"ned.Idea
 par singledumbbell.router1.ppp[1].upperLayerIn.channel typename "\"ned.IdealChannel\""
 par singledumbbell.router1.ppp[1].queue typename "\"inet.queueing.queue.DropTailQueue\""
 par singledumbbell.router1.ppp[1].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
-par singledumbbell.router1.ppp[1].queue packetCapacity 10
+par singledumbbell.router1.ppp[1].queue packetCapacity 100
 par singledumbbell.router1.ppp[1].queue dataCapacity -1b
 attr unit b
 par singledumbbell.router1.ppp[1].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
@@ -902,7 +902,7 @@ par singledumbbell.router2.ppp[0].ppp.upperLayerOut.channel typename "\"ned.Idea
 par singledumbbell.router2.ppp[0].upperLayerIn.channel typename "\"ned.IdealChannel\""
 par singledumbbell.router2.ppp[0].queue typename "\"inet.queueing.queue.DropTailQueue\""
 par singledumbbell.router2.ppp[0].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
-par singledumbbell.router2.ppp[0].queue packetCapacity 10
+par singledumbbell.router2.ppp[0].queue packetCapacity 100
 par singledumbbell.router2.ppp[0].queue dataCapacity -1b
 attr unit b
 par singledumbbell.router2.ppp[0].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
@@ -929,7 +929,7 @@ par singledumbbell.router2.ppp[1].ppp.upperLayerOut.channel typename "\"ned.Idea
 par singledumbbell.router2.ppp[1].upperLayerIn.channel typename "\"ned.IdealChannel\""
 par singledumbbell.router2.ppp[1].queue typename "\"inet.queueing.queue.DropTailQueue\""
 par singledumbbell.router2.ppp[1].queue displayStringTextFormat "\"contains %p pk (%l) pushed %u\\npulled %o removed %r dropped %d\""
-par singledumbbell.router2.ppp[1].queue packetCapacity 10
+par singledumbbell.router2.ppp[1].queue packetCapacity 100
 par singledumbbell.router2.ppp[1].queue dataCapacity -1b
 attr unit b
 par singledumbbell.router2.ppp[1].queue dropperClass "\"inet::queueing::PacketAtCollectionEndDropper\""
