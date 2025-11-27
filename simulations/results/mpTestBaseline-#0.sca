@@ -1,8 +1,8 @@
 version 3
-run mpTestBaseline-0-20251125-16:36:14-10352
+run mpTestBaseline-0-20251126-15:16:59-78250
 attr configname mpTestBaseline
-attr datetime 20251125-16:36:14
-attr datetimef 20251125-163614
+attr datetime 20251126-15:16:59
+attr datetimef 20251126-151659
 attr experiment mpTestBaseline
 attr inifile mpTest.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network singledumbbell
-attr processid 10352
+attr processid 78250
 attr repetition 0
 attr replication #0
 attr resultdir results
@@ -29,7 +29,7 @@ config *.client[0].app[0].tSend 0.00846919251197291s
 config *.client[0].app[0].sendBytes 2GB
 config **.ppp[*].queue.packetCapacity 100
 config network singledumbbell
-config sim-time-limit 1s
+config sim-time-limit 0.54s
 config record-eventlog false
 config cmdenv-express-mode true
 config cmdenv-redirect-output false

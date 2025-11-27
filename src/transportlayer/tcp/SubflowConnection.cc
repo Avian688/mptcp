@@ -599,8 +599,12 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     }
 
     // if sack_enabled copy region of tcpHeader to rexmitQueue
-    if (state->sack_enabled)
+    if (state->sack_enabled){
         rexmitQueue->enqueueSentData(old_snd_nxt, state->snd_nxt);
+        if(pace){
+            rexmitQueue->skbSent(state->snd_nxt, m_firstSentTime, simTime(), m_deliveredTime, false, m_delivered, m_appLimited);
+        }
+    }
 
     // add header options and update header length (from tcpseg_temp)
     for (uint i = 0; i < tmpTcpHeader->getHeaderOptionArraySize(); i++)
@@ -752,6 +756,9 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
         //rexmitQueue->checkSackBlockIter(s2, shift, sacked, rexmitted, currIter);
         rexmitQueue->checkSackBlockLost(s2, shift, sacked, rexmitted, lost);
 
+        if(s2 == 530638){
+            std::cout << "\n FOUND SEGMENT AT: " << simTime() << endl;
+        }
         //EV_INFO << "checkSackBlockLost: s2: " << s2 << " shift: " << shift << " sacked: " << sacked << " rexmitted: " << rexmitted << " lost: " << lost << "\n";
         if (!sacked) {
             //if (isLost(s2)) { // 1.a and 1.b are true, see above "for" statement
@@ -868,6 +875,9 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
 uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
 {
     //ASSERT(state->sack_enabled && state->lossRecovery);
+
+    // start sending from seqNum
+    state->snd_nxt = seqNum;
 
     uint32_t old_highRxt = rexmitQueue->getHighestRexmittedSeqNum();
 
