@@ -711,6 +711,15 @@ bool SubflowConnection::sendDataDuringLossRecovery(uint32_t congestionWindow)
 
 bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
 {
+    if(!state->sack_enabled) {
+        std::cout << "state->sack_support  = " << state->sack_support  << "\n";
+        std::cout << "state->snd_sack_perm = " << state->snd_sack_perm << "\n";
+        std::cout << "state->rcv_sack_perm = " << state->rcv_sack_perm << "\n";
+
+        std::cout << "state->sack_enabled  = " << state->sack_enabled << "\n";
+
+        std::cout << "Class and full path: " << this->getClassAndFullPath() << "\n";
+    }
     ASSERT(state->sack_enabled);
 
     // RFC 3517, page 5: "This routine uses the scoreboard data structure maintained by the

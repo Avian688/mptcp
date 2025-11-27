@@ -87,7 +87,7 @@ TcpConnection* MpTcp::createSubflowConnection(int socketId, L3Address src, L3Add
     bool isMaster = false;
     if(!masterCreated){
         isMaster = true;
-        masterCreated = false;
+        masterCreated = true;
     }
     auto moduleType = cModuleType::get("mptcp.transportlayer.tcp.SubflowConnection");
     char submoduleName[24];
