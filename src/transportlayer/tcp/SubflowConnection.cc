@@ -487,24 +487,24 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
     std::cout << "\n RCV_SEGMENT: " << tcpSegment->getDetailStringRepresentation() << endl;
     std::cout << "\n CONN: " << this->getClassAndFullName() << endl;
 
-    if (fsm.getState() == TCP_S_LISTEN) {
+    if (getFsmState() == TCP_S_LISTEN) {
         //localAddr = dest;
         //remoteAddr = src;
-        sentToMasterConn = true;
         pace = false;
         event = processSegmentInListen(tcpSegment, tcpHeader, src, dest);
 
-        if(metaConn->getFsmState() == TCP_S_SYN_SENT){
+        if(metaConn->getFsmState() == TCP_S_LISTEN){
+            sentToMasterConn = true;
             metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         }
         //sentToMasterConn = true;
         //masterConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
     }
-    else if (fsm.getState() == TCP_S_SYN_SENT) {
-        sentToMasterConn = true;
+    else if (getFsmState() == TCP_S_SYN_SENT) {
         //masterConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         event = processSegmentInSynSent(tcpSegment, tcpHeader, src, dest);
         if(metaConn->getFsmState() == TCP_S_SYN_SENT){
+            sentToMasterConn = true;
             metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         }
     }
@@ -516,7 +516,10 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
         //masterConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         event = processSegment1stThru8th(tcpSegment, tcpHeader);
 
-        if(metaConn->getFsmState() == TCP_S_SYN_RCVD){
+        std::cout << "\nMETA CONN STATE: " << metaConn->getFsmState() << endl;
+        std::cout << "\nSUBFLOW CONN STATE: " << getFsmState() << endl;
+        if(metaConn->getFsmState() <= TCP_S_ESTABLISHED){
+            sentToMasterConn = true;
             metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         }
     }

@@ -93,6 +93,10 @@ class MpTcpConnection : public MpTcpConnectionBase
     virtual TcpEventCode processSegmentInListen(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader,
                                                 L3Address src, L3Address dest) override;
 
+    virtual TcpEventCode processSynInListen(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address srcAddr, L3Address destAddr) override;
+
+    virtual TcpEventCode processSegment1stThru8th(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader) override;
+
     /** SYN/SYN-ACK handling during handshake */
     virtual TcpEventCode processSegmentInSynSent(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader,
                                                  L3Address src, L3Address dest) override;
