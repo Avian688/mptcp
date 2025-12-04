@@ -389,6 +389,8 @@ void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
         updateCubicCwnd(1);
 
         if (state->cwnd_cnt >= state->cnt) {
+            std::cout << "\n state->cwnd_cnt: " << state->cwnd_cnt << endl;
+            std::cout << "\n state->cnt: " << state->cnt << endl;
             state->snd_cwnd += state->snd_mss;
             state->cwnd_cnt = 0;
         }

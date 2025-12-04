@@ -515,6 +515,10 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
         //this should be sent to main connection??
         //masterConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         event = processSegment1stThru8th(tcpSegment, tcpHeader);
+
+        if(metaConn->getFsmState() == TCP_S_SYN_RCVD){
+            metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
+        }
     }
     if(!sentToMasterConn){
         delete tcpSegment;
@@ -583,10 +587,12 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 
     state->snd_nxt += bytes;
 
+    uint32_t metaSnd_nxt = 0;
     if(!isRetransmission){ // Must be from meta socket.
-        metaConn->sendSegment(bytes);
+        metaSnd_nxt = metaConn->sendSegment(bytes);
     }
 
+    tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(metaSnd_nxt);
 
     // check if afterRto bit can be reset
     if (state->afterRto && seqGE(state->snd_nxt, state->snd_max))

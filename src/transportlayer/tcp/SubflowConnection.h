@@ -30,6 +30,7 @@
 
 #include "TcpOpenSubflowCommand_m.h"
 #include "MpTcpConnectionBase.h"
+#include "../../common/DataSequenceNumberTag_m.h"
 
 namespace inet {
 namespace tcp {

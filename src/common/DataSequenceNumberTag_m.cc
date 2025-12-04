@@ -1,5 +1,5 @@
 //
-// Generated file, do not edit! Created by opp_msgtool 6.3 from common/DataSequenceNumberTag.msg.
+// Generated file, do not edit! Created by opp_msgtool 6.1 from common/DataSequenceNumberTag.msg.
 //
 
 // Disable warnings about unused variables, empty switch stmts, etc:
