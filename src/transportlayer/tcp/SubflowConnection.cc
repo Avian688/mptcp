@@ -75,6 +75,11 @@ void SubflowConnection::sendSyn()
     // create segment
     const auto& tcpHeader = makeShared<TcpHeader>();
     tcpHeader->setSequenceNo(state->iss);
+
+    if(isMaster) {
+        tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(state->iss);
+    }
+
     tcpHeader->setSynBit(true);
     updateRcvWnd();
     tcpHeader->setWindow(state->rcv_wnd);
@@ -488,8 +493,6 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
     std::cout << "\n CONN: " << this->getClassAndFullName() << endl;
 
     if (getFsmState() == TCP_S_LISTEN) {
-        //localAddr = dest;
-        //remoteAddr = src;
         pace = false;
         event = processSegmentInListen(tcpSegment, tcpHeader, src, dest);
 
@@ -497,11 +500,8 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
             sentToMasterConn = true;
             metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         }
-        //sentToMasterConn = true;
-        //masterConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
     }
     else if (getFsmState() == TCP_S_SYN_SENT) {
-        //masterConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         event = processSegmentInSynSent(tcpSegment, tcpHeader, src, dest);
         if(metaConn->getFsmState() == TCP_S_SYN_SENT){
             sentToMasterConn = true;
