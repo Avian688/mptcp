@@ -87,6 +87,10 @@ void MpTcpConnection::setUpSyn()
 
     state->snd_max = state->snd_nxt = state->iss + 1;
 
+    std::cout << "state->snd_max: " << state->snd_max << std::endl;
+    std::cout << "state->snd_nxt: " << state->snd_nxt << std::endl;
+    std::cout << "state->iss + 1: " << state->iss + 1 << std::endl;
+
     // ECN
     if (state->ecnWillingness) {
         tcpHeader->setEceBit(true);
@@ -109,6 +113,12 @@ void MpTcpConnection::setUpSyn()
     writeHeaderOptions(tcpHeader);
 
     //Scrap header, only update values as needed
+}
+
+void MpTcpConnection::setUpSynAck()
+{
+    updateRcvWnd();
+    state->snd_max = state->snd_nxt = state->iss + 1;
 }
 
 void MpTcpConnection::addSubflow(SubflowConnection* subflowConn)
@@ -204,8 +214,17 @@ TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const 
         receiveQueue->init(state->rcv_nxt);
 
         if (tcpHeader->getAckBit()) {
+            std::cout << "BEFORE:" << std::endl;
+            std::cout << "state->snd_una: " << state->snd_una << std::endl;
+            std::cout << "tcpHeader->getAckNo(): " << tcpHeader->getAckNo() << std::endl;
+
             state->snd_una = tcpHeader->getAckNo();
             sendQueue->discardUpTo(state->snd_una);
+
+            std::cout << "AFTER:" << std::endl;
+            std::cout << "state->snd_una: " << state->snd_una << std::endl;
+            std::cout << "tcpHeader->getAckNo(): " << tcpHeader->getAckNo() << std::endl;
+
             if (state->sack_enabled)
                 rexmitQueue->discardUpTo(state->snd_una);
 
@@ -302,7 +321,7 @@ TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const 
         //"
         EV_INFO << "SYN bit set: sending SYN+ACK\n";
         state->snd_max = state->snd_nxt = state->iss;
-        sendSynAck();
+        setUpSynAck();
         startSynRexmitTimer();
 
         // Note: code below is similar to processing SYN in LISTEN.
@@ -564,7 +583,8 @@ TcpEventCode MpTcpConnection::processSynInListen(Packet *tcpSegment, const Ptr<c
               << ", remotePort: " << remotePort
               << ", remoteAddr: " << remoteAddr
               << std::endl;
-    //sendSynAck();
+    setUpSynAck();
+
     //startSynRexmitTimer();
 
     if (!connEstabTimer->isScheduled())
@@ -1172,7 +1192,7 @@ TcpEventCode MpTcpConnection::processSegment1stThru8th(Packet *tcpSegment, const
         }
 
         // tcpAlgorithm decides when and how to do ACKs
-        tcpAlgorithm->receiveSeqChanged();
+        //tcpAlgorithm->receiveSeqChanged();
     }
 
     if ((fsm.getState() == TCP_S_ESTABLISHED || fsm.getState() == TCP_S_SYN_RCVD) &&
@@ -1241,6 +1261,12 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
     //"
     // Note: should use SND.MAX instead of SND.NXT in above checks
     //
+    std::cout << "tcpHeader->getAckNo(): " << tcpHeader->getAckNo() << std::endl;
+    std::cout << "state->snd_max: " << state->snd_max << std::endl;
+    std::cout << "seqLE result: "
+              << seqLE(tcpHeader->getAckNo(), state->snd_max)
+              << std::endl;
+
     if (seqGE(state->snd_una, tcpHeader->getAckNo())) {
         //
         // duplicate ACK? A received TCP segment is a duplicate ACK if all of

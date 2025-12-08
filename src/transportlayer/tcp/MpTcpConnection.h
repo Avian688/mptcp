@@ -83,8 +83,9 @@ class MpTcpConnection : public MpTcpConnectionBase
     /** Active open processing */
     virtual void process_OPEN_ACTIVE(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg) override;
 
-    /** Send SYN with MPTCP options */
     virtual void setUpSyn();
+
+    virtual void setUpSynAck();
 
     /** Application send request */
     virtual void process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg) override;
@@ -100,6 +101,8 @@ class MpTcpConnection : public MpTcpConnectionBase
     /** SYN/SYN-ACK handling during handshake */
     virtual TcpEventCode processSegmentInSynSent(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader,
                                                  L3Address src, L3Address dest) override;
+
+    virtual bool processAckInEstabEtc(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader) override;
 };
 
 } // namespace tcp

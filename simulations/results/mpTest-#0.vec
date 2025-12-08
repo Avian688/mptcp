@@ -1,8 +1,8 @@
 version 3
-run mpTest-0-20251208-15:38:26-81882
+run mpTest-0-20251208-17:23:59-49179
 attr configname mpTest
-attr datetime 20251208-15:38:26
-attr datetimef 20251208-153826
+attr datetime 20251208-17:23:59
+attr datetimef 20251208-172359
 attr experiment mpTest
 attr inifile mpTest.ini
 attr iterationvars ""
@@ -10,7 +10,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network singledumbbell
-attr processid 81882
+attr processid 49179
 attr repetition 0
 attr replication #0
 attr resultdir results

@@ -141,7 +141,7 @@ void MpTcpSinkApp::handleMessageWhenUp(cMessage *msg)
                createSocket(connectInfo->getNewSocketId(), connectInfo->getLocalAddr(), connectInfo->getRemoteAddr());
             }
             else{
-                serverSocket.processMessage(msg);
+                serverSocket.processMessage(msg); //TODO FIX THIS ASS THE CORRECT THREAD SHOULD PROCESS THE MESSAGE NOT THE SOCKET
             }
         }
         else {

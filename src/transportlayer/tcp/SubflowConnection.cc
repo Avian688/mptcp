@@ -86,6 +86,10 @@ void SubflowConnection::sendSyn()
 
     state->snd_max = state->snd_nxt = state->iss + 1;
 
+    std::cout << "SUBFLOW " << std::endl;
+    std::cout << "state->snd_max: " << state->snd_max << std::endl;
+    std::cout << "state->snd_nxt: " << state->snd_nxt << std::endl;
+    std::cout << "state->iss + 1: " << state->iss + 1 << std::endl;
     // ECN
     if (state->ecnWillingness) {
         tcpHeader->setEceBit(true);
