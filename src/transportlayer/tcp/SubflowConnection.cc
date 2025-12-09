@@ -983,7 +983,7 @@ void SubflowConnection::sendAvailableDataToApp()
         else {
             while (auto msg = receiveQueue->extractBytesUpTo(state->rcv_nxt)) {
                 msg->setKind(TCP_I_DATA); // TODO currently we never send TCP_I_URGENT_DATA
-                msg->addTag<SocketInd>()->setSocketId(socketId);
+                msg->addTag<SocketInd>()->setSocketId(metaConn->getSocketId());
                 sendToApp(msg);
             }
         }
