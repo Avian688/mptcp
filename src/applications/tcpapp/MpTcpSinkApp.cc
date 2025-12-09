@@ -26,7 +26,23 @@ void MpTcpSinkApp::initialize(int stage)
 
 void MpTcpSinkApp::handleStartOperation(LifecycleOperation *operation)
 {
-    TcpSinkApp::handleStartOperation(operation);
+    const char *localAddress = par("localAddress");
+    int localPort = par("localPort");
+
+    serverSocket.setOutputGate(gate("socketOut"));
+    serverSocket.bind(localAddress[0] ? L3Address(localAddress) : L3Address(), localPort);
+    serverSocket.listen();
+
+    const char *serverThreadModuleType = par("serverThreadModuleType");
+    cModuleType *moduleType = cModuleType::get(serverThreadModuleType);
+    char name[80];
+    sprintf(name, "thread_%i", serverSocket.getSocketId());
+    TcpServerThreadBase *proc = check_and_cast<TcpServerThreadBase *>(moduleType->create(name, this));
+    proc->finalizeParameters();
+    proc->callInitialize();
+    serverSocket.setCallback(proc);
+    TcpSocket* serverSocketPtr = &serverSocket;
+    proc->init(this, serverSocketPtr);
 
     for (int i = 0; i < numOfFlows; i++) {
         createSubflowSocket();
@@ -66,6 +82,8 @@ TcpSocket* MpTcpSinkApp::createSubflowSocket()
     proc->callInitialize();
     newSocket->setCallback(proc);
     proc->init(this, newSocket);
+
+    std::cout << "\n SERVER CREATED PROCESS: " << proc->getClassAndFullPath() << endl;
 
 
     socketMap.addSocket(newSocket);
@@ -133,6 +151,7 @@ void MpTcpSinkApp::handleMessageWhenUp(cMessage *msg)
         TcpSocket *socket = check_and_cast_nullable<TcpSocket *>(socketMap.findSocketFor(msg));
         if (socket)
             socket->processMessage(msg);
+
         else if (serverSocket.belongsToSocket(msg)){
             if (msg->getKind() == 13) {
                std::cout << "\n MSG WORKED CREATING SOCKET" << endl;

@@ -101,6 +101,9 @@ class SubflowConnection : public MpTcpConnectionBase
 
     /** Push meta-level data into this subflow's send queue. */
     virtual void enqueueDataFromMeta(uint32_t bytes);
+
+    /** Utility: sends data or data notification to application */
+    virtual void sendAvailableDataToApp() override;
 };
 
 } // namespace tcp

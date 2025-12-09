@@ -1,9 +1,9 @@
                                                                 
 version 3
-run mpTestBaseline-0-20251203-21:21:42-17348
+run mpTestBaseline-0-20251209-14:00:18-60981
 attr configname mpTestBaseline
-attr datetime 20251203-21:21:42
-attr datetimef 20251203-212142
+attr datetime 20251209-14:00:18
+attr datetimef 20251209-140018
 attr experiment mpTestBaseline
 attr inifile mpTest.ini
 attr iterationvars ""
@@ -11,7 +11,7 @@ attr iterationvarsd ""
 attr iterationvarsf ""
 attr measurement ""
 attr network singledumbbell
-attr processid 17348
+attr processid 60981
 attr repetition 0
 attr replication #0
 attr resultdir results

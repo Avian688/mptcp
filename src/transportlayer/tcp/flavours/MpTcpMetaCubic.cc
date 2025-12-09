@@ -428,7 +428,7 @@ void MpTcpMetaCubic::receivedDataAck(uint32_t firstSeqAcked) {
         dynamic_cast<TcpPacedConnection*>(conn)->changeIntersendingTime(state->srtt.dbl()/(((double) maxWindow/(double)state->snd_mss)* paceFactor));
     }
 
-    sendData(false);
+    //sendData(false);
 
     conn->emit(cwndSegSignal, state->snd_cwnd / state->snd_mss);
 }

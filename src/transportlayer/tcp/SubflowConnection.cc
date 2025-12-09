@@ -522,7 +522,7 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
 
         std::cout << "\nMETA CONN STATE: " << metaConn->getFsmState() << endl;
         std::cout << "\nSUBFLOW CONN STATE: " << getFsmState() << endl;
-        if(metaConn->getFsmState() <= TCP_S_ESTABLISHED){
+        if(metaConn->getFsmState() < TCP_S_ESTABLISHED){
             sentToMasterConn = true;
             metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         }
@@ -968,6 +968,26 @@ uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
         tcpAlgorithm->dataSent(seqNum); // seqNum = old_snd_nxt
 
     return sentBytes;
+}
+
+void SubflowConnection::sendAvailableDataToApp()
+{
+    if (receiveQueue->getAmountOfBufferedBytes()) {
+        if (tcpMain->useDataNotification) {
+            auto indication = new Indication("Data Notification", TCP_I_DATA_NOTIFICATION); // TODO currently we never send TCP_I_URGENT_DATA
+            TcpCommand *cmd = new TcpCommand();
+            indication->addTag<SocketInd>()->setSocketId(socketId);
+            indication->setControlInfo(cmd);
+            sendToApp(indication);
+        }
+        else {
+            while (auto msg = receiveQueue->extractBytesUpTo(state->rcv_nxt)) {
+                msg->setKind(TCP_I_DATA); // TODO currently we never send TCP_I_URGENT_DATA
+                msg->addTag<SocketInd>()->setSocketId(socketId);
+                sendToApp(msg);
+            }
+        }
+    }
 }
 
 void SubflowConnection::invokeSendCommand()

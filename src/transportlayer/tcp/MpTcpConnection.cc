@@ -683,7 +683,7 @@ TcpEventCode MpTcpConnection::processSegment1stThru8th(Packet *tcpSegment, const
             // SACK option."
             //
             // The received segment is not "valid" therefore the ACK will not bear a SACK option, if snd_dsack (D-SACK) is not set.
-            sendAck();
+            //sendAck();
         }
 
         state->rcv_naseg++;
