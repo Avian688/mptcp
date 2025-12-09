@@ -79,6 +79,7 @@ class SubflowConnection : public MpTcpConnectionBase
     MpTcpConnection *metaConn = nullptr;  // Pointer to meta connection
     bool isMaster = false;                 // True for initial subflow
     bool isRetransmission = false;
+    uint32_t highestDsn = 0;
 
     /** Send SYN including MP_JOIN / MP_CAPABLE options. */
     virtual void sendSyn() override ;

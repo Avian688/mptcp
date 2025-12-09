@@ -68,6 +68,8 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual bool nextUnsentSeg(uint32_t& seqNum);
 
+    virtual void receivedUpTo(uint32_t& seqNum);
+
   protected:
     /** Meta connection state machine states */
     enum mptcp_states_t {

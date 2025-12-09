@@ -1373,5 +1373,18 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
     return true;
 }
 
+void MpTcpConnection::receivedUpTo(uint32_t& seqNum)
+{
+    uint32_t bytes = state->rcv_nxt - seqNum;
+    std::cout << "\n AMOUNT ACKED: " << endl;
+    Packet *tcpSegment = new Packet("Tcp Packet");
+    const auto& payload = makeShared<ByteCountChunk>(B(bytes));
+    tcpSegment->insertAtBack(payload);
+
+    const auto& tcpHeader = makeShared<TcpHeader>();
+
+    receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
+}
+
 }
 }
