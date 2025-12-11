@@ -79,7 +79,9 @@ class SubflowConnection : public MpTcpConnectionBase
     MpTcpConnection *metaConn = nullptr;  // Pointer to meta connection
     bool isMaster = false;                 // True for initial subflow
     bool isRetransmission = false;
-    uint32_t highestDsn = 0;
+
+    uint32_t dsn_rcv_nxt = 0;
+    uint32_t dsn_deliv_nxt = 0;
 
     /** Send SYN including MP_JOIN / MP_CAPABLE options. */
     virtual void sendSyn() override ;
@@ -88,6 +90,8 @@ class SubflowConnection : public MpTcpConnectionBase
     virtual TcpEventCode processSegmentInListen(Packet *tcpSegment,
             const Ptr<const TcpHeader>& tcpHeader,
             L3Address src, L3Address dest) override;
+
+    virtual TcpEventCode processSegment1stThru8th(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader) override;
 
     /** Handle subflow state transitions. */
     virtual bool performStateTransition(const TcpEventCode& event) override;

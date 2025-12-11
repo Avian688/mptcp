@@ -68,7 +68,7 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual bool nextUnsentSeg(uint32_t& seqNum);
 
-    virtual void receivedUpTo(uint32_t& seqNum);
+    virtual void receivedChunk(uint32_t& fromSeqNo, uint32_t& toSeqNo);
 
   protected:
     /** Meta connection state machine states */

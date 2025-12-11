@@ -1373,17 +1373,16 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
     return true;
 }
 
-void MpTcpConnection::receivedUpTo(uint32_t& seqNum)
+void MpTcpConnection::receivedChunk(uint32_t& fromSeqNo, uint32_t& toSeqNo)
 {
-    uint32_t bytes = state->rcv_nxt - seqNum;
-    std::cout << "\n AMOUNT ACKED: " << endl;
+    uint32_t bytes = toSeqNo - fromSeqNo;
+    std::cout << "\n BYTES RECEIVED FROM SUBFLOW: " << bytes << endl;
     Packet *tcpSegment = new Packet("Tcp Packet");
     const auto& payload = makeShared<ByteCountChunk>(B(bytes));
     tcpSegment->insertAtBack(payload);
 
     const auto& tcpHeader = makeShared<TcpHeader>();
-
-    receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
+    tcpHeader->setSequenceNo(fromSeqNo);
 }
 
 }
