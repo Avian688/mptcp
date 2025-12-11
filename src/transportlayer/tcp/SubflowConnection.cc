@@ -596,7 +596,7 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 
     uint32_t metaSnd_nxt = 0;
     if(!isRetransmission){ // Must be from meta socket.
-        metaSnd_nxt = metaConn->sendSegment(bytes);
+        metaSnd_nxt = metaConn->sendSegment(bytes); //TODO ensure seqNo lines up with pulled metaConn packet
     }
 
     // check if afterRto bit can be reset
@@ -995,7 +995,7 @@ void SubflowConnection::sendAvailableDataToApp()
             std::cout << "\n MSG BYTE LENGTH: " << msg->getByteLength() << endl;
             uint32_t byteLength = msg->getByteLength();
             uint32_t chunkSize = dsn_rcv_nxt+byteLength;
-            metaConn->receivedChunk(dsn_rcv_nxt, chunkSize);
+            metaConn->receivedChunk(dsn_rcv_nxt, chunkSize); //TODO add asserts
         }
         dsn_deliv_nxt = dsn_rcv_nxt;
         //sendToApp(msg);
