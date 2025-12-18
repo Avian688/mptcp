@@ -1390,12 +1390,13 @@ void MpTcpConnection::receivedChunk(uint32_t& fromSeqNo, uint32_t& toSeqNo)
 {
     uint32_t old_rcv_nxt = state->rcv_nxt;
     uint32_t bytes = toSeqNo - fromSeqNo;
-    Packet *tcpSegment = new Packet("Tcp Packet");
-    const auto& payload = makeShared<ByteCountChunk>(B(bytes));
-    tcpSegment->insertAtBack(payload);
-
     const auto& tcpHeader = makeShared<TcpHeader>();
     tcpHeader->setSequenceNo(fromSeqNo);
+
+    uint32_t headerSize = tcpHeader->getHeaderLength().get();
+    Packet *tcpSegment = new Packet("Tcp Packet");
+    const auto& payload = makeShared<ByteCountChunk>(B(bytes+headerSize));
+    tcpSegment->insertAtBack(payload);
 
     if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
         state->rcv_nxt = receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.

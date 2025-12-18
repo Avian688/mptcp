@@ -19,7 +19,7 @@ void MpTcpSinkApp::initialize(int stage)
 {
     TcpSinkApp::initialize(stage);
     if (stage == INITSTAGE_LOCAL) {
-        numOfFlows = 1;
+        numOfFlows = 2;
         portNumber = 1000;
     }
 }
