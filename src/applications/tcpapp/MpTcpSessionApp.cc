@@ -30,7 +30,7 @@ void MpTcpSessionApp::initialize(int stage)
 {
     TcpSessionApp::initialize(stage);
     if (stage == INITSTAGE_LOCAL) {
-        numOfFlows = 2;
+        numOfFlows = 1;
         portNumber = 1000;
     }
 }

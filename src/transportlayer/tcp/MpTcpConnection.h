@@ -66,10 +66,23 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual uint32_t getBytesAvailable();
 
+    virtual uint32_t getSndNxt() {return state->snd_nxt;};
+
+    virtual uint32_t getRcvNxt() {return state->rcv_nxt;};
+
     virtual bool nextUnsentSeg(uint32_t& seqNum);
 
     virtual void receivedChunk(uint32_t& fromSeqNo, uint32_t& toSeqNo);
 
+    virtual void receivedSynListen(uint32_t seqNo, uint32_t iss);
+
+    virtual void setUpSynAck();
+
+    virtual void processSynSent(uint32_t seqNo);
+
+    virtual void processSynSentAck(uint32_t seqNo);
+
+    virtual void sendEstablished();
   protected:
     /** Meta connection state machine states */
     enum mptcp_states_t {
@@ -86,8 +99,6 @@ class MpTcpConnection : public MpTcpConnectionBase
     virtual void process_OPEN_ACTIVE(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg) override;
 
     virtual void setUpSyn();
-
-    virtual void setUpSynAck();
 
     /** Application send request */
     virtual void process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg) override;

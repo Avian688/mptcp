@@ -214,16 +214,8 @@ TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const 
         receiveQueue->init(state->rcv_nxt);
 
         if (tcpHeader->getAckBit()) {
-            std::cout << "BEFORE:" << std::endl;
-            std::cout << "state->snd_una: " << state->snd_una << std::endl;
-            std::cout << "tcpHeader->getAckNo(): " << tcpHeader->getAckNo() << std::endl;
-
             state->snd_una = tcpHeader->getAckNo();
             sendQueue->discardUpTo(state->snd_una);
-
-            std::cout << "AFTER:" << std::endl;
-            std::cout << "state->snd_una: " << state->snd_una << std::endl;
-            std::cout << "tcpHeader->getAckNo(): " << tcpHeader->getAckNo() << std::endl;
 
             if (state->sack_enabled)
                 rexmitQueue->discardUpTo(state->snd_una);
@@ -263,7 +255,10 @@ TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const 
                 updateRcvQueueVars();
 
                 if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
-                    receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
+                    //receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
+                    uint32_t dsn = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
+                    uint32_t packetSize = tcpSegment->getByteLength();
+                    receivedChunk(dsn, packetSize);
                 }
                 else { // not enough freeRcvBuffer in rcvQueue for new segment
                     state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
@@ -338,6 +333,9 @@ TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const 
 
             if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
                 receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
+                uint32_t dsn = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
+                uint32_t packetSize = tcpSegment->getByteLength();
+                receivedChunk(dsn, packetSize);
             }
             else { // not enough freeRcvBuffer in rcvQueue for new segment
                 state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
@@ -454,15 +452,15 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
             sendQueue->enqueueAppData(packet); // queue up for later
             EV_DETAIL << sendQueue->getBytesAvailable(state->snd_una) << " bytes in queue\n";
 
-//            std::cout << "\n !! Current Subflow List: " << endl;
-//            for (int state = 0; state < mptcp_state_count; ++state) {
-//                for (SubflowConnection* conn : m_subflows[state]) {
-//                    if (conn) {
-//                        std::cout << "\n STATE: "  << state << " " << conn->getClassAndFullName() << endl;
-//                        conn->sendPendingData();
-//                    }
-//                }
-//            }
+            for (int state = 0; state < mptcp_state_count; ++state) {
+                for (SubflowConnection* conn : m_subflows[state]) {
+                    if (conn) {
+                        std::cout << "\n STATE: "  << state << " " << conn->getClassAndFullName() << endl;
+                        conn->sendPendingData();
+                    }
+                }
+            }
+
             break;
 
         case TCP_S_ESTABLISHED:
@@ -496,6 +494,7 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
 
 uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
 { //MpTcpConnection shouldnt send packets! Subflows control this.
+    uint32_t old_snd_nxt = state->snd_nxt;
     state->snd_nxt += bytes;
 
     if (state->afterRto && seqGE(state->snd_nxt, state->snd_max))
@@ -505,7 +504,7 @@ uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
             state->snd_max = state->snd_nxt;
 
     emit(sndNxtSignal, state->snd_nxt);
-    return state->snd_nxt;
+    return old_snd_nxt;
 }
 
 uint32_t MpTcpConnection::getSegment(uint32_t bytes)
@@ -554,12 +553,12 @@ TcpEventCode MpTcpConnection::processSynInListen(Packet *tcpSegment, const Ptr<c
     //  SND.NXT is set to ISS+1 and SND.UNA to ISS.  The connection
     //  state should be changed to SYN-RECEIVED.
     //"
-    state->rcv_nxt = tcpHeader->getSequenceNo() + 1;
+    state->rcv_nxt = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() + 1;
     state->rcv_adv = state->rcv_nxt + state->rcv_wnd;
 
     emit(rcvAdvSignal, state->rcv_adv);
 
-    state->irs = tcpHeader->getSequenceNo();
+    state->irs = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
     receiveQueue->init(state->rcv_nxt); // FIXME may init twice...
     selectInitialSeqNum();
 
@@ -603,7 +602,12 @@ TcpEventCode MpTcpConnection::processSynInListen(Packet *tcpSegment, const Ptr<c
         updateRcvQueueVars();
 
         if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
-            receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
+            //receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
+            if(tcpHeader->findTag<DataSequenceNumberTag>()){
+                uint32_t dsn = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
+                uint32_t packetSize = tcpSegment->getByteLength();
+                receivedChunk(dsn, packetSize);
+            }
         }
         else { // not enough freeRcvBuffer in rcvQueue for new segment
             state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
@@ -669,9 +673,9 @@ TcpEventCode MpTcpConnection::processSegment1stThru8th(Packet *tcpSegment, const
             if (tcpHeader->getSynBit()) {
                 EV_DETAIL << "SYN with unacceptable seqNum in " << stateName(fsm.getState()) << " state received (SYN duplicat?)\n";
             }
-            else if (payloadLength > 0 && state->sack_enabled && seqLess((tcpHeader->getSequenceNo() + payloadLength), state->rcv_nxt)) {
-                state->start_seqno = tcpHeader->getSequenceNo();
-                state->end_seqno = tcpHeader->getSequenceNo() + payloadLength;
+            else if (payloadLength > 0 && state->sack_enabled && seqLess((tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() + payloadLength), state->rcv_nxt)) {
+                state->start_seqno = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
+                state->end_seqno = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() + payloadLength;
                 state->snd_dsack = true;
                 EV_DETAIL << "SND_D-SACK SET (dupseg rcvd)\n";
             }
@@ -998,7 +1002,10 @@ TcpEventCode MpTcpConnection::processSegment1stThru8th(Packet *tcpSegment, const
                 // section 2.5).
 
                 uint32_t old_usedRcvBuffer = state->usedRcvBuffer;
-                state->rcv_nxt = receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
+
+                uint32_t dsn = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
+                uint32_t packetSize = tcpSegment->getByteLength();
+                receivedChunk(dsn, packetSize);
 
                 if (seqGreater(state->snd_una, old_snd_una)) {
                     // notify
@@ -1022,8 +1029,8 @@ TcpEventCode MpTcpConnection::processSegment1stThru8th(Packet *tcpSegment, const
                     // SACK option."
                     if (state->sack_enabled) {
                         // store start and end sequence numbers of current oooseg in state variables
-                        state->start_seqno = tcpHeader->getSequenceNo();
-                        state->end_seqno = tcpHeader->getSequenceNo() + payloadLength;
+                        state->start_seqno = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
+                        state->end_seqno = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() + payloadLength;
 
                         if (old_usedRcvBuffer == receiveQueue->getAmountOfBufferedBytes()) { // D-SACK
                             state->snd_dsack = true;
@@ -1123,7 +1130,7 @@ TcpEventCode MpTcpConnection::processSegment1stThru8th(Packet *tcpSegment, const
         // segment is "above sequence" (ie. RCV.NXT < SEG.SEQ), we cannot
         // advance RCV.NXT over the FIN. Instead we remember this sequence
         // number and do it later.
-        uint32_t fin_seq = (uint32_t)tcpHeader->getSequenceNo() + (uint32_t)payloadLength;
+        uint32_t fin_seq = (uint32_t)tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() + (uint32_t)payloadLength;
 
         if (state->rcv_nxt == fin_seq) {
             // advance rcv_nxt over FIN now
@@ -1183,8 +1190,8 @@ TcpEventCode MpTcpConnection::processSegment1stThru8th(Packet *tcpSegment, const
                 // RFC 2018, page 4:
                 // "If sent at all, SACK options SHOULD be included in all ACKs which do
                 // not ACK the highest sequence number in the data receiver's queue."
-                state->start_seqno = tcpHeader->getSequenceNo();
-                state->end_seqno = tcpHeader->getSequenceNo() + payloadLength;
+                ;
+                state->end_seqno = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() + payloadLength;
                 state->snd_sack = true;
                 EV_DETAIL << "SND_SACK SET (rcv_nxt changed, but receiveQ is not empty)\n";
                 state->ack_now = true; // although not mentioned in [Stevens, W.R.: TCP/IP Illustrated, Volume 2, page 861] seems like we have to set ack_now
@@ -1262,12 +1269,20 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
     // Note: should use SND.MAX instead of SND.NXT in above checks
     //
     std::cout << "tcpHeader->getAckNo(): " << tcpHeader->getAckNo() << std::endl;
+    std::cout << "tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(): " << tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() << std::endl;
     std::cout << "state->snd_max: " << state->snd_max << std::endl;
     std::cout << "seqLE result: "
               << seqLE(tcpHeader->getAckNo(), state->snd_max)
               << std::endl;
 
-    if (seqGE(state->snd_una, tcpHeader->getAckNo())) {
+    uint32_t dsnAckNo;
+    if(tcpHeader->findTag<DataSequenceNumberTag>()){
+        dsnAckNo = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
+    }
+    else{
+        dsnAckNo = tcpHeader->getAckNo();
+    }
+    if (seqGE(state->snd_una, dsnAckNo)) {
         //
         // duplicate ACK? A received TCP segment is a duplicate ACK if all of
         // the following apply:
@@ -1279,7 +1294,7 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
         // received (not an update)" -- we don't do that because window updates
         // are ignored anyway if neither seqNo nor ackNo has changed.
         //
-        if (state->snd_una == tcpHeader->getAckNo() && payloadLength == 0 && state->snd_una != state->snd_max) {
+        if (state->snd_una == dsnAckNo && payloadLength == 0 && state->snd_una != state->snd_max) {
             state->dupacks++;
 
             emit(dupAcksSignal, state->dupacks);
@@ -1293,7 +1308,7 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
         else {
             // if doesn't qualify as duplicate ACK, just ignore it.
             if (payloadLength == 0) {
-                if (state->snd_una != tcpHeader->getAckNo())
+                if (state->snd_una != dsnAckNo)
                     EV_DETAIL << "Old ACK: ackNo < snd_una\n";
                 else if (state->snd_una == state->snd_max)
                     EV_DETAIL << "ACK looks duplicate but we have currently no unacked data (snd_una == snd_max)\n";
@@ -1305,10 +1320,10 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
             emit(dupAcksSignal, state->dupacks);
         }
     }
-    else if (seqLE(tcpHeader->getAckNo(), state->snd_max)) {
+    else if (seqLE(dsnAckNo, state->snd_max)) {
         // ack in window.
         uint32_t old_snd_una = state->snd_una;
-        state->snd_una = tcpHeader->getAckNo();
+        state->snd_una = dsnAckNo;
 
         emit(unackedSignal, state->snd_max - state->snd_una);
 
@@ -1330,7 +1345,7 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
         uint32_t discardUpToSeq = state->snd_una;
 
         // our FIN acked?
-        if (state->send_fin && tcpHeader->getAckNo() == state->snd_fin_seq + 1) {
+        if (state->send_fin && dsnAckNo == state->snd_fin_seq + 1) {
             // set flag that our FIN has been acked
             EV_DETAIL << "ACK acks our FIN\n";
             state->fin_ack_rcvd = true;
@@ -1359,30 +1374,82 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
         }
     }
     else {
-        ASSERT(seqGreater(tcpHeader->getAckNo(), state->snd_max)); // from if-ladder
-
+        ASSERT(seqGreater(dsnAckNo, state->snd_max)); // from if-ladder
         // send an ACK, drop the segment, and return.
-        tcpAlgorithm->receivedAckForDataNotYetSent(tcpHeader->getAckNo());
+        tcpAlgorithm->receivedAckForDataNotYetSent(dsnAckNo);
         state->dupacks = 0;
 
         emit(dupAcksSignal, state->dupacks);
 
         return false; // means "drop"
     }
-
     return true;
 }
 
 void MpTcpConnection::receivedChunk(uint32_t& fromSeqNo, uint32_t& toSeqNo)
 {
+    uint32_t old_rcv_nxt = state->rcv_nxt;
     uint32_t bytes = toSeqNo - fromSeqNo;
-    std::cout << "\n BYTES RECEIVED FROM SUBFLOW: " << bytes << endl;
     Packet *tcpSegment = new Packet("Tcp Packet");
     const auto& payload = makeShared<ByteCountChunk>(B(bytes));
     tcpSegment->insertAtBack(payload);
 
     const auto& tcpHeader = makeShared<TcpHeader>();
     tcpHeader->setSequenceNo(fromSeqNo);
+
+    if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
+        state->rcv_nxt = receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
+        if(old_rcv_nxt != state->rcv_nxt){
+            if (!isToBeAccepted()){
+                sendAvailableDataToApp();
+            }
+        }
+        else{
+            std::cout << "\n MISMATCH old_rcv_nxt = " << old_rcv_nxt << " state->rcv_nxt << " << state->rcv_nxt << endl;
+        }
+    }
+    else{
+        std::cerr << "\n ERROR RECEIVE QUEUE NOT LARGE ENOUGH" << endl;
+    }
+}
+
+void MpTcpConnection::receivedSynListen(uint32_t seqNo, uint32_t iss)
+{
+    state->rcv_nxt = seqNo + 1;
+    state->rcv_adv = state->rcv_nxt + state->rcv_wnd;
+
+    emit(rcvAdvSignal, state->rcv_adv);
+
+    state->irs = seqNo;
+    receiveQueue->init(state->rcv_nxt); // FIXME may init twice...
+
+    state->iss = (unsigned long)fmod(SIMTIME_DBL(simTime()) * 250000.0, 1.0 + (double)(unsigned)0xffffffffUL) & 0xffffffffUL;
+    state->snd_una = state->snd_nxt = state->snd_max = state->iss;
+
+    sendQueue->init(state->iss + 1); // + 1 is for SYN
+    rexmitQueue->init(state->iss + 1); // + 1 is for SYN
+}
+
+void MpTcpConnection::processSynSent(uint32_t seqNo)
+{
+    state->rcv_nxt = seqNo + 1;
+    state->rcv_adv = state->rcv_nxt + state->rcv_wnd;
+
+    emit(rcvAdvSignal, state->rcv_adv);
+
+    state->irs = seqNo;
+    receiveQueue->init(state->rcv_nxt);
+}
+
+void MpTcpConnection::processSynSentAck(uint32_t seqNo)
+{
+    state->snd_una = seqNo;
+    sendQueue->discardUpTo(state->snd_una);
+}
+
+void MpTcpConnection::sendEstablished()
+{
+    sendEstabIndicationToApp();
 }
 
 }

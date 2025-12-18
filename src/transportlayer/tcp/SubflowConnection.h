@@ -75,6 +75,8 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual uint32_t sendSegmentDuringLossRecoveryPhase(uint32_t seqNum) override;
 
+    virtual void sendAck() override;
+
   protected:
     MpTcpConnection *metaConn = nullptr;  // Pointer to meta connection
     bool isMaster = false;                 // True for initial subflow
@@ -82,6 +84,9 @@ class SubflowConnection : public MpTcpConnectionBase
 
     uint32_t dsn_rcv_nxt = 0;
     uint32_t dsn_deliv_nxt = 0;
+
+    std::map<uint32_t, uint32_t> sentDsnMapping;
+    std::map<uint32_t, uint32_t> receivedDsnMapping;
 
     /** Send SYN including MP_JOIN / MP_CAPABLE options. */
     virtual void sendSyn() override ;
@@ -91,7 +96,11 @@ class SubflowConnection : public MpTcpConnectionBase
             const Ptr<const TcpHeader>& tcpHeader,
             L3Address src, L3Address dest) override;
 
+    virtual TcpEventCode processSynInListen(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address srcAddr, L3Address destAddr) override;
+    virtual TcpEventCode processSegmentInSynSent(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address src, L3Address dest) override;
     virtual TcpEventCode processSegment1stThru8th(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader) override;
+
+    virtual bool processAckInEstabEtc(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader) override;
 
     /** Handle subflow state transitions. */
     virtual bool performStateTransition(const TcpEventCode& event) override;
@@ -109,6 +118,9 @@ class SubflowConnection : public MpTcpConnectionBase
 
     /** Utility: sends data or data notification to application */
     virtual void sendAvailableDataToApp() override;
+
+    /** Utility: send SYN+ACK */
+    virtual void sendSynAck();
 };
 
 } // namespace tcp

@@ -75,21 +75,12 @@ void SubflowConnection::sendSyn()
     // create segment
     const auto& tcpHeader = makeShared<TcpHeader>();
     tcpHeader->setSequenceNo(state->iss);
-
-    if(isMaster) {
-        tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(state->iss);
-    }
-
     tcpHeader->setSynBit(true);
     updateRcvWnd();
     tcpHeader->setWindow(state->rcv_wnd);
 
     state->snd_max = state->snd_nxt = state->iss + 1;
 
-    std::cout << "SUBFLOW " << std::endl;
-    std::cout << "state->snd_max: " << state->snd_max << std::endl;
-    std::cout << "state->snd_nxt: " << state->snd_nxt << std::endl;
-    std::cout << "state->iss + 1: " << state->iss + 1 << std::endl;
     // ECN
     if (state->ecnWillingness) {
         tcpHeader->setEceBit(true);
@@ -114,6 +105,8 @@ void SubflowConnection::sendSyn()
     Packet *fp = new Packet("SYN");
 
     tcpHeader->addTagIfAbsent<SocketReq>()->setSocketId(socketId);
+
+    tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(state->iss);
 
     // send it
     sendToIP(fp, tcpHeader);
@@ -493,23 +486,26 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
     //
     TcpEventCode event;
 
-    std::cout << "\n RCV_SEGMENT: " << tcpSegment->getDetailStringRepresentation() << endl;
-    std::cout << "\n CONN: " << this->getClassAndFullName() << endl;
-
     if (getFsmState() == TCP_S_LISTEN) {
         pace = false;
-        event = processSegmentInListen(tcpSegment, tcpHeader, src, dest);
+        if(isMaster){
+            event = processSegmentInListen(tcpSegment, tcpHeader, src, dest);
+        }
 
         if(metaConn->getFsmState() == TCP_S_LISTEN){
             sentToMasterConn = true;
-            metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
+            //if(isMaster){
+            //    metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
+            //}
         }
     }
     else if (getFsmState() == TCP_S_SYN_SENT) {
         event = processSegmentInSynSent(tcpSegment, tcpHeader, src, dest);
         if(metaConn->getFsmState() == TCP_S_SYN_SENT){
             sentToMasterConn = true;
-            metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
+            if(isMaster) {
+            //    metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
+            }
         }
     }
     else {
@@ -520,11 +516,11 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
         //masterConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         event = processSegment1stThru8th(tcpSegment, tcpHeader);
 
-        std::cout << "\nMETA CONN STATE: " << metaConn->getFsmState() << endl;
-        std::cout << "\nSUBFLOW CONN STATE: " << getFsmState() << endl;
         if(metaConn->getFsmState() < TCP_S_ESTABLISHED){
             sentToMasterConn = true;
-            metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
+            if(isMaster){
+            //    metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
+            }
         }
     }
     if(!sentToMasterConn){
@@ -598,6 +594,12 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     if(!isRetransmission){ // Must be from meta socket.
         metaSnd_nxt = metaConn->sendSegment(bytes); //TODO ensure seqNo lines up with pulled metaConn packet
     }
+    else {
+        auto it = sentDsnMapping.find(old_snd_nxt);
+        if (it != sentDsnMapping.end()) {
+            metaSnd_nxt = it->second;
+        }
+    }
 
     // check if afterRto bit can be reset
     if (state->afterRto && seqGE(state->snd_nxt, state->snd_max))
@@ -628,6 +630,13 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     calculateAppLimited();
 
     tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(metaSnd_nxt);
+    sentDsnMapping.emplace(tcpHeader->getSequenceNo(), metaSnd_nxt);
+
+    if (metaSnd_nxt == 0) {
+        std::cout << "metaSnd_nxt=" << metaSnd_nxt
+                  << ", tcp seq=" << tcpHeader->getSequenceNo()
+                  << std::endl;
+    }
 
     // send it
     sendToIP(tcpSegment, tcpHeader);
@@ -688,10 +697,6 @@ bool SubflowConnection::sendDataDuringLossRecovery(uint32_t congestionWindow)
     // (...)
     // (C.5) If cwnd - pipe >= 1 SMSS, return to (C.1)"
     uint32_t availableWindow = (state->pipe > congestionWindow) ? 0 : congestionWindow - state->pipe;
-    std::cout << "availableWindow = " << availableWindow
-              << ", congestionWindow = " << congestionWindow
-              << ", state->pipe = " << state->pipe
-              << std::endl;
 
     if (availableWindow >= (int)state->snd_mss) { // Note: Typecast needed to avoid prohibited transmissions
         // RFC 3517 pages 7 and 8: "(C.1) The scoreboard MUST be queried via NextSeg () for the
@@ -724,15 +729,6 @@ bool SubflowConnection::sendDataDuringLossRecovery(uint32_t congestionWindow)
 
 bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
 {
-    if(!state->sack_enabled) {
-        std::cout << "state->sack_support  = " << state->sack_support  << "\n";
-        std::cout << "state->snd_sack_perm = " << state->snd_sack_perm << "\n";
-        std::cout << "state->rcv_sack_perm = " << state->rcv_sack_perm << "\n";
-
-        std::cout << "state->sack_enabled  = " << state->sack_enabled << "\n";
-
-        std::cout << "Class and full path: " << this->getClassAndFullPath() << "\n";
-    }
     ASSERT(state->sack_enabled);
 
     // RFC 3517, page 5: "This routine uses the scoreboard data structure maintained by the
@@ -778,15 +774,10 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
         //rexmitQueue->checkSackBlockIter(s2, shift, sacked, rexmitted, currIter);
         rexmitQueue->checkSackBlockLost(s2, shift, sacked, rexmitted, lost);
 
-        if(s2 == 530638){
-            std::cout << "\n FOUND SEGMENT AT: " << simTime() << endl;
-        }
         //EV_INFO << "checkSackBlockLost: s2: " << s2 << " shift: " << shift << " sacked: " << sacked << " rexmitted: " << rexmitted << " lost: " << lost << "\n";
         if (!sacked) {
             //if (isLost(s2)) { // 1.a and 1.b are true, see above "for" statement
             if(lost && !rexmitted) {
-                //std::cout << "\n HIGHEST SACKED SEQ NUM: " << highestSackedSeqNum << endl;
-                //std::cout << "\n FOUND LOST PACKET: " << s2 << endl;
                 seqNum = s2;
                 isRetransmission = true;
                 return true;
@@ -912,11 +903,6 @@ uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
     if (state->send_fin && sentSeqNum == state->snd_fin_seq)
         sentSeqNum = sentSeqNum + 1;
 
-
-    std::cout << "snd_nxt=" << state->snd_nxt
-              << ", sentSeqNum=" << sentSeqNum
-              << std::endl;
-
     ASSERT(seqLE(state->snd_nxt, sentSeqNum));
 
 
@@ -988,18 +974,37 @@ void SubflowConnection::sendAvailableDataToApp()
 //            }
 //        }
 //    }
-    while (auto msg = receiveQueue->extractBytesUpTo(state->rcv_nxt)) {
-        msg->setKind(TCP_I_DATA); // TODO currently we never send TCP_I_URGENT_DATA
-        msg->addTag<SocketInd>()->setSocketId(metaConn->getSocketId());
-        if(msg->getByteLength() > 0){
-            std::cout << "\n MSG BYTE LENGTH: " << msg->getByteLength() << endl;
-            uint32_t byteLength = msg->getByteLength();
-            uint32_t chunkSize = dsn_rcv_nxt+byteLength;
-            metaConn->receivedChunk(dsn_rcv_nxt, chunkSize); //TODO add asserts
+    auto it = receivedDsnMapping.begin();
+    auto end = receivedDsnMapping.lower_bound(state->rcv_nxt);
+    while (it != end) {
+        //uint32_t seqNo    = it->first;
+        uint32_t dsnSeqNo = it->second;
+        uint32_t chunkEnd = dsnSeqNo + 1448;
+
+        if (dsnSeqNo == 0) {
+            std::cout << "receivedDsnMapping contents:\n";
+            for (const auto& [seqNo, dsn] : receivedDsnMapping) {
+                std::cout << "  seqNo=" << seqNo
+                          << " -> dsnSeqNo=" << dsn
+                          << '\n';
+            }
         }
-        dsn_deliv_nxt = dsn_rcv_nxt;
-        //sendToApp(msg);
+        metaConn->receivedChunk(dsnSeqNo, chunkEnd); // TODO add asserts
+
+        it = receivedDsnMapping.erase(it); // erase returns next iterator
     }
+    receiveQueue->extractBytesUpTo(state->rcv_nxt);
+//    while (auto msg = receiveQueue->extractBytesUpTo(state->rcv_nxt)) {
+//        msg->setKind(TCP_I_DATA); // TODO currently we never send TCP_I_URGENT_DATA
+//        msg->addTag<SocketInd>()->setSocketId(metaConn->getSocketId());
+//        if(msg->getByteLength() > 0){
+//            uint32_t byteLength = msg->getByteLength();
+//            uint32_t chunkSize = endBlock-startBlock;
+//            metaConn->receivedChunk(startBlock, chunkSize); //TODO add asserts
+//        }
+//        dsn_deliv_nxt = dsn_rcv_nxt;
+//        //sendToApp(msg);
+//    }
 }
 
 TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader)
@@ -1193,8 +1198,9 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
 
         if (isToBeAccepted())
             sendAvailableIndicationToApp();
-        else
+        else{
             sendEstabIndicationToApp();
+        }
 
         // This will trigger transition to ESTABLISHED. Timers and notifying
         // app will be taken care of in stateEntered().
@@ -1382,6 +1388,7 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
                     dsn_rcv_nxt = receiveQueue->getRE(tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber());
                 }
 
+                receivedDsnMapping.emplace(tcpHeader->getSequenceNo(), tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber());
                 state->rcv_nxt = receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
 
 
@@ -1603,6 +1610,736 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
     }
 
     return event;
+}
+
+bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader)
+{
+    EV_DETAIL << "Processing ACK in a data transfer state\n";
+    uint64_t previousDelivered = m_delivered;  //RATE SAMPLER SPECIFIC STUFF
+    uint32_t previousLost = m_bytesLoss; //TODO Create Sack method to get exact amount of lost packets
+    uint32_t priorInFlight = m_bytesInFlight;//get current BytesInFlight somehow
+    int payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
+    //updateInFlight();
+
+    // ECN
+    TcpStateVariables *state = getState();
+    if (state && state->ect) {
+        if (tcpHeader->getEceBit() == true)
+            EV_INFO << "Received packet with ECE\n";
+
+        state->gotEce = tcpHeader->getEceBit();
+    }
+
+    //
+    //"
+    //  If SND.UNA < SEG.ACK =< SND.NXT then, set SND.UNA <- SEG.ACK.
+    //  Any segments on the retransmission queue which are thereby
+    //  entirely acknowledged are removed.  Users should receive
+    //  positive acknowledgments for buffers which have been SENT and
+    //  fully acknowledged (i.e., SEND buffer should be returned with
+    //  "ok" response).  If the ACK is a duplicate
+    //  (SEG.ACK < SND.UNA), it can be ignored.  If the ACK acks
+    //  something not yet sent (SEG.ACK > SND.NXT) then send an ACK,
+    //  drop the segment, and return.
+    //
+    //  If SND.UNA < SEG.ACK =< SND.NXT, the send window should be
+    //  updated.  If (SND.WL1 < SEG.SEQ or (SND.WL1 = SEG.SEQ and
+    //  SND.WL2 =< SEG.ACK)), set SND.WND <- SEG.WND, set
+    //  SND.WL1 <- SEG.SEQ, and set SND.WL2 <- SEG.ACK.
+    //
+    //  Note that SND.WND is an offset from SND.UNA, that SND.WL1
+    //  records the sequence number of the last segment used to update
+    //  SND.WND, and that SND.WL2 records the acknowledgment number of
+    //  the last segment used to update SND.WND.  The check here
+    //  prevents using old segments to update the window.
+    //"
+    // Note: should use SND.MAX instead of SND.NXT in above checks
+    //
+    if (seqGE(state->snd_una, tcpHeader->getAckNo())) {
+        //
+        // duplicate ACK? A received TCP segment is a duplicate ACK if all of
+        // the following apply:
+        //    (1) snd_una == ackNo
+        //    (2) segment contains no data
+        //    (3) there's unacked data (snd_una != snd_max)
+        //
+        // Note: ssfnet uses additional constraint "window is the same as last
+        // received (not an update)" -- we don't do that because window updates
+        // are ignored anyway if neither seqNo nor ackNo has changed.
+        //
+        if (state->snd_una == tcpHeader->getAckNo() && payloadLength == 0 && state->snd_una != state->snd_max) {
+            state->dupacks++;
+
+            emit(dupAcksSignal, state->dupacks);
+
+            // we need to update send window even if the ACK is a dupACK, because rcv win
+            // could have been changed if faulty data receiver is not respecting the "do not shrink window" rule
+            if (rack_enabled)
+            {
+             uint32_t tser = state->ts_recent;
+             simtime_t rtt = dynamic_cast<TcpPacedFamily*>(tcpAlgorithm)->getRtt();
+
+             // Get information of the latest packet (cumulatively)ACKed packet and update RACK parameters
+             if (!scoreboardUpdated && rexmitQueue->findRegion(tcpHeader->getAckNo()))
+             {
+                 TcpSackRexmitQueue::Region& skbRegion = rexmitQueue->getRegion(tcpHeader->getAckNo());
+                 m_rack->updateStats(tser, skbRegion.rexmitted, skbRegion.m_lastSentTime, tcpHeader->getAckNo(), state->snd_nxt, rtt);
+             }
+             else // Get information of the latest packet (Selectively)ACKed packet and update RACK parameters
+             {
+                 uint32_t highestSacked;
+                 highestSacked = rexmitQueue->getHighestSackedSeqNum();
+                 if(rexmitQueue->findRegion(highestSacked)){
+                     TcpSackRexmitQueue::Region& skbRegion = rexmitQueue->getRegion(highestSacked);
+                     m_rack->updateStats(tser, skbRegion.rexmitted,  skbRegion.m_lastSentTime, highestSacked, state->snd_nxt, rtt);
+                 }
+             }
+
+             // Check if TCP will be exiting loss recovery
+            bool exiting = false;
+            if (state->lossRecovery && dynamic_cast<TcpPacedFamily*>(tcpAlgorithm)->getRecoveryPoint() <= tcpHeader->getAckNo())
+            {
+                 exiting = true;
+            }
+
+            m_rack->updateReoWnd(m_reorder, m_dsackSeen, state->snd_nxt, tcpHeader->getAckNo(), rexmitQueue->getTotalAmountOfSackedBytes(), 3, exiting, state->lossRecovery);
+            }
+            scoreboardUpdated = false;
+
+            updateWndInfo(tcpHeader);
+
+            std::list<uint32_t> skbDeliveredList = rexmitQueue->getDiscardList(tcpHeader->getAckNo());
+            for (uint32_t endSeqNo : skbDeliveredList) {
+                skbDelivered(endSeqNo);
+            }
+//
+            uint32_t currentDelivered  = m_delivered - previousDelivered;
+            m_lastAckedSackedBytes = currentDelivered;
+////
+            updateInFlight();
+////
+            uint32_t currentLost = m_bytesLoss;
+            uint32_t lost = (currentLost > previousLost) ? currentLost - previousLost : previousLost - currentLost;
+////
+            updateSample(currentDelivered, lost, false, priorInFlight, connMinRtt);
+
+            tcpAlgorithm->receivedDuplicateAck();
+            isRetransDataAcked = false;
+            sendPendingData();
+
+            m_reorder = false;
+            //
+            // Update m_sndFack if possible
+            if (fack_enabled || rack_enabled)
+            {
+              if (tcpHeader->getAckNo() > m_sndFack)
+                {
+                  m_sndFack = tcpHeader->getAckNo();
+                }
+              // Packet reordering seen
+              else if (tcpHeader->getAckNo() < m_sndFack)
+                {
+                  m_reorder = true;
+                }
+            }
+        }
+        else {
+            // if doesn't qualify as duplicate ACK, just ignore it.
+            if (payloadLength == 0) {
+                if (state->snd_una != tcpHeader->getAckNo()){
+                    EV_DETAIL << "Old ACK: ackNo < snd_una\n";
+                }
+                else if (state->snd_una == state->snd_max) {
+                    EV_DETAIL << "ACK looks duplicate but we have currently no unacked data (snd_una == snd_max)\n";
+                }
+            }
+            // reset counter
+            state->dupacks = 0;
+
+            emit(dupAcksSignal, state->dupacks);
+        }
+    }
+    else if (seqLE(tcpHeader->getAckNo(), state->snd_max)) {
+        // ack in window.
+        uint32_t old_snd_una = state->snd_una;
+        state->snd_una = tcpHeader->getAckNo();
+
+        emit(unackedSignal, state->snd_max - state->snd_una);
+
+        // after retransmitting a lost segment, we may get an ack well ahead of snd_nxt
+        if (seqLess(state->snd_nxt, state->snd_una))
+            state->snd_nxt = state->snd_una;
+
+        // RFC 1323, page 36:
+        // "If SND.UNA < SEG.ACK =< SND.NXT then, set SND.UNA <- SEG.ACK.
+        // Also compute a new estimate of round-trip time.  If Snd.TS.OK
+        // bit is on, use my.TSclock - SEG.TSecr; otherwise use the
+        // elapsed time since the first segment in the retransmission
+        // queue was sent.  Any segments on the retransmission queue
+        // which are thereby entirely acknowledged."
+        if (state->ts_enabled)
+            tcpAlgorithm->rttMeasurementCompleteUsingTS(getTSecr(tcpHeader));
+        // Note: If TS is disabled the RTT measurement is completed in TcpBaseAlg::receivedDataAck()
+
+        uint32_t discardUpToSeq = state->snd_una;
+        // our FIN acked?
+        if (state->send_fin && tcpHeader->getAckNo() == state->snd_fin_seq + 1) {
+            // set flag that our FIN has been acked
+            EV_DETAIL << "ACK acks our FIN\n";
+            state->fin_ack_rcvd = true;
+            discardUpToSeq--; // the FIN sequence number is not real data
+        }
+
+        if (rack_enabled)
+        {
+          uint32_t tser = state->ts_recent;
+          simtime_t rtt = dynamic_cast<TcpPacedFamily*>(tcpAlgorithm)->getRtt();
+
+          // Get information of the latest packet (cumulatively)ACKed packet and update RACK parameters
+          if (!scoreboardUpdated && rexmitQueue->findRegion(tcpHeader->getAckNo()))
+          {
+              TcpSackRexmitQueue::Region& skbRegion = rexmitQueue->getRegion(tcpHeader->getAckNo());
+              m_rack->updateStats(tser, skbRegion.rexmitted, skbRegion.m_lastSentTime, tcpHeader->getAckNo(), state->snd_nxt, rtt);
+          }
+          else // Get information of the latest packet (Selectively)ACKed packet and update RACK parameters
+          {
+              uint32_t highestSacked;
+              highestSacked = rexmitQueue->getHighestSackedSeqNum();
+              if(rexmitQueue->findRegion(highestSacked)){
+                  TcpSackRexmitQueue::Region& skbRegion = rexmitQueue->getRegion(highestSacked);
+                  m_rack->updateStats(tser, skbRegion.rexmitted,  skbRegion.m_lastSentTime, highestSacked, state->snd_nxt, rtt);
+              }
+          }
+
+          // Check if TCP will be exiting loss recovery
+          bool exiting = false;
+          if (state->lossRecovery && dynamic_cast<TcpPacedFamily*>(tcpAlgorithm)->getRecoveryPoint() <= tcpHeader->getAckNo())
+            {
+              exiting = true;
+            }
+
+          m_rack->updateReoWnd(m_reorder, m_dsackSeen, state->snd_nxt, old_snd_una, rexmitQueue->getTotalAmountOfSackedBytes(), 3, exiting, state->lossRecovery);
+        }
+        scoreboardUpdated = false;
+        // acked data no longer needed in send queue
+
+        // acked data no longer needed in rexmit queue
+        std::list<uint32_t> skbDeliveredList = rexmitQueue->getDiscardList(discardUpToSeq);
+        for (uint32_t endSeqNo : skbDeliveredList) {
+            skbDelivered(endSeqNo);
+            if(state->lossRecovery){
+                if(rexmitQueue->isRetransmittedDataAcked(endSeqNo)){
+                    isRetransDataAcked = true;
+                }
+            }
+        }
+
+        // acked data no longer needed in send queue
+        sendQueue->discardUpTo(discardUpToSeq);
+        enqueueData();
+
+        // acked data no longer needed in rexmit queue
+        if (state->sack_enabled){
+            rexmitQueue->discardUpTo(discardUpToSeq);
+        }
+
+        auto it = sentDsnMapping.begin();
+        auto end = sentDsnMapping.lower_bound(discardUpToSeq);
+        while (it != end) {
+            //uint32_t seqNo    = it->first;
+            uint32_t dsnSeqNo = it->second;
+            uint32_t chunkEnd = dsnSeqNo + 1448;
+            it = sentDsnMapping.erase(it); // erase returns next iterator
+        }
+
+        updateWndInfo(tcpHeader);
+
+        // if segment contains data, wait until data has been forwarded to app before sending ACK,
+        // otherwise we would use an old ACKNo
+        if (payloadLength == 0 && fsm.getState() != TCP_S_SYN_RCVD) {
+
+            uint32_t currentDelivered  = m_delivered - previousDelivered;
+            m_lastAckedSackedBytes = currentDelivered;
+
+            updateInFlight();
+
+            uint32_t currentLost = m_bytesLoss;
+            uint32_t lost = (currentLost > previousLost) ? currentLost - previousLost : previousLost - currentLost;
+            // notify
+
+            updateSample(currentDelivered, lost, false, priorInFlight, connMinRtt);
+
+            tcpAlgorithm->receivedDataAck(old_snd_una);
+            isRetransDataAcked = false;
+            // in the receivedDataAck we need the old value
+            state->dupacks = 0;
+
+            sendPendingData();
+
+            m_reorder = false;
+            //
+            // Update m_sndFack if possible
+            if (fack_enabled || rack_enabled)
+            {
+              if (tcpHeader->getAckNo() > m_sndFack)
+                {
+                  m_sndFack = tcpHeader->getAckNo();
+                }
+              // Packet reordering seen
+              else if (tcpHeader->getAckNo() < m_sndFack)
+                {
+                  m_reorder = true;
+                }
+            }
+
+            emit(dupAcksSignal, state->dupacks);
+            emit(mDeliveredSignal, m_delivered);
+        }
+    }
+    else {
+        ASSERT(seqGreater(tcpHeader->getAckNo(), state->snd_max)); // from if-ladder
+
+        // send an ACK, drop the segment, and return.
+        tcpAlgorithm->receivedAckForDataNotYetSent(tcpHeader->getAckNo());
+        state->dupacks = 0;
+
+        emit(dupAcksSignal, state->dupacks);
+        return false; // means "drop"
+    }
+    return true;
+}
+
+void SubflowConnection::sendSynAck()
+{
+    // create segment
+    const auto& tcpHeader = makeShared<TcpHeader>();
+    tcpHeader->setSequenceNo(state->iss);
+
+    tcpHeader->setAckNo(state->rcv_nxt);
+    tcpHeader->setSynBit(true);
+    tcpHeader->setAckBit(true);
+    updateRcvWnd();
+    tcpHeader->setWindow(state->rcv_wnd);
+
+    state->snd_max = state->snd_nxt = state->iss + 1;
+
+    // ECN
+    if (state->ecnWillingness) {
+        tcpHeader->setEceBit(true);
+        tcpHeader->setCwrBit(false);
+        EV << "ECN-setup SYN-ACK packet sent\n";
+    }
+    else {
+        tcpHeader->setEceBit(false);
+        tcpHeader->setCwrBit(false);
+        if (state->endPointIsWillingECN)
+            EV << "non-ECN-setup SYN-ACK packet sent\n";
+    }
+    if (state->ecnWillingness && state->endPointIsWillingECN) {
+        state->ect = true;
+        EV << "both end-points are willing to use ECN... ECN is enabled\n";
+    }
+    else { // TODO not sure if we have to.
+           // rfc-3168, page 16:
+           // A host that is not willing to use ECN on a TCP connection SHOULD
+           // clear both the ECE and CWR flags in all non-ECN-setup SYN and/or
+           // SYN-ACK packets that it sends to indicate this unwillingness.
+        state->ect = false;
+        if (state->endPointIsWillingECN)
+            EV << "ECN is disabled\n";
+    }
+
+    // write header options
+    writeHeaderOptions(tcpHeader);
+
+    Packet *fp = new Packet("SYN+ACK");
+
+    //tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(state->rcv_nxt);
+
+    // send it
+    sendToIP(fp, tcpHeader);
+
+    // notify
+    tcpAlgorithm->ackSent();
+}
+
+void SubflowConnection::sendAck()
+{
+    const auto& tcpHeader = makeShared<TcpHeader>();
+
+    tcpHeader->setAckBit(true);
+    tcpHeader->setSequenceNo(state->snd_nxt);
+
+    tcpHeader->setAckNo(state->rcv_nxt);
+    tcpHeader->setWindow(updateRcvWnd());
+
+    // rfc-3168, pages 19-20:
+    // When TCP receives a CE data packet at the destination end-system, the
+    // TCP data receiver sets the ECN-Echo flag in the TCP header of the
+    // subsequent ACK packet.
+    // ...
+    // After a TCP receiver sends an ACK packet with the ECN-Echo bit set,
+    // that TCP receiver continues to set the ECN-Echo flag in all the ACK
+    // packets it sends (whether they acknowledge CE data packets or non-CE
+    // data packets) until it receives a CWR packet (a packet with the CWR
+    // flag set).  After the receipt of the CWR packet, acknowledgments for
+    // subsequent non-CE data packets do not have the ECN-Echo flag set.
+
+    TcpStateVariables *state = getState();
+    if (state && state->ect) {
+        if (tcpAlgorithm->shouldMarkAck()) {
+            tcpHeader->setEceBit(true);
+            EV_INFO << "In ecnEcho state... send ACK with ECE bit set\n";
+        }
+    }
+
+    // write header options
+    writeHeaderOptions(tcpHeader);
+
+    tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(state->snd_nxt);
+
+    Packet *fp = new Packet("TcpAck");
+
+    // rfc-3168 page 20: pure ack packets must be sent with not-ECT codepoint
+    state->sndAck = true;
+
+    // send it
+    sendToIP(fp, tcpHeader);
+
+    state->sndAck = false;
+
+    // notify
+    tcpAlgorithm->ackSent();
+}
+
+TcpEventCode SubflowConnection::processSynInListen(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address srcAddr, L3Address destAddr)
+{
+    //"
+    //  Set RCV.NXT to SEG.SEQ+1, IRS is set to SEG.SEQ and any other
+    //  control or text should be queued for processing later.  ISS
+    //  should be selected and a SYN segment sent of the form:
+    //
+    //    <SEQ=ISS><ACK=RCV.NXT><CTL=SYN,ACK>
+    //
+    //  SND.NXT is set to ISS+1 and SND.UNA to ISS.  The connection
+    //  state should be changed to SYN-RECEIVED.
+    //"
+    state->rcv_nxt = tcpHeader->getSequenceNo() + 1;
+    state->rcv_adv = state->rcv_nxt + state->rcv_wnd;
+
+    emit(rcvAdvSignal, state->rcv_adv);
+
+    state->irs = tcpHeader->getSequenceNo();
+    receiveQueue->init(state->rcv_nxt); // FIXME may init twice...
+    selectInitialSeqNum();
+
+    // although not mentioned in RFC 793, seems like we have to pick up
+    // initial snd_wnd from the segment here.
+    updateWndInfo(tcpHeader, true);
+
+    if(isMaster){
+        metaConn->receivedSynListen(tcpHeader->getSequenceNo(),state->iss);
+    }
+
+    if (tcpHeader->getHeaderLength() > TCP_MIN_HEADER_LENGTH) // Header options present?
+        readHeaderOptions(tcpHeader);
+
+    state->ack_now = true;
+
+    // ECN
+    if (tcpHeader->getEceBit() == true && tcpHeader->getCwrBit() == true) {
+        state->endPointIsWillingECN = true;
+        EV << "ECN-setup SYN packet received\n";
+    }
+    std::cout << "\nSending Syn Ack = "
+              << "localPort: " << localPort
+              << ", localAddr: " << localAddr
+              << ", remotePort: " << remotePort
+              << ", remoteAddr: " << remoteAddr
+              << std::endl;
+    sendSynAck();
+
+    if(isMaster){
+        metaConn->setUpSynAck();
+    }
+
+    startSynRexmitTimer();
+
+    if (!connEstabTimer->isScheduled())
+        scheduleAfter(TCP_TIMEOUT_CONN_ESTAB, connEstabTimer);
+
+    //"
+    // Note that any other incoming control or data (combined with SYN)
+    // will be processed in the SYN-RECEIVED state, but processing of SYN
+    // and ACK should not be repeated.
+    //"
+    // We don't send text in SYN or SYN+ACK, but accept it. Otherwise
+    // there isn't much left to do: RST, SYN, ACK, FIN got processed already,
+    // so there's only URG and PSH left to handle.
+    //
+    if (B(tcpSegment->getByteLength()) > tcpHeader->getHeaderLength()) {
+        updateRcvQueueVars();
+
+        if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
+            receivedDsnMapping.emplace(tcpHeader->getSequenceNo(), tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber());
+            receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
+        }
+        else { // not enough freeRcvBuffer in rcvQueue for new segment
+            state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
+
+            emit(tcpRcvQueueDropsSignal, state->tcpRcvQueueDrops);
+
+            EV_WARN << "RcvQueueBuffer has run out, dropping segment\n";
+            return TCP_E_IGNORE;
+        }
+    }
+
+    if (tcpHeader->getUrgBit() || tcpHeader->getPshBit())
+        EV_DETAIL << "Ignoring URG and PSH bits in SYN\n"; // TODO
+
+    return TCP_E_RCV_SYN; // this will take us to SYN_RCVD
+}
+
+TcpEventCode SubflowConnection::processSegmentInSynSent(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address srcAddr, L3Address destAddr)
+{
+    EV_DETAIL << "Processing segment in SYN_SENT\n";
+
+    //"
+    // first check the ACK bit
+    //
+    //   If the ACK bit is set
+    //
+    //     If SEG.ACK =< ISS, or SEG.ACK > SND.NXT, send a reset (unless
+    //     the RST bit is set, if so drop the segment and return)
+    //
+    //       <SEQ=SEG.ACK><CTL=RST>
+    //
+    //     and discard the segment.  Return.
+    //
+    //     If SND.UNA =< SEG.ACK =< SND.NXT then the ACK is acceptable.
+    //"
+    if (tcpHeader->getAckBit()) {
+        if (seqLE(tcpHeader->getAckNo(), state->iss) || seqGreater(tcpHeader->getAckNo(), state->snd_nxt)) {
+            if (tcpHeader->getRstBit())
+                EV_DETAIL << "ACK+RST bit set but wrong AckNo, ignored\n";
+            else {
+                EV_DETAIL << "ACK bit set but wrong AckNo, sending RST\n";
+                sendRst(tcpHeader->getAckNo(), destAddr, srcAddr, tcpHeader->getDestPort(), tcpHeader->getSrcPort());
+            }
+            return TCP_E_IGNORE;
+        }
+
+        EV_DETAIL << "ACK bit set, AckNo acceptable\n";
+    }
+
+    //"
+    // second check the RST bit
+    //
+    //   If the RST bit is set
+    //
+    //     If the ACK was acceptable then signal the user "error:
+    //     connection reset", drop the segment, enter CLOSED state,
+    //     delete TCB, and return.  Otherwise (no ACK) drop the segment
+    //     and return.
+    //"
+    if (tcpHeader->getRstBit()) {
+        if (tcpHeader->getAckBit()) {
+            EV_DETAIL << "RST+ACK: performing connection reset\n";
+            sendIndicationToApp(TCP_I_CONNECTION_RESET);
+
+            return TCP_E_RCV_RST;
+        }
+        else {
+            EV_DETAIL << "RST without ACK: dropping segment\n";
+
+            return TCP_E_IGNORE;
+        }
+    }
+
+    //"
+    // third check the security and precedence -- not done
+    //
+    // fourth check the SYN bit
+    //
+    //   This step should be reached only if the ACK is ok, or there is
+    //   no ACK, and it the segment did not contain a RST.
+    //
+    //   If the SYN bit is on and the security/compartment and precedence
+    //   are acceptable then,
+    //"
+    if (tcpHeader->getSynBit()) {
+        //
+        //   RCV.NXT is set to SEG.SEQ+1, IRS is set to
+        //   SEG.SEQ.  SND.UNA should be advanced to equal SEG.ACK (if there
+        //   is an ACK), and any segments on the retransmission queue which
+        //   are thereby acknowledged should be removed.
+        //
+        state->rcv_nxt = tcpHeader->getSequenceNo() + 1;
+        state->rcv_adv = state->rcv_nxt + state->rcv_wnd;
+
+        emit(rcvAdvSignal, state->rcv_adv);
+
+        state->irs = tcpHeader->getSequenceNo();
+        receiveQueue->init(state->rcv_nxt);
+
+        if(isMaster){
+            metaConn->processSynSent(tcpHeader->getSequenceNo());
+        }
+
+        if (tcpHeader->getAckBit()) {
+            state->snd_una = tcpHeader->getAckNo();
+            sendQueue->discardUpTo(state->snd_una);
+            if (state->sack_enabled)
+                rexmitQueue->discardUpTo(state->snd_una);
+
+            if(isMaster){
+                metaConn->processSynSentAck(tcpHeader->getAckNo());
+            }
+
+            // although not mentioned in RFC 793, seems like we have to pick up
+            // initial snd_wnd from the segment here.
+            updateWndInfo(tcpHeader, true);
+
+            if(isMaster){
+                metaConn->updateWndInfo(tcpHeader, true);
+            }
+        }
+
+        // this also seems to be a good time to learn our local IP address
+        // (was probably unspecified at connection open)
+        tcpMain->updateSockPair(this, destAddr, srcAddr, tcpHeader->getDestPort(), tcpHeader->getSrcPort());
+
+        //"
+        //   If SND.UNA > ISS (our SYN has been ACKed), change the connection
+        //   state to ESTABLISHED, form an ACK segment
+        //
+        //     <SEQ=SND.NXT><ACK=RCV.NXT><CTL=ACK>
+        //
+        //   and send it.  Data or controls which were queued for
+        //   transmission may be included.  If there are other controls or
+        //   text in the segment then continue processing at the sixth step
+        //   below where the URG bit is checked, otherwise return.
+        //"
+        if (seqGreater(state->snd_una, state->iss)) {
+            EV_INFO << "SYN+ACK bits set, connection established.\n";
+
+            // RFC says "continue processing at the sixth step below where
+            // the URG bit is checked". Those steps deal with: URG, segment text
+            // (and PSH), and FIN.
+            // Now: URG and PSH we don't support yet; in SYN+FIN we ignore FIN;
+            // with segment text we just take it easy and put it in the receiveQueue
+            // -- we'll forward it to the user when more data arrives.
+            if (tcpHeader->getFinBit())
+                EV_DETAIL << "SYN+ACK+FIN received: ignoring FIN\n";
+
+            if (B(tcpSegment->getByteLength()) > tcpHeader->getHeaderLength()) {
+                updateRcvQueueVars();
+
+                if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
+                    receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
+
+                }
+                else { // not enough freeRcvBuffer in rcvQueue for new segment
+                    state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
+
+                    emit(tcpRcvQueueDropsSignal, state->tcpRcvQueueDrops);
+
+                    EV_WARN << "RcvQueueBuffer has run out, dropping segment\n";
+                    return TCP_E_IGNORE;
+                }
+            }
+
+            if (tcpHeader->getUrgBit() || tcpHeader->getPshBit())
+                EV_DETAIL << "Ignoring URG and PSH bits in SYN+ACK\n"; // TODO
+
+            if (tcpHeader->getHeaderLength() > TCP_MIN_HEADER_LENGTH) // Header options present?
+                readHeaderOptions(tcpHeader);
+
+            // notify tcpAlgorithm (it has to send ACK of SYN) and app layer
+            state->ack_now = true;
+            tcpAlgorithm->established(true);
+            tcpMain->emit(Tcp::tcpConnectionAddedSignal, this);
+            sendEstabIndicationToApp();
+
+            if(isMaster){
+                metaConn->sendEstablished();
+            }
+            // ECN
+            if (state->ecnSynSent) {
+                if (tcpHeader->getEceBit() && !tcpHeader->getCwrBit()) {
+                    state->ect = true;
+                    EV << "ECN-setup SYN-ACK packet was received... ECN is enabled.\n";
+                }
+                else {
+                    state->ect = false;
+                    EV << "non-ECN-setup SYN-ACK packet was received... ECN is disabled.\n";
+                }
+                state->ecnSynSent = false;
+            }
+            else {
+                state->ect = false;
+                if (tcpHeader->getEceBit() && !tcpHeader->getCwrBit())
+                    EV << "ECN-setup SYN-ACK packet was received... ECN is disabled.\n";
+            }
+
+            // This will trigger transition to ESTABLISHED. Timers and notifying
+            // app will be taken care of in stateEntered().
+            return TCP_E_RCV_SYN_ACK;
+        }
+
+        //"
+        //   Otherwise enter SYN-RECEIVED, form a SYN,ACK segment
+        //
+        //     <SEQ=ISS><ACK=RCV.NXT><CTL=SYN,ACK>
+        //
+        //   and send it.  If there are other controls or text in the
+        //   segment, queue them for processing after the ESTABLISHED state
+        //   has been reached, return.
+        //"
+        EV_INFO << "SYN bit set: sending SYN+ACK\n";
+        state->snd_max = state->snd_nxt = state->iss;
+        sendSynAck();
+        if(isMaster){
+            metaConn->setUpSynAck();
+        }
+        startSynRexmitTimer();
+
+        // Note: code below is similar to processing SYN in LISTEN.
+
+        // For consistency with that code, we ignore SYN+FIN here
+        if (tcpHeader->getFinBit())
+            EV_DETAIL << "SYN+FIN received: ignoring FIN\n";
+
+        // We don't send text in SYN or SYN+ACK, but accept it. Otherwise
+        // there isn't much left to do: RST, SYN, ACK, FIN got processed already,
+        // so there's only URG and PSH left to handle.
+        if (B(tcpSegment->getByteLength()) > tcpHeader->getHeaderLength()) {
+            updateRcvQueueVars();
+
+            if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
+                receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
+            }
+            else { // not enough freeRcvBuffer in rcvQueue for new segment
+                state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
+
+                emit(tcpRcvQueueDropsSignal, state->tcpRcvQueueDrops);
+
+                EV_WARN << "RcvQueueBuffer has run out, dropping segment\n";
+                return TCP_E_IGNORE;
+            }
+        }
+
+        if (tcpHeader->getUrgBit() || tcpHeader->getPshBit())
+            EV_DETAIL << "Ignoring URG and PSH bits in SYN\n"; // TODO
+
+        return TCP_E_RCV_SYN;
+    }
+
+    //"
+    // fifth, if neither of the SYN or RST bits is set then drop the
+    // segment and return.
+    //"
+    return TCP_E_IGNORE;
 }
 
 void SubflowConnection::invokeSendCommand()
