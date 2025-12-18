@@ -488,10 +488,7 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
 
     if (getFsmState() == TCP_S_LISTEN) {
         pace = false;
-        if(isMaster){
-            event = processSegmentInListen(tcpSegment, tcpHeader, src, dest);
-        }
-
+        event = processSegmentInListen(tcpSegment, tcpHeader, src, dest);
         if(metaConn->getFsmState() == TCP_S_LISTEN){
             sentToMasterConn = true;
             //if(isMaster){
@@ -1200,6 +1197,10 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
             sendAvailableIndicationToApp();
         else{
             sendEstabIndicationToApp();
+
+            if(isMaster) {
+                metaConn->sendEstablished();
+            }
         }
 
         // This will trigger transition to ESTABLISHED. Timers and notifying

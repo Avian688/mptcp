@@ -30,7 +30,7 @@ network singledumbbell
         client[numberOfFlows]: StandardHost {
             @display("p=68,71,m,n,numberOfFlows,150");
         }
-        configurator: AutoNetworkConfigurator {
+        configurator: Ipv4NetworkConfigurator {
             @display("p=450,350");
         }
         server[numberOfFlows]: StandardHost {

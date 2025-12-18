@@ -428,8 +428,6 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
     // FIXME how to support PUSH? One option is to treat each SEND as a unit of data,
     // and set PSH at SEND boundaries
     Packet *packet = check_and_cast<Packet *>(msg);
-    std::cout << "\n PROCESSING SEND AT SIMTIME: " << simTime() << endl;
-    std::cout << "\n FSM STATE: " << fsm.getState() << endl;
     switch (fsm.getState()) {
         case TCP_S_INIT:
             throw cRuntimeError(tcpMain, "Error processing command SEND: connection not open");
@@ -455,7 +453,6 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
             for (int state = 0; state < mptcp_state_count; ++state) {
                 for (SubflowConnection* conn : m_subflows[state]) {
                     if (conn) {
-                        std::cout << "\n STATE: "  << state << " " << conn->getClassAndFullName() << endl;
                         conn->sendPendingData();
                     }
                 }
@@ -465,7 +462,6 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
 
         case TCP_S_ESTABLISHED:
         case TCP_S_CLOSE_WAIT:
-            std::cout << "\n PACKET INFORMATION 2: " << packet->getDataLength() << endl;
             sendQueue->enqueueAppData(packet);
             EV_DETAIL << sendQueue->getBytesAvailable(state->snd_una) << " bytes in queue, plus "
                       << (state->snd_max - state->snd_una) << " bytes unacknowledged\n";
@@ -576,12 +572,6 @@ TcpEventCode MpTcpConnection::processSynInListen(Packet *tcpSegment, const Ptr<c
         state->endPointIsWillingECN = true;
         EV << "ECN-setup SYN packet received\n";
     }
-    std::cout << "\nSending Syn Ack = "
-              << "localPort: " << localPort
-              << ", localAddr: " << localAddr
-              << ", remotePort: " << remotePort
-              << ", remoteAddr: " << remoteAddr
-              << std::endl;
     setUpSynAck();
 
     //startSynRexmitTimer();
@@ -1268,13 +1258,6 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
     //"
     // Note: should use SND.MAX instead of SND.NXT in above checks
     //
-    std::cout << "tcpHeader->getAckNo(): " << tcpHeader->getAckNo() << std::endl;
-    std::cout << "tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(): " << tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() << std::endl;
-    std::cout << "state->snd_max: " << state->snd_max << std::endl;
-    std::cout << "seqLE result: "
-              << seqLE(tcpHeader->getAckNo(), state->snd_max)
-              << std::endl;
-
     uint32_t dsnAckNo;
     if(tcpHeader->findTag<DataSequenceNumberTag>()){
         dsnAckNo = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
@@ -1406,7 +1389,7 @@ void MpTcpConnection::receivedChunk(uint32_t& fromSeqNo, uint32_t& toSeqNo)
             }
         }
         else{
-            std::cout << "\n MISMATCH old_rcv_nxt = " << old_rcv_nxt << " state->rcv_nxt << " << state->rcv_nxt << endl;
+            EV_INFO << "\n MISMATCH old_rcv_nxt = " << old_rcv_nxt << " state->rcv_nxt << " << state->rcv_nxt << endl;
         }
     }
     else{

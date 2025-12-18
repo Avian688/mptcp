@@ -19,7 +19,7 @@ void MpTcpSinkApp::initialize(int stage)
 {
     TcpSinkApp::initialize(stage);
     if (stage == INITSTAGE_LOCAL) {
-        numOfFlows = 2;
+        numOfFlows = 5;
         portNumber = 1000;
     }
 }
@@ -77,13 +77,13 @@ TcpSocket* MpTcpSinkApp::createSubflowSocket()
     cModuleType *moduleType = cModuleType::get(serverThreadModuleType);
     char name[80];
     sprintf(name, "thread_%i", newSocket->getSocketId());
-    TcpServerThreadBase *proc = check_and_cast<TcpServerThreadBase *>(moduleType->create(name, this));
-    proc->finalizeParameters();
-    proc->callInitialize();
-    newSocket->setCallback(proc);
-    proc->init(this, newSocket);
+    //TcpServerThreadBase *// = check_and_cast<TcpServerThreadBase *>(moduleType->create(name, this));
+    //proc->finalizeParameters();
+    //proc->callInitialize();
+    //newSocket->setCallback(proc);
+    //proc->init(this, newSocket);
 
-    std::cout << "\n SERVER CREATED PROCESS: " << proc->getClassAndFullPath() << endl;
+    //std::cout << "\n SERVER CREATED PROCESS: " << proc->getClassAndFullPath() << endl;
 
 
     socketMap.addSocket(newSocket);
