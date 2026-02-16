@@ -2,13 +2,15 @@
 # OMNeT++/OMNEST Makefile for $(LIB_PREFIX)mptcp
 #
 # This file was generated with the command:
-#  opp_makemake --make-so -f --deep -KCUBIC_PROJ=../../cubic -KINET4_5_PROJ=../../inet4.5 -KTCPPACED_PROJ=../../tcpPaced -KTCPGOODPUTAPPLICATIONS_PROJ=../../tcpGoodputApplications -DINET_IMPORT -I$$\(INET4_5_PROJ\)/src -L$$\(CUBIC_PROJ\)/src -L$$\(INET4_5_PROJ\)/src -L$$\(TCPGOODPUTAPPLICATIONS_PROJ\)/src -L$$\(TCPPACED_PROJ\)/src -lcubic$$\(D\) -lINET$$\(D\) -ltcpGoodputApplications$$\(D\) -ltcpPaced$$\(D\)
+#  opp_makemake --make-so -f --deep -KCUBIC_PROJ=../../cubic -KINET4_5_PROJ=../../inet4.5 -KTCPPACED_PROJ=../../tcpPaced -KORBTCP_PROJ=../../orbtcp -KTCPGOODPUTAPPLICATIONS_PROJ=../../tcpGoodputApplications -DINET_IMPORT -I$$\(INET4_5_PROJ\)/src -L$$\(CUBIC_PROJ\)/src -L$$\(INET4_5_PROJ\)/src -L$$\(ORBTCP_PROJ\)/src -L$$\(TCPGOODPUTAPPLICATIONS_PROJ\)/src -L$$\(TCPPACED_PROJ\)/src -lcubic$$\(D\) -lINET$$\(D\) -lorbtcp$$\(D\) -ltcpGoodputApplications$$\(D\) -ltcpPaced$$\(D\)
 #
 
 # Name of target to be created (-o option)
 TARGET_DIR = .
 TARGET_NAME = $(LIB_PREFIX)mptcp$(D)
 TARGET = $(TARGET_NAME)$(SHARED_LIB_SUFFIX)
+TARGET_IMPLIB = $(TARGET_NAME)$(IMPLIB_SUFFIX)
+TARGET_IMPDEF = $(TARGET_NAME)$(IMPDEF_SUFFIX)
 TARGET_FILES = $(TARGET_DIR)/$(TARGET)
 
 # C++ include paths (with -I)
@@ -18,7 +20,7 @@ INCLUDE_PATH = -I$(INET4_5_PROJ)/src
 EXTRA_OBJS =
 
 # Additional libraries (-L, -l options)
-LIBS = $(LDFLAG_LIBPATH)$(CUBIC_PROJ)/src $(LDFLAG_LIBPATH)$(INET4_5_PROJ)/src $(LDFLAG_LIBPATH)$(TCPGOODPUTAPPLICATIONS_PROJ)/src $(LDFLAG_LIBPATH)$(TCPPACED_PROJ)/src  -lcubic$(D) -lINET$(D) -ltcpGoodputApplications$(D) -ltcpPaced$(D)
+LIBS = $(LDFLAG_LIBPATH)$(CUBIC_PROJ)/src $(LDFLAG_LIBPATH)$(INET4_5_PROJ)/src $(LDFLAG_LIBPATH)$(ORBTCP_PROJ)/src $(LDFLAG_LIBPATH)$(TCPGOODPUTAPPLICATIONS_PROJ)/src $(LDFLAG_LIBPATH)$(TCPPACED_PROJ)/src  -lcubic$(D) -lINET$(D) -lorbtcp$(D) -ltcpGoodputApplications$(D) -ltcpPaced$(D)
 
 # Output directory
 PROJECT_OUTPUT_DIR = ../out
@@ -54,6 +56,7 @@ SMFILES =
 CUBIC_PROJ=../../cubic
 INET4_5_PROJ=../../inet4.5
 TCPPACED_PROJ=../../tcpPaced
+ORBTCP_PROJ=../../orbtcp
 TCPGOODPUTAPPLICATIONS_PROJ=../../tcpGoodputApplications
 
 #------------------------------------------------------------------------------
@@ -75,7 +78,7 @@ include $(CONFIGFILE)
 # Simulation kernel and user interface libraries
 OMNETPP_LIBS = -loppenvir$D $(KERNEL_LIBS) $(SYS_LIBS)
 ifneq ($(PLATFORM),win32)
-LIBS += -Wl,-rpath,$(abspath $(CUBIC_PROJ)/src) -Wl,-rpath,$(abspath $(INET4_5_PROJ)/src) -Wl,-rpath,$(abspath $(TCPGOODPUTAPPLICATIONS_PROJ)/src) -Wl,-rpath,$(abspath $(TCPPACED_PROJ)/src)
+LIBS += -Wl,-rpath,$(abspath $(CUBIC_PROJ)/src) -Wl,-rpath,$(abspath $(INET4_5_PROJ)/src) -Wl,-rpath,$(abspath $(ORBTCP_PROJ)/src) -Wl,-rpath,$(abspath $(TCPGOODPUTAPPLICATIONS_PROJ)/src) -Wl,-rpath,$(abspath $(TCPPACED_PROJ)/src)
 endif
 
 COPTS = $(CFLAGS) $(IMPORT_DEFINES) -DINET_IMPORT $(INCLUDE_PATH) -I$(OMNETPP_INCL_DIR)
@@ -93,11 +96,8 @@ endif
 
 # On Windows, the target has additional file(s). An import lib and an optional debug symbol file is created too.
 ifeq ($(PLATFORM),win32)
-  TARGET_IMPLIB = $(TARGET_NAME)$(IMPLIB_SUFFIX)
-  TARGET_IMPDEF = $(TARGET_NAME)$(IMPDEF_SUFFIX)
   TARGET_FILES+= $(TARGET_DIR)/$(TARGET_IMPLIB)
   LDFLAGS+= $(LDFLAG_IMPLIB)$O/$(TARGET_IMPLIB)
-  OUT_TARGET_EXTRA_FILES = $O/$(TARGET_IMPLIB)
   ifeq ($(TOOLCHAIN_NAME),clang-msabi)
     ifeq ($(MODE),debug)
       TARGET_FILES+=$(TARGET_DIR)/$(TARGET_NAME).pdb
@@ -105,7 +105,6 @@ ifeq ($(PLATFORM),win32)
   else
     TARGET_FILES+= $(TARGET_DIR)/$(TARGET_IMPDEF)
     LDFLAGS+= $(LDFLAG_IMPDEF)$O/$(TARGET_IMPDEF)
-    OUT_TARGET_EXTRA_FILES+= $O/$(TARGET_IMPDEF)
   endif
 endif
 
@@ -127,7 +126,7 @@ ifeq ($(TOOLCHAIN_NAME),clang-msabi)
 $O/$(TARGET_NAME).pdb: $O/$(TARGET)
 endif
 
-$O/$(TARGET) $(OUT_TARGET_EXTRA_FILES) &: $(OBJS)  $(wildcard $(EXTRA_OBJS)) Makefile $(CONFIGFILE)
+$O/$(TARGET) $O/$(TARGET_IMPDEF) $O/$(TARGET_IMPLIB) &: $(OBJS)  $(wildcard $(EXTRA_OBJS)) Makefile $(CONFIGFILE)
 	@$(MKPATH) $O
 	@echo Creating shared library: $@
 	$(Q)$(SHLIB_LD) -o $O/$(TARGET) $(OBJS) $(EXTRA_OBJS) $(AS_NEEDED_OFF) $(WHOLE_ARCHIVE_ON) $(LIBS) $(WHOLE_ARCHIVE_OFF) $(OMNETPP_LIBS) $(LDFLAGS)
@@ -149,11 +148,11 @@ $O/%.o: %.cc $(COPTS_FILE) | msgheaders smheaders
 
 %_m.cc %_m.h: %.msg
 	$(qecho) MSGC: $<
-	$(Q)$(MSGC) -s _m.cc -MD -MP -MF $O/$(basename $<)_m.h.d $(MSGCOPTS) $<
+	$(Q)$(MSGC) -s _m.cc -MD -MP -MF $O/$(basename $<)_m.h.d $(MSGCOPTS) $?
 
 %_sm.cc %_sm.h: %.sm
 	$(qecho) SMC: $<
-	$(Q)$(SMC) -c++ -suffix cc $(SMCOPTS) $<
+	$(Q)$(SMC) -c++ -suffix cc $(SMCOPTS) $?
 
 msgheaders: $(MSGFILES:.msg=_m.h)
 

@@ -9,11 +9,12 @@ import ned.IBidirectionalChannel;
 import inet.common.scenario.ScenarioManager;
 import tcppaced.networklayer.configurator.ipv4.AutoNetworkConfigurator;
 
-network singledumbbell
+network multipathdumbbell
 {
     parameters:
         @display("bgb=512,395");
-        int numberOfFlows = default(2);
+        int numberOfClientServers = default(1);
+        int numberOfSubflows = default(2);
     types:
         channel standardLine extends DatarateChannel //look at
         {
@@ -27,33 +28,38 @@ network singledumbbell
             datarate = 50Mbps;
         }
     submodules:
-        client[numberOfFlows]: StandardHost {
-            @display("p=68,71,m,n,numberOfFlows,150");
+        client[numberOfClientServers]: StandardHost {
+            @display("p=68,71,m,n,numberOfClientServers,200");
         }
         configurator: AutoNetworkConfigurator {
             @display("p=450,350");
         }
-        server[numberOfFlows]: StandardHost {
-            @display("p=431,50,m,n,numberOfFlows,150");
+        server[numberOfClientServers]: StandardHost {
+            @display("p=431,50,m,n,numberOfClientServers,200");
         }
-        router1: Router {
-            @display("p=215,140");
+        router1[numberOfSubflows]: Router {
+            @display("p=220,140,m,n,numberOfSubflows,200");
         }
-        router2: Router {
-            @display("p=327,140");
+        router2[numberOfSubflows]: Router {
+            @display("p=327,140,m,n,numberOfSubflows,200");
         }
         scenarioManager: ScenarioManager {
             @display("p=100,300;is=s");
         }
     connections:
         for i=0..sizeof(client)-1 {
-            client[i].pppg++ <--> standardLine <--> router1.pppg++;
+            for j=0..sizeof(router1)-1 {
+            	client[i].pppg++ <--> standardLine <--> router1[j].pppg++;
+            }
         }
 
-        for n=0..sizeof(server)-1 {
-            server[n].pppg++ <--> standardLine <--> router2.pppg++;
+        for k=0..sizeof(server)-1 {
+            for l=0..sizeof(router2)-1 {
+            	server[k].pppg++ <--> standardLine <--> router2[l].pppg++;
+            }
         }
 
-        router1.pppg++ <--> bottleneckLine <--> router2.pppg++;
-
+        for m=0..sizeof(router1)-1 {
+            router1[m].pppg++ <--> bottleneckLine <--> router2[m].pppg++;
+        }
 }

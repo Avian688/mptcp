@@ -428,8 +428,6 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
     // FIXME how to support PUSH? One option is to treat each SEND as a unit of data,
     // and set PSH at SEND boundaries
     Packet *packet = check_and_cast<Packet *>(msg);
-    std::cout << "\n PROCESSING SEND AT SIMTIME: " << simTime() << endl;
-    std::cout << "\n FSM STATE: " << fsm.getState() << endl;
     switch (fsm.getState()) {
         case TCP_S_INIT:
             throw cRuntimeError(tcpMain, "Error processing command SEND: connection not open");
@@ -576,12 +574,6 @@ TcpEventCode MpTcpConnection::processSynInListen(Packet *tcpSegment, const Ptr<c
         state->endPointIsWillingECN = true;
         EV << "ECN-setup SYN packet received\n";
     }
-    std::cout << "\nSending Syn Ack = "
-              << "localPort: " << localPort
-              << ", localAddr: " << localAddr
-              << ", remotePort: " << remotePort
-              << ", remoteAddr: " << remoteAddr
-              << std::endl;
     setUpSynAck();
 
     //startSynRexmitTimer();
