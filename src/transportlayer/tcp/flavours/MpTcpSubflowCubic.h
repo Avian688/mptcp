@@ -11,7 +11,7 @@
 #include <inet/transportlayer/tcp/TcpConnection.h>
 #include "MpTcpCubicBase.h"
 #include "MpTcpCubicState_m.h"
-
+#include "../SubflowConnection.h"
 #include <cmath>
 
 #define BICTCP_BETA_SCALE    1024   /* Scale factor beta calculation

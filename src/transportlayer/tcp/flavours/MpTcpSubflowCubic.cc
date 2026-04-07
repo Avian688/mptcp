@@ -58,6 +58,7 @@ void MpTcpSubflowCubic::reset() {
 }
 
 void MpTcpSubflowCubic::initialize() {
+    isMaster = false;
     TcpPacedFamily::initialize();
     reset();
     /* Precompute a bunch of the scaling factors that are used per-packet
@@ -305,7 +306,6 @@ void MpTcpSubflowCubic::recalculateSlowStartThreshold() {
             std::max((cwnd * state->beta) / BICTCP_BETA_SCALE, 2U))
             * state->snd_mss;
 
-    conn->emit(cwndSignal, state->snd_cwnd);
     conn->emit(ssthreshSignal, state->ssthresh);
     conn->emit(lastMaxWindowSignal, state->last_max_cwnd);
     conn->emit(cwndSegSignal, cwnd);
@@ -313,6 +313,7 @@ void MpTcpSubflowCubic::recalculateSlowStartThreshold() {
 }
 
 void MpTcpSubflowCubic::processRexmitTimer(TcpEventCode &event) {
+    uint32_t old_cwnd = state->snd_cwnd;
     TcpPacedFamily::processRexmitTimer(event);
 
     std::cerr << "RTO at " << simTime() << std::endl;
@@ -322,6 +323,7 @@ void MpTcpSubflowCubic::processRexmitTimer(TcpEventCode &event) {
     reset();
     recalculateSlowStartThreshold();
     state->snd_cwnd = state->snd_mss;
+    dynamic_cast<SubflowConnection*>(conn)->updateTotalCwnd(old_cwnd, state->snd_cwnd);
 
 //    if(state->snd_cwnd > 0){
 //        if(state->snd_cwnd < state->ssthresh/2){
@@ -343,7 +345,7 @@ void MpTcpSubflowCubic::processRexmitTimer(TcpEventCode &event) {
 }
 
 void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
-
+    uint32_t old_cwnd = state->snd_cwnd;
     TcpTahoeRenoFamily::receivedDataAck(firstSeqAcked);
     state->delay_min = state->srtt.inUnit(SIMTIME_US);
     // Check if recovery phase has ended
@@ -414,6 +416,7 @@ void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
         dynamic_cast<TcpPacedConnection*>(conn)->changeIntersendingTime(state->srtt.dbl()/(((double) maxWindow/(double)state->snd_mss)* paceFactor));
     }
 
+    dynamic_cast<SubflowConnection*>(conn)->updateTotalCwnd(old_cwnd, state->snd_cwnd);
     sendData(false);
 
     conn->emit(cwndSegSignal, state->snd_cwnd / state->snd_mss);
@@ -421,6 +424,7 @@ void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
 
 void MpTcpSubflowCubic::receivedDuplicateAck()
 {
+    uint32_t old_cwnd = state->snd_cwnd;
     //TcpTahoeRenoFamily::receivedDuplicateAck();
     state->delay_min = state->srtt.inUnit(SIMTIME_US);
 
@@ -542,6 +546,7 @@ void MpTcpSubflowCubic::receivedDuplicateAck()
        dynamic_cast<TcpPacedConnection*>(conn)->changeIntersendingTime(pace);
     }
 
+    dynamic_cast<SubflowConnection*>(conn)->updateTotalCwnd(old_cwnd, state->snd_cwnd);
     sendData(false);
 }
 

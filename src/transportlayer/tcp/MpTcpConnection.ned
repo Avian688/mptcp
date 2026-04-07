@@ -21,5 +21,8 @@ simple MpTcpConnection extends TcpPacedConnection
 {
     parameters:
         @class("inet::tcp::MpTcpConnection");
+        int numberOfSubflows = default(1);
+        bool startAllSubflowsAtBeginning = default(true);
+        string schedulerMode = default("default");
         
 }

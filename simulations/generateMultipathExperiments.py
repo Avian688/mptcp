@@ -1,7 +1,27 @@
+from pathlib import Path
+
+OUTPUT_FILE = Path("multipathExperiments.ini")
+
+# ==============================
+# Experiment Parameters
+# ==============================
+
+params = {
+    "sim_time": "25s",
+    "tcp_algorithm": "MpTcpMetaCubic",
+    "packet_capacity": 100,
+    "subflows": [2, 4, 8, 16, 32],  # easily extendable
+}
+
+# ==============================
+# General Section Template
+# ==============================
+
+general_template = f"""
 [General]
 
-network = singledumbbell
-sim-time-limit = 5s
+network = multipathdumbbell
+sim-time-limit = {params["sim_time"]}
 record-eventlog=false
 cmdenv-express-mode = true
 cmdenv-redirect-output = false
@@ -9,21 +29,17 @@ cmdenv-output-file = dctcpLog.txt
 **.client*.tcp.conn-8.cmdenv-log-level = detail
 cmdenv-log-prefix = %t | %m |
 
-
 cmdenv-event-banners = false
 **.cmdenv-log-level = off
 
 **.**.tcp.conn-*.cwnd:vector(removeRepeats).vector-recording = true
 **.**.tcp.conn-*.rtt:vector(removeRepeats).vector-recording = true
 **.**.tcp.conn-*.srtt:vector(removeRepeats).vector-recording = true
+**.**.tcp.conn-*.sndNxt:vector(removeRepeats).vector-recording = true
 **.**.tcp.conn-*.throughput:vector(removeRepeats).vector-recording = true
 **.**.tcp.conn-*.**.result-recording-modes = vector(removeRepeats)
-**.**.queue.queueLength:vector(removeRepeats).vector-recording = true
-**.**.queue.queueLength.result-recording-modes = vector(removeRepeats)
 **.**.goodput:vector(removeRepeats).vector-recording = true
 **.**.goodput.result-recording-modes = vector(removeRepeats)
-**.**.bandwidth:vector(removeRepeats).vector-recording = true
-**.**.bandwidth.result-recording-modes = vector(removeRepeats)
 **.**.mbytesInFlight:vector(removeRepeats).vector-recording = true
 **.**.mbytesInFlight.result-recording-modes = vector(removeRepeats)
 **.scalar-recording=false
@@ -33,7 +49,7 @@ cmdenv-event-banners = false
 **.goodputInterval = 1s
 **.throughputInterval = 1s
 **.tcp.typename = "MpTcp"
-**.tcp.tcpAlgorithmClass = "MpTcpMetaCubic"
+**.tcp.tcpAlgorithmClass = "{params["tcp_algorithm"]}"
 **.tcp.advertisedWindow = 200000000
 **.tcp.windowScalingSupport = true
 **.tcp.windowScalingFactor = -1
@@ -56,7 +72,6 @@ cmdenv-event-banners = false
 **.server[*].app[*].typename  = "MpTcpSinkApp"
 **.server[*].app[*].serverThreadModuleType = "tcpgoodputapplications.applications.tcpapp.TcpGoodputSinkAppThread"
 
-
 **.**.queue.typename = "DropTailQueue"
 
 **.additiveIncreasePercent = 0.05
@@ -66,70 +81,63 @@ cmdenv-event-banners = false
 **.fixedAvgRTTVal = 0
 
 **.tcp.initialSsthresh = 5792000
+"""
 
-[Config mpTest]
+# ==============================
+# Config Template
+# ==============================
+
+config_template = """
+[Config {name}]
 extends = General 
 
-**.numberOfFlows = 2 
+**.numberOfSubflows = {subflows}
 
 *.client[0].app[0].connectAddress = "server[0]"
 *.client[0].app[0].tOpen  = 0.00846919251197291s
 *.client[0].app[0].tSend = 0.00846919251197291s
 *.client[0].app[0].sendBytes = 2GB
 
-**.ppp[*].queue.packetCapacity = 100
+**.ppp[*].queue.packetCapacity = {packet_capacity}
+"""
 
-[Config mpTestBaseline]
-extends = General 
+# ==============================
+# Helper Functions
+# ==============================
 
-**.tcp.typename = "TcpPaced"
-**.tcp.tcpAlgorithmClass = "TcpCubic"
-**.server[*].app[*].typename  = "TcpSinkApp"
+def subflow_name(n: int) -> str:
+    names = {
+        1: "OneSubflow",
+        2: "TwoSubflows",
+        4: "FourSubflows",
+        8: "EightSubflows",
+        16: "SixteenSubflows",
+        32: "ThirtyTwoSubflows",
+    }
+    return names.get(n, f"{n}Subflows")
 
-**.numberOfFlows = 2
 
-*.client[0].app[0].connectAddress = "server[0]"
-*.client[0].app[0].tOpen  = 0.00846919251197291s
-*.client[0].app[0].tSend = 0.00846919251197291s
-*.client[0].app[0].sendBytes = 2GB
+def generate_configs():
+    configs = []
 
-*.client[1].app[0].connectAddress = "server[1]"
-*.client[1].app[0].tOpen  = 0.00846919251197291s
-*.client[1].app[0].tSend = 0.00846919251197291s
-*.client[1].app[0].sendBytes = 2GB
+    for n in params["subflows"]:
+        configs.append(
+            config_template.format(
+                name=subflow_name(n),
+                subflows=n,
+                packet_capacity=params["packet_capacity"],
+            )
+        )
 
-**.ppp[*].queue.packetCapacity = 100
+    return "\n".join(configs)
 
-[Config mpTestLeotcp]
-extends = General 
 
-**.tcp.typename = "Orbtcp"
-**.tcp.tcpAlgorithmClass = "OrbtcpFlavour"
-**.tcp.advertisedWindow = 200000000
-**.tcp.windowScalingSupport = true
-**.tcp.windowScalingFactor = -1
-**.tcp.increasedIWEnabled = true
-**.tcp.delayedAcksEnabled = false
-**.tcp.timestampSupport = true
-**.tcp.ecnWillingness = false
-**.tcp.nagleEnabled = true
-**.tcp.stopOperationTimeout = 4000s
-**.tcp.mss = 1448
-**.tcp.sackSupport = true
-**.interfaceType = "orbtcp.linklayer.ppp.IntInterface"
-**.**.ppp[*].queue.typename = "IntQueue"
+# ==============================
+# Write File
+# ==============================
 
-**.numberOfFlows = 1 
+ini_contents = general_template + "\n" + generate_configs()
 
-*.client[0].app[0].connectAddress = "server[0]"
-*.client[0].app[0].tOpen  = 0.00846919251197291s
-*.client[0].app[0].tSend = 0.00846919251197291s
-*.client[0].app[0].sendBytes = 2GB
+OUTPUT_FILE.write_text(ini_contents)
 
-**.additiveIncreasePercent = 0.05
-**.eta = 0.95
-
-**.alpha = 0.01
-**.fixedAvgRTTVal = 0
-
-**.ppp[*].queue.packetCapacity = 100
+print(f"Generated {OUTPUT_FILE} with {len(params['subflows'])} experiments.")

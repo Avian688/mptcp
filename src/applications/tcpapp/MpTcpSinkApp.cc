@@ -8,7 +8,6 @@
 #include <inet/common/stlutils.h>
 
 #include "MpTcpSinkApp.h"
-#include "../../transportlayer/tcp/TcpOpenSubflowCommand_m.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
 
 namespace inet {
@@ -19,7 +18,7 @@ void MpTcpSinkApp::initialize(int stage)
 {
     TcpSinkApp::initialize(stage);
     if (stage == INITSTAGE_LOCAL) {
-        numOfFlows = 2;
+        numOfFlows = par("numberOfSubflows");
         portNumber = 1000;
     }
 }
@@ -44,9 +43,6 @@ void MpTcpSinkApp::handleStartOperation(LifecycleOperation *operation)
     TcpSocket* serverSocketPtr = &serverSocket;
     proc->init(this, serverSocketPtr);
 
-    for (int i = 0; i < numOfFlows; i++) {
-        createSubflowSocket();
-    }
 }
 
 TcpSocket* MpTcpSinkApp::createSubflowSocket()
@@ -153,15 +149,7 @@ void MpTcpSinkApp::handleMessageWhenUp(cMessage *msg)
             socket->processMessage(msg);
 
         else if (serverSocket.belongsToSocket(msg)){
-            if (msg->getKind() == 13) {
-               std::cout << "\n MSG WORKED CREATING SOCKET" << endl;
-               TcpOpenSubflowCommand *connectInfo;
-               connectInfo = check_and_cast<TcpOpenSubflowCommand *>(msg->getControlInfo());
-               createSocket(connectInfo->getNewSocketId(), connectInfo->getLocalAddr(), connectInfo->getRemoteAddr());
-            }
-            else{
-                serverSocket.processMessage(msg); //TODO FIX THIS ASS THE CORRECT THREAD SHOULD PROCESS THE MESSAGE NOT THE SOCKET
-            }
+            serverSocket.processMessage(msg); //TODO FIX THIS ASS THE CORRECT THREAD SHOULD PROCESS THE MESSAGE NOT THE SOCKET
         }
         else {
 //            throw cRuntimeError("Unknown incoming message: '%s'", msg->getName());
@@ -174,4 +162,3 @@ void MpTcpSinkApp::handleMessageWhenUp(cMessage *msg)
 
 
 } // namespace inet
-

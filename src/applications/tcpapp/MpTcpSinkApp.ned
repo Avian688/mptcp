@@ -16,6 +16,8 @@ module MpTcpSinkApp extends TcpSinkApp
 {
 	parameters:
         @class(inet::MpTcpSinkApp);
+
+        int numberOfSubflows = default(2);
 }
 
 

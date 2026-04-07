@@ -18,7 +18,9 @@
 #include "MpTcpConnection.h"
 
 #include <inet/common/socket/SocketTag_m.h>
-#include "inet/common/packet/Message.h"
+#include <inet/common/packet/Message.h>
+#include <inet/linklayer/common/InterfaceTag_m.h>
+#include <inet/transportlayer/contract/tcp/TcpCommand_m.h>
 
 namespace inet {
 namespace tcp {
@@ -30,6 +32,14 @@ SubflowConnection::SubflowConnection()
     // TODO Auto-generated constructor stub
     isMaster = false;
     metaConn = nullptr;
+    the2MSLTimer = nullptr;
+    connEstabTimer = nullptr;
+    finWait2Timer = nullptr;
+    synRexmitTimer = nullptr;
+    paceMsg = nullptr;
+    throughputTimer = nullptr;
+    retransmissionRateTimer = nullptr;
+    rackTimer = nullptr;
 
 }
 
@@ -43,6 +53,47 @@ void SubflowConnection::initSubflowConnection(Tcp *mod, int socketId, MpTcpConne
     TcpConnection::initConnection(mod, socketId);
     this->metaConn = metaConn;
     this->isMaster = isMaster;
+    metaConn->addSubflow(this);
+    metaConn->assignInterface(this);
+}
+
+void SubflowConnection::initConnection(TcpOpenCommand *openCmd)
+{
+    MpTcpConnectionBase::initConnection(openCmd);
+}
+
+bool SubflowConnection::openActive(L3Address localAddr, L3Address remoteAddr, int localPort, int remotePort)
+{
+    TcpOpenCommand *openCmd = new TcpOpenCommand();
+    openCmd->setLocalAddr(localAddr);
+    openCmd->setRemoteAddr(remoteAddr);
+    openCmd->setLocalPort(localPort);
+    openCmd->setRemotePort(remotePort);
+    return processInternalCommand(TCP_C_OPEN_ACTIVE, openCmd);
+}
+
+bool SubflowConnection::openPassive(L3Address localAddr, int localPort)
+{
+    TcpOpenCommand *openCmd = new TcpOpenCommand();
+    openCmd->setLocalAddr(localAddr);
+    openCmd->setLocalPort(localPort);
+    openCmd->setFork(false);
+    return processInternalCommand(TCP_C_OPEN_PASSIVE, openCmd);
+}
+
+bool SubflowConnection::closeFlow()
+{
+    return processInternalCommand(TCP_C_CLOSE, new TcpCommand());
+}
+
+bool SubflowConnection::abortFlow()
+{
+    return processInternalCommand(TCP_C_ABORT, new TcpCommand());
+}
+
+bool SubflowConnection::destroyFlow()
+{
+    return processInternalCommand(TCP_C_DESTROY, new TcpCommand());
 }
 
 void SubflowConnection::setUpConnection(L3Address src, L3Address dest, int srcPort, int destPort)
@@ -278,7 +329,6 @@ bool SubflowConnection::performStateTransition(const TcpEventCode& event)
 
                 case TCP_E_RCV_ACK:
                     FSM_Goto(fsm, TCP_S_ESTABLISHED);
-                    metaConn->subflowStateChange(event);
                     break;
 
                 case TCP_E_RCV_FIN:
@@ -465,6 +515,9 @@ bool SubflowConnection::performStateTransition(const TcpEventCode& event)
         EV_DETAIL << "Staying in state: " << stateName(fsm.getState()) << " (event was: " << eventName(event) << ")\n";
     }
 
+    if (oldState != fsm.getState() && metaConn != nullptr)
+        metaConn->subflowStateChange(this, event, oldState, fsm.getState());
+
     return fsm.getState() != TCP_S_CLOSED;
 }
 
@@ -479,7 +532,6 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
 
     emit(tcpRcvPayloadBytesSignal, int(tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get()));
 
-    bool sentToMasterConn = false;
     //
     // Note: this code is organized exactly as RFC 793, section "3.9 Event
     // Processing", subsection "SEGMENT ARRIVES".
@@ -488,25 +540,10 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
 
     if (getFsmState() == TCP_S_LISTEN) {
         pace = false;
-        if(isMaster){
-            event = processSegmentInListen(tcpSegment, tcpHeader, src, dest);
-        }
-
-        if(metaConn->getFsmState() == TCP_S_LISTEN){
-            sentToMasterConn = true;
-            //if(isMaster){
-            //    metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
-            //}
-        }
+        event = processSegmentInListen(tcpSegment, tcpHeader, src, dest);
     }
     else if (getFsmState() == TCP_S_SYN_SENT) {
         event = processSegmentInSynSent(tcpSegment, tcpHeader, src, dest);
-        if(metaConn->getFsmState() == TCP_S_SYN_SENT){
-            sentToMasterConn = true;
-            if(isMaster) {
-            //    metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
-            }
-        }
     }
     else {
         //sentToMasterConn = true;
@@ -515,17 +552,8 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
         //this should be sent to main connection??
         //masterConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
         event = processSegment1stThru8th(tcpSegment, tcpHeader);
-
-        if(metaConn->getFsmState() < TCP_S_ESTABLISHED){
-            sentToMasterConn = true;
-            if(isMaster){
-            //    metaConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
-            }
-        }
     }
-    if(!sentToMasterConn){
-        delete tcpSegment;
-    }
+    delete tcpSegment;
     return event;
 }
 
@@ -560,8 +588,7 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 
     //ASSERT(options_len < state->snd_mss);
 
-    //if (bytes + options_len > state->snd_mss)
-    bytes = state->snd_mss;
+    bytes = std::min(bytes, state->snd_mss);
     uint32_t sentBytes = bytes;
 
     // send one segment of 'bytes' bytes from snd_nxt, and advance snd_nxt
@@ -591,13 +618,14 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     state->snd_nxt += bytes;
 
     uint32_t metaSnd_nxt = 0;
-    if(!isRetransmission){ // Must be from meta socket.
-        metaSnd_nxt = metaConn->sendSegment(bytes); //TODO ensure seqNo lines up with pulled metaConn packet
-    }
-    else {
-        auto it = sentDsnMapping.find(old_snd_nxt);
-        if (it != sentDsnMapping.end()) {
-            metaSnd_nxt = it->second;
+    if (!consumePendingDsnMapping(old_snd_nxt, sentBytes, metaSnd_nxt)) {
+        if (!isRetransmission) { // Must be from meta socket.
+            metaSnd_nxt = metaConn->sendSegment(bytes); //TODO ensure seqNo lines up with pulled metaConn packet
+        }
+        else {
+            auto it = sentDsnMapping.find(old_snd_nxt);
+            if (it != sentDsnMapping.end())
+                metaSnd_nxt = it->second.dsnStart;
         }
     }
 
@@ -630,13 +658,7 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     calculateAppLimited();
 
     tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(metaSnd_nxt);
-    sentDsnMapping.emplace(tcpHeader->getSequenceNo(), metaSnd_nxt);
-
-    if (metaSnd_nxt == 0) {
-        std::cout << "metaSnd_nxt=" << metaSnd_nxt
-                  << ", tcp seq=" << tcpHeader->getSequenceNo()
-                  << std::endl;
-    }
+    rememberSentDsnMapping(tcpHeader->getSequenceNo(), metaSnd_nxt, sentBytes);
 
     // send it
     sendToIP(tcpSegment, tcpHeader);
@@ -675,19 +697,141 @@ void SubflowConnection::sendEstabIndicationToApp()
 //    sendToApp(indication);
 }
 
-void SubflowConnection::enqueueDataFromMeta(uint32_t bytes)
+bool SubflowConnection::enqueueDataFromMeta(uint32_t bytes)
 {
-    if(metaConn->getSegment(bytes) >= bytes) {
-        Packet *msg = new Packet("Packet");
-        const uint32_t packetSize = bytes;
-        Ptr<Chunk> packetBytes = makeShared<ByteCountChunk>(B(packetSize));
-        msg->insertAtBack(packetBytes);
-        sendQueue->enqueueAppData(msg);
+    if (metaConn == nullptr)
+        return false;
+
+    if (metaConn->getPacketScheduler().usesDirectPullMode()) {
+        if (metaConn->getSegment(bytes) < bytes)
+            return false;
+
+        enqueueScheduledData(bytes);
+        return true;
     }
+
+    return metaConn->getPacketScheduler().schedulePacket(this, bytes) == this;
+}
+
+simtime_t SubflowConnection::getSchedulingRtt() const
+{
+    auto *pacedAlgorithm = dynamic_cast<TcpPacedFamily *>(tcpAlgorithm);
+    if (pacedAlgorithm == nullptr)
+        return SIMTIME_MAX;
+
+    const simtime_t srtt = pacedAlgorithm->getRtt();
+    return srtt > SIMTIME_ZERO ? srtt : SIMTIME_MAX;
+}
+
+bool SubflowConnection::canAcceptScheduledData(uint32_t bytes) const
+{
+    if (state == nullptr || sendQueue == nullptr)
+        return false;
+
+    const int currentState = fsm.getState();
+    if (currentState != TCP_S_ESTABLISHED && currentState != TCP_S_CLOSE_WAIT)
+        return false;
+
+    const uint32_t alreadyQueued = sendQueue->getBytesAvailable(sendQueue->getBufferStartSeq());
+    const uint32_t queueLimit = getSchedulerQueueLimit();
+    return alreadyQueued <= queueLimit && bytes <= queueLimit - alreadyQueued;
+}
+
+bool SubflowConnection::canAcceptRetransmission(uint32_t bytes) const
+{
+    if (!canAcceptScheduledData(bytes))
+        return false;
+
+    if (state->snd_una != state->snd_max || state->snd_nxt != state->snd_max)
+        return false;
+
+    if (getSchedulerQueuedBytes() != 0)
+        return false;
+
+    return std::max(m_bytesInFlight, state->pipe) == 0;
+}
+
+bool SubflowConnection::canUseDefaultScheduler(uint32_t bytes) const
+{
+    if (!canAcceptScheduledData(bytes))
+        return false;
+
+    auto *pacedAlgorithm = dynamic_cast<TcpPacedFamily *>(tcpAlgorithm);
+    if (pacedAlgorithm == nullptr)
+        return false;
+
+    // The Linux default scheduler selects among active subflows with available
+    // write memory, then relies on the actual TCP transmit path to enforce cwnd
+    // and advertised-window limits. In this model, canAcceptScheduledData()
+    // provides the closest analogue to that write-memory gate.
+    return true;
+}
+
+void SubflowConnection::enqueueScheduledData(uint32_t bytes)
+{
+    Packet *msg = new Packet("Packet");
+    Ptr<Chunk> packetBytes = makeShared<ByteCountChunk>(B(bytes));
+    msg->insertAtBack(packetBytes);
+    sendQueue->enqueueAppData(msg);
+}
+
+bool SubflowConnection::enqueueRetransmissionData(uint32_t dsnStart, uint32_t bytes)
+{
+    if (metaConn == nullptr || sendQueue == nullptr || bytes == 0 || !canAcceptScheduledData(bytes))
+        return false;
+
+    Packet *msg = metaConn->createDataPacket(dsnStart, bytes);
+    if (msg == nullptr)
+        return false;
+
+    const uint32_t subflowSeqStart = sendQueue->getBufferEndSeq();
+    DsnMapping mapping;
+    mapping.dsnStart = dsnStart;
+    mapping.dsnEnd = dsnStart + bytes;
+    pendingDsnMapping[subflowSeqStart] = mapping;
+    sendQueue->enqueueAppData(msg);
+    return true;
+}
+
+uint32_t SubflowConnection::getSchedulerQueuedBytes() const
+{
+    if (sendQueue == nullptr)
+        return 0;
+
+    return sendQueue->getBytesAvailable(sendQueue->getBufferStartSeq());
+}
+
+uint32_t SubflowConnection::getSchedulerQueueLimit() const
+{
+    if (state == nullptr)
+        return 0;
+
+    if (state->sendQueueLimit > 0)
+        return state->sendQueueLimit;
+
+    const uint32_t inFlight = std::max(m_bytesInFlight, state->pipe);
+    uint32_t queueAllowance = std::max(state->snd_wnd, state->snd_mss);
+
+    if (auto *pacedAlgorithm = dynamic_cast<TcpPacedFamily *>(tcpAlgorithm))
+        queueAllowance = std::max(queueAllowance, pacedAlgorithm->getCwnd());
+
+    // Approximate the socket write buffer used by the Linux scheduler:
+    // retain room for already in-flight data plus roughly one additional
+    // window of queued data when no explicit send queue limit is configured.
+    return inFlight + queueAllowance;
+}
+
+double SubflowConnection::getSchedulerPacingRateBytesPerSecond() const
+{
+    if (state == nullptr || intersendingTime <= SIMTIME_ZERO)
+        return 0.0;
+
+    return static_cast<double>(state->snd_mss) / intersendingTime.dbl();
 }
 
 bool SubflowConnection::sendDataDuringLossRecovery(uint32_t congestionWindow)
 {
+
     isRetransmission = false;
     // RFC 3517 pages 7 and 8: "(5) In order to take advantage of potential additional available
     // cwnd, proceed to step (C) below.
@@ -808,7 +952,11 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
             uint32_t effectiveWin = maxWindow - state->pipe;
             if (effectiveWin >= state->snd_mss) {
                 if(buffered <= 0){
-                    enqueueDataFromMeta(state->snd_mss); //TODO Run Packet scheduler and see if any other subflows need/can send packets
+                    if (!enqueueDataFromMeta(state->snd_mss))
+                        return false;
+                    buffered = sendQueue->getBytesAvailable(state->snd_max);
+                    if (buffered <= 0)
+                        return false;
                 }
                 seqNum = state->snd_max; // HighData = snd_max
                 return true;
@@ -958,53 +1106,16 @@ uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
 
 void SubflowConnection::sendAvailableDataToApp()
 {
-//    if (receiveQueue->getAmountOfBufferedBytes()) {
-//        if (tcpMain->useDataNotification) {
-//            auto indication = new Indication("Data Notification", TCP_I_DATA_NOTIFICATION); // TODO currently we never send TCP_I_URGENT_DATA
-//            TcpCommand *cmd = new TcpCommand();
-//            indication->addTag<SocketInd>()->setSocketId(socketId);
-//            indication->setControlInfo(cmd);
-//            sendToApp(indication);
-//        }
-//        else {
-//            while (auto msg = receiveQueue->extractBytesUpTo(state->rcv_nxt)) {
-//                msg->setKind(TCP_I_DATA); // TODO currently we never send TCP_I_URGENT_DATA
-//                msg->addTag<SocketInd>()->setSocketId(metaConn->getSocketId());
-//                sendToApp(msg);
-//            }
-//        }
-//    }
     auto it = receivedDsnMapping.begin();
-    auto end = receivedDsnMapping.lower_bound(state->rcv_nxt);
-    while (it != end) {
-        //uint32_t seqNo    = it->first;
-        uint32_t dsnSeqNo = it->second;
-        uint32_t chunkEnd = dsnSeqNo + 1448;
+    while (it != receivedDsnMapping.end()) {
+        const uint32_t subflowSeqEnd = it->first + (it->second.dsnEnd - it->second.dsnStart);
+        if (seqGreater(subflowSeqEnd, state->rcv_nxt))
+            break;
 
-        if (dsnSeqNo == 0) {
-            std::cout << "receivedDsnMapping contents:\n";
-            for (const auto& [seqNo, dsn] : receivedDsnMapping) {
-                std::cout << "  seqNo=" << seqNo
-                          << " -> dsnSeqNo=" << dsn
-                          << '\n';
-            }
-        }
-        metaConn->receivedChunk(dsnSeqNo, chunkEnd); // TODO add asserts
-
-        it = receivedDsnMapping.erase(it); // erase returns next iterator
+        metaConn->receivedChunk(it->second.dsnStart, it->second.dsnEnd);
+        it = receivedDsnMapping.erase(it);
     }
     receiveQueue->extractBytesUpTo(state->rcv_nxt);
-//    while (auto msg = receiveQueue->extractBytesUpTo(state->rcv_nxt)) {
-//        msg->setKind(TCP_I_DATA); // TODO currently we never send TCP_I_URGENT_DATA
-//        msg->addTag<SocketInd>()->setSocketId(metaConn->getSocketId());
-//        if(msg->getByteLength() > 0){
-//            uint32_t byteLength = msg->getByteLength();
-//            uint32_t chunkSize = endBlock-startBlock;
-//            metaConn->receivedChunk(startBlock, chunkSize); //TODO add asserts
-//        }
-//        dsn_deliv_nxt = dsn_rcv_nxt;
-//        //sendToApp(msg);
-//    }
 }
 
 TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader)
@@ -1200,8 +1311,11 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
             sendAvailableIndicationToApp();
         else{
             sendEstabIndicationToApp();
-        }
 
+            if(isMaster) {
+                metaConn->sendEstablished();
+            }
+        }
         // This will trigger transition to ESTABLISHED. Timers and notifying
         // app will be taken care of in stateEntered().
         event = TCP_E_RCV_ACK;
@@ -1388,14 +1502,17 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
                     dsn_rcv_nxt = receiveQueue->getRE(tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber());
                 }
 
-                receivedDsnMapping.emplace(tcpHeader->getSequenceNo(), tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber());
+                rememberReceivedDsnMapping(tcpHeader->getSequenceNo(),
+                                           tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(),
+                                           payloadLength);
                 state->rcv_nxt = receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
 
-
                 if (seqGreater(state->snd_una, old_snd_una)) {
+
                     // notify
                     tcpAlgorithm->receivedDataAck(old_snd_una);
 
+                    metaConn->receivedUpTo(old_snd_una);
                     // in the receivedDataAck we need the old value
                     state->dupacks = 0;
 
@@ -1619,7 +1736,6 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
     uint32_t previousLost = m_bytesLoss; //TODO Create Sack method to get exact amount of lost packets
     uint32_t priorInFlight = m_bytesInFlight;//get current BytesInFlight somehow
     int payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
-    //updateInFlight();
 
     // ECN
     TcpStateVariables *state = getState();
@@ -1836,20 +1952,14 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
 
         // acked data no longer needed in send queue
         sendQueue->discardUpTo(discardUpToSeq);
-        enqueueData();
+
+        uint32_t metaAckNo = 0;
+        if (translateAckToMetaLevel(discardUpToSeq, metaAckNo))
+            metaConn->receivedUpTo(metaAckNo);
 
         // acked data no longer needed in rexmit queue
         if (state->sack_enabled){
             rexmitQueue->discardUpTo(discardUpToSeq);
-        }
-
-        auto it = sentDsnMapping.begin();
-        auto end = sentDsnMapping.lower_bound(discardUpToSeq);
-        while (it != end) {
-            //uint32_t seqNo    = it->first;
-            uint32_t dsnSeqNo = it->second;
-            uint32_t chunkEnd = dsnSeqNo + 1448;
-            it = sentDsnMapping.erase(it); // erase returns next iterator
         }
 
         updateWndInfo(tcpHeader);
@@ -2075,8 +2185,16 @@ TcpEventCode SubflowConnection::processSynInListen(Packet *tcpSegment, const Ptr
         updateRcvQueueVars();
 
         if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
-            receivedDsnMapping.emplace(tcpHeader->getSequenceNo(), tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber());
+            const uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
+            rememberReceivedDsnMapping(tcpHeader->getSequenceNo(),
+                                       tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(),
+                                       payloadLength);
             receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
+
+            if(tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() == 0){
+               std::cout << "\n ERROR FOUND: " << endl;
+            }
+
         }
         else { // not enough freeRcvBuffer in rcvQueue for new segment
             state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
@@ -2176,6 +2294,8 @@ TcpEventCode SubflowConnection::processSegmentInSynSent(Packet *tcpSegment, cons
         state->irs = tcpHeader->getSequenceNo();
         receiveQueue->init(state->rcv_nxt);
 
+        eraseReceivedMappingsUpTo(state->rcv_nxt);
+
         if(isMaster){
             metaConn->processSynSent(tcpHeader->getSequenceNo());
         }
@@ -2183,6 +2303,10 @@ TcpEventCode SubflowConnection::processSegmentInSynSent(Packet *tcpSegment, cons
         if (tcpHeader->getAckBit()) {
             state->snd_una = tcpHeader->getAckNo();
             sendQueue->discardUpTo(state->snd_una);
+
+            uint32_t ignoredMetaAck = 0;
+            translateAckToMetaLevel(state->snd_una, ignoredMetaAck);
+
             if (state->sack_enabled)
                 rexmitQueue->discardUpTo(state->snd_una);
 
@@ -2230,8 +2354,11 @@ TcpEventCode SubflowConnection::processSegmentInSynSent(Packet *tcpSegment, cons
                 updateRcvQueueVars();
 
                 if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
+                    const uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
+                    rememberReceivedDsnMapping(tcpHeader->getSequenceNo(),
+                                               tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(),
+                                               payloadLength);
                     receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
-
                 }
                 else { // not enough freeRcvBuffer in rcvQueue for new segment
                     state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
@@ -2311,6 +2438,10 @@ TcpEventCode SubflowConnection::processSegmentInSynSent(Packet *tcpSegment, cons
             updateRcvQueueVars();
 
             if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
+                const uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
+                rememberReceivedDsnMapping(tcpHeader->getSequenceNo(),
+                                           tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(),
+                                           payloadLength);
                 receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
             }
             else { // not enough freeRcvBuffer in rcvQueue for new segment
@@ -2344,6 +2475,169 @@ void SubflowConnection::invokeSendCommand()
 bool SubflowConnection::getIsMaster()
 {
     return isMaster;
+}
+
+void SubflowConnection::setInterfaceId(int id)
+{
+    ASSERT(id > 0);
+    interfaceId = id;
+}
+
+void SubflowConnection::sendToApp(cMessage *msg)
+{
+    delete msg;
+}
+
+void SubflowConnection::sendToIP(Packet *tcpSegment, const Ptr<TcpHeader>& tcpHeader)
+{
+    // record seq (only if we do send data) and ackno
+    if (tcpSegment->getByteLength() > B(tcpHeader->getChunkLength()).get())
+        emit(sndNxtSignal, tcpHeader->getSequenceNo());
+
+    emit(sndAckSignal, tcpHeader->getAckNo());
+
+    // final touches on the segment before sending
+    tcpHeader->setSrcPort(localPort);
+    tcpHeader->setDestPort(remotePort);
+    ASSERT(tcpHeader->getHeaderLength() >= TCP_MIN_HEADER_LENGTH);
+    ASSERT(tcpHeader->getHeaderLength() <= TCP_MAX_HEADER_LENGTH);
+    ASSERT(tcpHeader->getChunkLength() == tcpHeader->getHeaderLength());
+
+    EV_INFO << "Sending: ";
+    printSegmentBrief(tcpSegment, tcpHeader);
+
+    // TODO reuse next function for sending
+
+    const IL3AddressType *addressType =  remoteAddr.getAddressType();
+    tcpSegment->addTagIfAbsent<DispatchProtocolReq>()->setProtocol(addressType->getNetworkProtocol());
+
+    if (ttl != -1 && tcpSegment->findTag<HopLimitReq>() == nullptr)
+        tcpSegment->addTag<HopLimitReq>()->setHopLimit(ttl);
+
+    if (dscp != -1 && tcpSegment->findTag<DscpReq>() == nullptr)
+        tcpSegment->addTag<DscpReq>()->setDifferentiatedServicesCodePoint(dscp);
+
+    if (tos != -1 && tcpSegment->findTag<TosReq>() == nullptr)
+        tcpSegment->addTag<TosReq>()->setTos(tos);
+
+    auto addresses = tcpSegment->addTagIfAbsent<L3AddressReq>();
+    addresses->setSrcAddress(localAddr);
+    addresses->setDestAddress(remoteAddr);
+
+    // ECN:
+    // We decided to use ECT(1) to indicate ECN capable transport.
+    //
+    // rfc-3168, page 6:
+    // Routers treat the ECT(0) and ECT(1) codepoints
+    // as equivalent.  Senders are free to use either the ECT(0) or the
+    // ECT(1) codepoint to indicate ECT.
+    //
+    // rfc-3168, page 20:
+    // For the current generation of TCP congestion control algorithms, pure
+    // acknowledgement packets (e.g., packets that do not contain any
+    // accompanying data) MUST be sent with the not-ECT codepoint.
+    //
+    // rfc-3168, page 20:
+    // ECN-capable TCP implementations MUST NOT set either ECT codepoint
+    // (ECT(0) or ECT(1)) in the IP header for retransmitted data packets
+    tcpSegment->addTagIfAbsent<EcnReq>()->setExplicitCongestionNotification((state->ect && !state->sndAck && !state->rexmit) ? IP_ECN_ECT_1 : IP_ECN_NOT_ECT);
+
+    tcpSegment->addTagIfAbsent<InterfaceReq>()->setInterfaceId(interfaceId); //Add MP interface
+
+    tcpHeader->setCrc(0);
+    tcpHeader->setCrcMode(tcpMain->crcMode);
+
+    insertTransportProtocolHeader(tcpSegment, Protocol::tcp, tcpHeader);
+
+    tcpMain->sendFromConn(tcpSegment, "ipOut");
+}
+
+void SubflowConnection::updateTotalCwnd(uint32_t oldSubflowCwnd, uint32_t newSubflowCwnd)
+{
+    metaConn->updateTotalCwnd(oldSubflowCwnd, newSubflowCwnd);
+}
+
+bool SubflowConnection::processInternalCommand(int commandCode, TcpCommand *tcpCommand)
+{
+    cMessage *msg = new cMessage("InternalSubflowCommand", commandCode);
+    msg->setControlInfo(tcpCommand);
+
+    if (!processAppCommand(msg)) {
+        tcpMain->removeConnection(this);
+        return false;
+    }
+
+    return true;
+}
+
+void SubflowConnection::rememberSentDsnMapping(uint32_t subflowSeqNo, uint32_t dsnStart, uint32_t bytes)
+{
+    DsnMapping mapping;
+    mapping.dsnStart = dsnStart;
+    mapping.dsnEnd = dsnStart + bytes;
+    sentDsnMapping[subflowSeqNo] = mapping;
+}
+
+void SubflowConnection::rememberReceivedDsnMapping(uint32_t subflowSeqNo, uint32_t dsnStart, uint32_t bytes)
+{
+    DsnMapping mapping;
+    mapping.dsnStart = dsnStart;
+    mapping.dsnEnd = dsnStart + bytes;
+    receivedDsnMapping[subflowSeqNo] = mapping;
+}
+
+void SubflowConnection::eraseReceivedMappingsUpTo(uint32_t seqNo)
+{
+    auto it = receivedDsnMapping.begin();
+    while (it != receivedDsnMapping.end()) {
+        const uint32_t subflowSeqEnd = it->first + (it->second.dsnEnd - it->second.dsnStart);
+        if (seqGreater(subflowSeqEnd, seqNo))
+            break;
+
+        it = receivedDsnMapping.erase(it);
+    }
+}
+
+bool SubflowConnection::translateAckToMetaLevel(uint32_t discardUpToSeq, uint32_t& metaAckNo)
+{
+    bool translated = false;
+    auto it = sentDsnMapping.begin();
+    while (it != sentDsnMapping.end()) {
+        const uint32_t subflowSeqEnd = it->first + (it->second.dsnEnd - it->second.dsnStart);
+        if (seqGreater(subflowSeqEnd, discardUpToSeq))
+            break;
+
+        metaAckNo = it->second.dsnEnd;
+        translated = true;
+        it = sentDsnMapping.erase(it);
+    }
+
+    return translated;
+}
+
+bool SubflowConnection::consumePendingDsnMapping(uint32_t subflowSeqNo, uint32_t bytes, uint32_t& dsnStart)
+{
+    auto it = pendingDsnMapping.find(subflowSeqNo);
+    if (it == pendingDsnMapping.end())
+        return false;
+
+    const uint32_t mappingBytes = it->second.dsnEnd - it->second.dsnStart;
+    if (bytes > mappingBytes)
+        return false;
+
+    dsnStart = it->second.dsnStart;
+    if (bytes == mappingBytes) {
+        pendingDsnMapping.erase(it);
+    }
+    else {
+        DsnMapping remaining;
+        remaining.dsnStart = it->second.dsnStart + bytes;
+        remaining.dsnEnd = it->second.dsnEnd;
+        pendingDsnMapping.erase(it);
+        pendingDsnMapping[subflowSeqNo + bytes] = remaining;
+    }
+
+    return true;
 }
 
 }

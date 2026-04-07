@@ -1,18 +1,20 @@
 ../out/clang-release/src/applications/tcpapp/MpTcpSinkApp.o: \
-  applications/tcpapp/MpTcpSinkApp.cc applications/tcpapp/MpTcpSinkApp.h \
+  applications/tcpapp/MpTcpSinkApp.cc \
+  ../../inet4.5/src/inet/common/stlutils.h \
+  ../../inet4.5/src/inet/common/INETDefs.h \
+  ../../inet4.5/src/inet/common/precompiled_release.h \
+  ../../inet4.5/src/inet/common/precompiled.h \
+  /Users/av288/omnetpp-6.3.0/include/omnetpp.h \
+  ../../inet4.5/src/inet/opp_defines.h ../../inet4.5/src/inet/features.h \
+  ../../inet4.5/src/inet/common/Compat.h \
+  ../../inet4.5/src/inet/common/InitStages.h \
+  ../../inet4.5/src/inet/common/InitStageRegistry.h \
+  applications/tcpapp/MpTcpSinkApp.h \
   ../../inet4.5/src/inet/applications/tcpapp/TcpSinkApp.h \
   ../../inet4.5/src/inet/applications/tcpapp/TcpServerHostApp.h \
   ../../inet4.5/src/inet/applications/base/ApplicationBase.h \
   ../../inet4.5/src/inet/common/lifecycle/ModuleOperations.h \
   ../../inet4.5/src/inet/common/lifecycle/LifecycleOperation.h \
-  ../../inet4.5/src/inet/common/INETDefs.h \
-  ../../inet4.5/src/inet/common/precompiled_release.h \
-  ../../inet4.5/src/inet/common/precompiled.h \
-  /Users/av288/omnetpp-6.1/include/omnetpp.h \
-  ../../inet4.5/src/inet/opp_defines.h ../../inet4.5/src/inet/features.h \
-  ../../inet4.5/src/inet/common/Compat.h \
-  ../../inet4.5/src/inet/common/InitStages.h \
-  ../../inet4.5/src/inet/common/InitStageRegistry.h \
   ../../inet4.5/src/inet/common/lifecycle/OperationalBase.h \
   ../../inet4.5/src/inet/common/lifecycle/OperationalMixin.h \
   ../../inet4.5/src/inet/common/lifecycle/ILifecycle.h \
@@ -52,22 +54,38 @@
   ../../inet4.5/src/inet/transportlayer/contract/tcp/TcpCommand_m.h \
   ../../inet4.5/src/inet/common/INETDefs_m.h \
   ../../inet4.5/src/inet/networklayer/common/IpProtocolId_m.h \
-  ../../inet4.5/src/inet/networklayer/common/L3Address_m.h
+  ../../inet4.5/src/inet/networklayer/common/L3Address_m.h \
+  ../../inet4.5/src/inet/networklayer/common/L3AddressResolver.h \
+  ../../inet4.5/src/inet/networklayer/contract/IRoutingTable.h \
+  ../../inet4.5/src/inet/networklayer/contract/IRoute.h \
+  ../../inet4.5/src/inet/networklayer/common/NetworkInterface.h \
+  ../../inet4.5/src/inet/common/ModuleRefByPar.h \
+  ../../inet4.5/src/inet/common/ModuleAccess.h \
+  ../../inet4.5/src/inet/common/packet/tag/TagSet.h \
+  ../../inet4.5/src/inet/common/Protocol.h \
+  ../../inet4.5/src/inet/common/Simsignals.h \
+  ../../inet4.5/src/inet/common/Simsignals_m.h \
+  ../../inet4.5/src/inet/common/StringFormat.h \
+  ../../inet4.5/src/inet/networklayer/contract/IInterfaceTable.h \
+  ../../inet4.5/src/inet/queueing/base/PacketProcessorBase.h \
+  ../../inet4.5/src/inet/queueing/contract/IPacketProcessor.h \
+  ../../inet4.5/src/inet/queueing/contract/IPassivePacketSink.h
+../../inet4.5/src/inet/common/stlutils.h:
+../../inet4.5/src/inet/common/INETDefs.h:
+../../inet4.5/src/inet/common/precompiled_release.h:
+../../inet4.5/src/inet/common/precompiled.h:
+/Users/av288/omnetpp-6.3.0/include/omnetpp.h:
+../../inet4.5/src/inet/opp_defines.h:
+../../inet4.5/src/inet/features.h:
+../../inet4.5/src/inet/common/Compat.h:
+../../inet4.5/src/inet/common/InitStages.h:
+../../inet4.5/src/inet/common/InitStageRegistry.h:
 applications/tcpapp/MpTcpSinkApp.h:
 ../../inet4.5/src/inet/applications/tcpapp/TcpSinkApp.h:
 ../../inet4.5/src/inet/applications/tcpapp/TcpServerHostApp.h:
 ../../inet4.5/src/inet/applications/base/ApplicationBase.h:
 ../../inet4.5/src/inet/common/lifecycle/ModuleOperations.h:
 ../../inet4.5/src/inet/common/lifecycle/LifecycleOperation.h:
-../../inet4.5/src/inet/common/INETDefs.h:
-../../inet4.5/src/inet/common/precompiled_release.h:
-../../inet4.5/src/inet/common/precompiled.h:
-/Users/av288/omnetpp-6.1/include/omnetpp.h:
-../../inet4.5/src/inet/opp_defines.h:
-../../inet4.5/src/inet/features.h:
-../../inet4.5/src/inet/common/Compat.h:
-../../inet4.5/src/inet/common/InitStages.h:
-../../inet4.5/src/inet/common/InitStageRegistry.h:
 ../../inet4.5/src/inet/common/lifecycle/OperationalBase.h:
 ../../inet4.5/src/inet/common/lifecycle/OperationalMixin.h:
 ../../inet4.5/src/inet/common/lifecycle/ILifecycle.h:
@@ -108,3 +126,18 @@ applications/tcpapp/MpTcpSinkApp.h:
 ../../inet4.5/src/inet/common/INETDefs_m.h:
 ../../inet4.5/src/inet/networklayer/common/IpProtocolId_m.h:
 ../../inet4.5/src/inet/networklayer/common/L3Address_m.h:
+../../inet4.5/src/inet/networklayer/common/L3AddressResolver.h:
+../../inet4.5/src/inet/networklayer/contract/IRoutingTable.h:
+../../inet4.5/src/inet/networklayer/contract/IRoute.h:
+../../inet4.5/src/inet/networklayer/common/NetworkInterface.h:
+../../inet4.5/src/inet/common/ModuleRefByPar.h:
+../../inet4.5/src/inet/common/ModuleAccess.h:
+../../inet4.5/src/inet/common/packet/tag/TagSet.h:
+../../inet4.5/src/inet/common/Protocol.h:
+../../inet4.5/src/inet/common/Simsignals.h:
+../../inet4.5/src/inet/common/Simsignals_m.h:
+../../inet4.5/src/inet/common/StringFormat.h:
+../../inet4.5/src/inet/networklayer/contract/IInterfaceTable.h:
+../../inet4.5/src/inet/queueing/base/PacketProcessorBase.h:
+../../inet4.5/src/inet/queueing/contract/IPacketProcessor.h:
+../../inet4.5/src/inet/queueing/contract/IPassivePacketSink.h:

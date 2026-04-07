@@ -32,6 +32,8 @@
 #include <inet/transportlayer/common/L4Tools.h>
 
 #include "MpTcpConnectionBase.h"
+#include "MpTcpFlowScheduler.h"
+#include "MpTcpPacketScheduler.h"
 #include "SubflowConnection.h"
 
 namespace inet {
@@ -44,16 +46,16 @@ namespace tcp {
 class MpTcpConnection : public MpTcpConnectionBase
 {
   public:
-    using SubflowList = std::vector<SubflowConnection*>;
-
     MpTcpConnection();
     virtual ~MpTcpConnection();
 
     /** Add a newly created subflow to the meta connection */
     virtual void addSubflow(SubflowConnection* subflowConn);
 
+    virtual void removeSubflow(SubflowConnection *subflowConn);
+
     /** Handle state changes coming from subflows */
-    virtual void subflowStateChange(const TcpEventCode& event);
+    virtual void subflowStateChange(SubflowConnection *subflowConn, const TcpEventCode& event, int oldState, int newState);
 
     /** Meta-level data transmission */
     virtual uint32_t sendSegment(uint32_t bytes) override;
@@ -61,18 +63,44 @@ class MpTcpConnection : public MpTcpConnectionBase
     /** Get data from the meta-scheduler for sending */
     virtual uint32_t getSegment(uint32_t bytes);
 
+    virtual MpTcpPacketScheduler& getPacketScheduler() { return packetScheduler; }
+
+    virtual MpTcpFlowScheduler& getFlowScheduler() { return flowScheduler; }
+
+    virtual const std::vector<SubflowConnection *>& getSubflows() const { return m_subflows; }
+
+    virtual SubflowConnection *createManagedSubflow(bool isMaster);
+
     /** Identifies this class as the meta connection */
     virtual bool isMeta() const override { return true; }
 
     virtual uint32_t getBytesAvailable();
 
+    virtual uint32_t getSendWindowRemaining() const;
+
+    virtual Packet *createDataPacket(uint32_t dsnStart, uint32_t bytes) const;
+
     virtual uint32_t getSndNxt() {return state->snd_nxt;};
 
     virtual uint32_t getRcvNxt() {return state->rcv_nxt;};
 
+    virtual const L3Address& getLocalAddressForSubflows() const { return localAddr; }
+
+    virtual const L3Address& getRemoteAddressForSubflows() const { return remoteAddr; }
+
+    virtual int getLocalPortNumber() const { return localPort; }
+
+    virtual int getRemotePortNumber() const { return remotePort; }
+
+    virtual bool isActiveSide() const { return state != nullptr && state->active; }
+
     virtual bool nextUnsentSeg(uint32_t& seqNum);
 
-    virtual void receivedChunk(uint32_t& fromSeqNo, uint32_t& toSeqNo);
+    virtual void receivedChunk(uint32_t fromSeqNo, uint32_t toSeqNo);
+
+    virtual void receivedUpTo(uint32_t toSeqNo);
+
+    virtual void retransmitOutstandingSubflowData(SubflowConnection *subflowConn);
 
     virtual void receivedSynListen(uint32_t seqNo, uint32_t iss);
 
@@ -83,6 +111,10 @@ class MpTcpConnection : public MpTcpConnectionBase
     virtual void processSynSentAck(uint32_t seqNo);
 
     virtual void sendEstablished();
+
+    virtual void assignInterface(SubflowConnection* subflowConn);
+
+    virtual void updateTotalCwnd(uint32_t oldSubflowCwnd, uint32_t newSubflowCwnd);
   protected:
     /** Meta connection state machine states */
     enum mptcp_states_t {
@@ -92,11 +124,17 @@ class MpTcpConnection : public MpTcpConnectionBase
         mptcp_state_count
     };
 
-    /** Subflows grouped by state */
-    SubflowList m_subflows[mptcp_state_count];
+    std::vector<SubflowConnection*> m_subflows;
+    MpTcpPacketScheduler packetScheduler;
+    MpTcpFlowScheduler flowScheduler;
 
+    IInterfaceTable* ift;
+
+    virtual void initConnection(TcpOpenCommand *openCmd) override;
     /** Active open processing */
     virtual void process_OPEN_ACTIVE(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg) override;
+
+    virtual void process_OPEN_PASSIVE(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg) override;
 
     virtual void setUpSyn();
 
@@ -116,6 +154,8 @@ class MpTcpConnection : public MpTcpConnectionBase
                                                  L3Address src, L3Address dest) override;
 
     virtual bool processAckInEstabEtc(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader) override;
+
+
 };
 
 } // namespace tcp

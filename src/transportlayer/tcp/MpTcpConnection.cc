@@ -14,14 +14,15 @@
 // 
 
 #include <algorithm>
+#include <iterator>
 #include "MpTcpConnection.h"
-
+#include "MpTcp.h"
 namespace inet {
 namespace tcp {
 
 Define_Module(MpTcpConnection);
 
-MpTcpConnection::MpTcpConnection() {
+MpTcpConnection::MpTcpConnection() : packetScheduler(this), flowScheduler(this) {
     // TODO Auto-generated constructor stub
 
 }
@@ -46,6 +47,9 @@ void MpTcpConnection::process_OPEN_ACTIVE(TcpEventCode& event, TcpCommand *tcpCo
             remoteAddr = openCmd->getRemoteAddr();
             localPort = openCmd->getLocalPort();
             remotePort = openCmd->getRemotePort();
+
+            //TODO ADD InterfaceReq TO EACH PACKET FOR CERTAIN INTERFACES.
+
             state->sack_support = false;
 
             if (remoteAddr.isUnspecified() || remotePort == -1)
@@ -56,6 +60,11 @@ void MpTcpConnection::process_OPEN_ACTIVE(TcpEventCode& event, TcpCommand *tcpCo
                 EV_DETAIL << "Assigned ephemeral port " << localPort << "\n";
             }
 
+            this->localAddr = localAddr;
+            this->remoteAddr = remoteAddr;
+            this->localPort = localPort;
+            this->remotePort = remotePort;
+
             EV_DETAIL << "OPEN: " << localAddr << ":" << localPort << " --> " << remoteAddr << ":" << remotePort << "\n";
 
             //create new subflow here, and then initiate next methods in said subflow
@@ -63,6 +72,7 @@ void MpTcpConnection::process_OPEN_ACTIVE(TcpEventCode& event, TcpCommand *tcpCo
             //addSubflow(true);
             selectInitialSeqNum();
             setUpSyn();
+            flowScheduler.createInitialSubflows();
             //sendSyn();
             //startSynRexmitTimer();
             //scheduleAfter(TCP_TIMEOUT_CONN_ESTAB, connEstabTimer);
@@ -70,6 +80,38 @@ void MpTcpConnection::process_OPEN_ACTIVE(TcpEventCode& event, TcpCommand *tcpCo
 
         default:
             throw cRuntimeError(tcpMain, "Error processing command OPEN_ACTIVE: connection already exists");
+    }
+
+    delete openCmd;
+    delete msg;
+}
+
+void MpTcpConnection::process_OPEN_PASSIVE(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg)
+{
+    TcpOpenCommand *openCmd = check_and_cast<TcpOpenCommand *>(tcpCommand);
+
+    switch (fsm.getState()) {
+        case TCP_S_INIT:
+            initConnection(openCmd);
+
+            state->active = false;
+            state->fork = openCmd->getFork();
+            localAddr = openCmd->getLocalAddr();
+            localPort = openCmd->getLocalPort();
+            remoteAddr = L3Address();
+            remotePort = -1;
+
+            if (localPort == -1)
+                throw cRuntimeError(tcpMain, "Error processing command OPEN_PASSIVE: local port must be specified");
+
+            EV_DETAIL << "Starting to listen on: " << localAddr << ":" << localPort << "\n";
+
+            tcpMain->addSockPair(this, localAddr, L3Address(), localPort, -1);
+            flowScheduler.createInitialSubflows();
+            break;
+
+        default:
+            throw cRuntimeError(tcpMain, "Error processing command OPEN_PASSIVE: connection already exists");
     }
 
     delete openCmd;
@@ -86,10 +128,6 @@ void MpTcpConnection::setUpSyn()
     tcpHeader->setWindow(state->rcv_wnd);
 
     state->snd_max = state->snd_nxt = state->iss + 1;
-
-    std::cout << "state->snd_max: " << state->snd_max << std::endl;
-    std::cout << "state->snd_nxt: " << state->snd_nxt << std::endl;
-    std::cout << "state->iss + 1: " << state->iss + 1 << std::endl;
 
     // ECN
     if (state->ecnWillingness) {
@@ -123,12 +161,39 @@ void MpTcpConnection::setUpSynAck()
 
 void MpTcpConnection::addSubflow(SubflowConnection* subflowConn)
 {
-    m_subflows[mptcp_states_t::Syn].push_back(subflowConn);
+    if (std::find(m_subflows.begin(), m_subflows.end(), subflowConn) == m_subflows.end()) // @suppress("Function cannot be instantiated")
+        m_subflows.push_back(subflowConn);
 }
 
-void MpTcpConnection::subflowStateChange(const TcpEventCode& event)
+void MpTcpConnection::removeSubflow(SubflowConnection *subflowConn)
 {
-    performStateTransition(event);
+    auto it = std::find(m_subflows.begin(), m_subflows.end(), subflowConn); // @suppress("Function cannot be instantiated")
+    if (it != m_subflows.end())
+        m_subflows.erase(it);
+
+    packetScheduler.forgetSubflow(subflowConn);
+}
+
+void MpTcpConnection::subflowStateChange(SubflowConnection *subflowConn, const TcpEventCode& event, int oldState, int newState)
+{
+    Enter_Method("subflowStateChange");
+
+    flowScheduler.subflowStateChanged(subflowConn, oldState, newState);
+
+    if (subflowConn != nullptr && subflowConn->getIsMaster() && newState == TCP_S_CLOSED)
+        flowScheduler.closeAllSubflows(subflowConn);
+
+    if (subflowConn != nullptr && !subflowConn->getIsMaster() && oldState != TCP_S_CLOSED && newState == TCP_S_CLOSED)
+        retransmitOutstandingSubflowData(subflowConn);
+
+    if (newState == TCP_S_CLOSED)
+        removeSubflow(subflowConn);
+
+    if (subflowConn != nullptr && subflowConn->getIsMaster() && oldState != newState &&
+            event != TCP_E_OPEN_ACTIVE && event != TCP_E_OPEN_PASSIVE)
+    {
+        performStateTransition(event);
+    }
 }
 
 TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address srcAddr, L3Address destAddr)
@@ -216,7 +281,7 @@ TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const 
         if (tcpHeader->getAckBit()) {
             state->snd_una = tcpHeader->getAckNo();
             sendQueue->discardUpTo(state->snd_una);
-
+            enqueueData();
             if (state->sack_enabled)
                 rexmitQueue->discardUpTo(state->snd_una);
 
@@ -257,8 +322,8 @@ TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const 
                 if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
                     //receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
                     uint32_t dsn = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
-                    uint32_t packetSize = tcpSegment->getByteLength();
-                    receivedChunk(dsn, packetSize);
+                    uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
+                    receivedChunk(dsn, dsn + payloadLength);
                 }
                 else { // not enough freeRcvBuffer in rcvQueue for new segment
                     state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
@@ -334,8 +399,8 @@ TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const 
             if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
                 receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
                 uint32_t dsn = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
-                uint32_t packetSize = tcpSegment->getByteLength();
-                receivedChunk(dsn, packetSize);
+                uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
+                receivedChunk(dsn, dsn + payloadLength);
             }
             else { // not enough freeRcvBuffer in rcvQueue for new segment
                 state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
@@ -446,16 +511,11 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
         case TCP_S_SYN_RCVD:
         case TCP_S_SYN_SENT:
             EV_DETAIL << "Queueing up data for sending later.\n";
-            std::cout << "\n PACKET INFORMATION: " << packet->getDataLength() << endl;
             sendQueue->enqueueAppData(packet); // queue up for later
             EV_DETAIL << sendQueue->getBytesAvailable(state->snd_una) << " bytes in queue\n";
-
-            for (int state = 0; state < mptcp_state_count; ++state) {
-                for (SubflowConnection* conn : m_subflows[state]) {
-                    if (conn) {
-                        std::cout << "\n STATE: "  << state << " " << conn->getClassAndFullName() << endl;
-                        conn->sendPendingData();
-                    }
+            for (SubflowConnection* conn : m_subflows) {
+                if (conn) {
+                    conn->sendPendingData();
                 }
             }
 
@@ -463,16 +523,13 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
 
         case TCP_S_ESTABLISHED:
         case TCP_S_CLOSE_WAIT:
-            std::cout << "\n PACKET INFORMATION 2: " << packet->getDataLength() << endl;
             sendQueue->enqueueAppData(packet);
             EV_DETAIL << sendQueue->getBytesAvailable(state->snd_una) << " bytes in queue, plus "
                       << (state->snd_max - state->snd_una) << " bytes unacknowledged\n";
-            for (int state = 0; state < mptcp_state_count; ++state) {
-                for (SubflowConnection* conn : m_subflows[state]) {
-                    if (conn) {
-                        if(conn->getIsMaster()){
-                            conn->invokeSendCommand();
-                        }
+            for (SubflowConnection* conn : m_subflows) {
+                if (conn) {
+                    if(conn->getIsMaster()){
+                        conn->invokeSendCommand();
                     }
                 }
             }
@@ -539,6 +596,69 @@ uint32_t MpTcpConnection::getBytesAvailable()
     return sendQueue->getBytesAvailable(state->snd_max);
 }
 
+uint32_t MpTcpConnection::getSendWindowRemaining() const
+{
+    const uint32_t windowEnd = state->snd_una + state->snd_wnd;
+    if (seqLess(windowEnd, state->snd_nxt))
+        return 0;
+
+    return windowEnd - state->snd_nxt;
+}
+
+Packet *MpTcpConnection::createDataPacket(uint32_t dsnStart, uint32_t bytes) const
+{
+    if (sendQueue == nullptr || bytes == 0)
+        return nullptr;
+
+    if (seqLess(dsnStart, sendQueue->getBufferStartSeq()))
+        return nullptr;
+
+    if (sendQueue->getBytesAvailable(dsnStart) < bytes)
+        return nullptr;
+
+    return sendQueue->createSegmentWithBytes(dsnStart, bytes);
+}
+
+void MpTcpConnection::retransmitOutstandingSubflowData(SubflowConnection *subflowConn)
+{
+    if (subflowConn == nullptr)
+        return;
+
+    const auto& mappings = subflowConn->getSentDsnMappings();
+    if (mappings.empty())
+        return;
+
+    SubflowConnection *targetSubflow = nullptr;
+    uint32_t retransmittedBytes = 0;
+    uint32_t retransmittedRanges = 0;
+
+    for (const auto& entry : mappings) {
+        const uint32_t bytes = entry.second.dsnEnd - entry.second.dsnStart;
+        if (bytes == 0)
+            continue;
+
+        if (targetSubflow == nullptr || !targetSubflow->canAcceptScheduledData(bytes))
+            targetSubflow = packetScheduler.selectRetransmissionSubflow(subflowConn, bytes);
+
+        if (targetSubflow == nullptr)
+            break;
+
+        if (!targetSubflow->enqueueRetransmissionData(entry.second.dsnStart, bytes))
+            continue;
+
+        retransmittedBytes += bytes;
+        retransmittedRanges++;
+    }
+
+    if (targetSubflow != nullptr && retransmittedBytes > 0) {
+        EV_INFO << "Reinjected " << retransmittedBytes << " bytes across "
+                << retransmittedRanges << " MPTCP mapping(s) from subflow "
+                << subflowConn->getSocketId() << " onto subflow "
+                << targetSubflow->getSocketId() << "\n";
+        targetSubflow->invokeSendCommand();
+    }
+}
+
 TcpEventCode MpTcpConnection::processSynInListen(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address srcAddr, L3Address destAddr)
 {
     //"
@@ -597,8 +717,8 @@ TcpEventCode MpTcpConnection::processSynInListen(Packet *tcpSegment, const Ptr<c
             //receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
             if(tcpHeader->findTag<DataSequenceNumberTag>()){
                 uint32_t dsn = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
-                uint32_t packetSize = tcpSegment->getByteLength();
-                receivedChunk(dsn, packetSize);
+                uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
+                receivedChunk(dsn, dsn + payloadLength);
             }
         }
         else { // not enough freeRcvBuffer in rcvQueue for new segment
@@ -996,8 +1116,8 @@ TcpEventCode MpTcpConnection::processSegment1stThru8th(Packet *tcpSegment, const
                 uint32_t old_usedRcvBuffer = state->usedRcvBuffer;
 
                 uint32_t dsn = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
-                uint32_t packetSize = tcpSegment->getByteLength();
-                receivedChunk(dsn, packetSize);
+                uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
+                receivedChunk(dsn, dsn + payloadLength);
 
                 if (seqGreater(state->snd_una, old_snd_una)) {
                     // notify
@@ -1260,13 +1380,6 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
     //"
     // Note: should use SND.MAX instead of SND.NXT in above checks
     //
-    std::cout << "tcpHeader->getAckNo(): " << tcpHeader->getAckNo() << std::endl;
-    std::cout << "tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(): " << tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() << std::endl;
-    std::cout << "state->snd_max: " << state->snd_max << std::endl;
-    std::cout << "seqLE result: "
-              << seqLE(tcpHeader->getAckNo(), state->snd_max)
-              << std::endl;
-
     uint32_t dsnAckNo;
     if(tcpHeader->findTag<DataSequenceNumberTag>()){
         dsnAckNo = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
@@ -1346,7 +1459,7 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
 
         // acked data no longer needed in send queue
         sendQueue->discardUpTo(discardUpToSeq);
-
+        enqueueData();
         // acked data no longer needed in rexmit queue
         if (state->sack_enabled)
             rexmitQueue->discardUpTo(discardUpToSeq);
@@ -1378,12 +1491,21 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
     return true;
 }
 
-void MpTcpConnection::receivedChunk(uint32_t& fromSeqNo, uint32_t& toSeqNo)
+void MpTcpConnection::receivedChunk(uint32_t fromSeqNo, uint32_t toSeqNo)
 {
     uint32_t old_rcv_nxt = state->rcv_nxt;
     uint32_t bytes = toSeqNo - fromSeqNo;
     const auto& tcpHeader = makeShared<TcpHeader>();
     tcpHeader->setSequenceNo(fromSeqNo);
+
+//    uint32_t old_snd_una = state->snd_una;
+//    state->snd_una = toSeqNo;
+//    if(seqGreater(state->snd_una, old_snd_una)){
+//        sendQueue->discardUpTo(state->snd_una);
+//        if (state->sack_enabled)
+//            rexmitQueue->discardUpTo(state->snd_una);
+//        enqueueData();
+//    }
 
     uint32_t headerSize = tcpHeader->getHeaderLength().get();
     Packet *tcpSegment = new Packet("Tcp Packet");
@@ -1397,12 +1519,95 @@ void MpTcpConnection::receivedChunk(uint32_t& fromSeqNo, uint32_t& toSeqNo)
                 sendAvailableDataToApp();
             }
         }
-        else{
-            std::cout << "\n MISMATCH old_rcv_nxt = " << old_rcv_nxt << " state->rcv_nxt << " << state->rcv_nxt << endl;
-        }
+//        else{
+//            std::cout << "\n MISMATCH old_rcv_nxt = " << old_rcv_nxt << " state->rcv_nxt << " << state->rcv_nxt << endl;
+//        }
     }
     else{
         std::cerr << "\n ERROR RECEIVE QUEUE NOT LARGE ENOUGH" << endl;
+    }
+    delete tcpSegment;
+}
+
+void MpTcpConnection::receivedUpTo(uint32_t toSeqNo)
+{
+    uint32_t ackNo = toSeqNo;
+    if (seqGE(state->snd_una, ackNo)) {
+        //
+        // duplicate ACK? A received TCP segment is a duplicate ACK if all of
+        // the following apply:
+        //    (1) snd_una == ackNo
+        //    (2) segment contains no data
+        //    (3) there's unacked data (snd_una != snd_max)
+        //
+        // Note: ssfnet uses additional constraint "window is the same as last
+        // received (not an update)" -- we don't do that because window updates
+        // are ignored anyway if neither seqNo nor ackNo has changed.
+        //
+        if (state->snd_una == ackNo && state->snd_una != state->snd_max) {
+            state->dupacks++;
+
+            emit(dupAcksSignal, state->dupacks);
+
+            //tcpAlgorithm->receivedDuplicateAck();
+        }
+        else {
+            // reset counter
+            state->dupacks = 0;
+            emit(dupAcksSignal, state->dupacks);
+        }
+    }
+    else if (seqLE(ackNo, state->snd_max)) {
+        // ack in window.
+        uint32_t old_snd_una = state->snd_una;
+        state->snd_una = ackNo;
+
+        emit(unackedSignal, state->snd_max - state->snd_una);
+
+        // after retransmitting a lost segment, we may get an ack well ahead of snd_nxt
+        //if (seqLess(state->snd_nxt, state->snd_una))
+        //    state->snd_nxt = state->snd_una;
+
+        // RFC 1323, page 36:
+        // "If SND.UNA < SEG.ACK =< SND.NXT then, set SND.UNA <- SEG.ACK.
+        // Also compute a new estimate of round-trip time.  If Snd.TS.OK
+        // bit is on, use my.TSclock - SEG.TSecr; otherwise use the
+        // elapsed time since the first segment in the retransmission
+        // queue was sent.  Any segments on the retransmission queue
+        // which are thereby entirely acknowledged."
+        //if (state->ts_enabled)
+         //   tcpAlgorithm->rttMeasurementCompleteUsingTS(getTSecr(tcpHeader));
+        // Note: If TS is disabled the RTT measurement is completed in TcpBaseAlg::receivedDataAck()
+
+        uint32_t discardUpToSeq = state->snd_una;
+
+        // our FIN acked?
+        if (state->send_fin && ackNo == state->snd_fin_seq + 1) {
+            // set flag that our FIN has been acked
+            EV_DETAIL << "ACK acks our FIN\n";
+            state->fin_ack_rcvd = true;
+            discardUpToSeq--; // the FIN sequence number is not real data
+        }
+
+        // acked data no longer needed in send queue
+        sendQueue->discardUpTo(discardUpToSeq);
+        enqueueData();
+        // acked data no longer needed in rexmit queue
+        if (state->sack_enabled)
+            rexmitQueue->discardUpTo(discardUpToSeq);
+
+        // if segment contains data, wait until data has been forwarded to app before sending ACK,
+        // otherwise we would use an old ACKNo
+        if (fsm.getState() != TCP_S_SYN_RCVD) {
+            // notify
+            //tcpAlgorithm->receivedDataAck(old_snd_una);
+
+            // in the receivedDataAck we need the old value
+            state->dupacks = 0;
+
+            emit(dupAcksSignal, state->dupacks);
+        }
+
     }
 }
 
@@ -1443,6 +1648,48 @@ void MpTcpConnection::processSynSentAck(uint32_t seqNo)
 void MpTcpConnection::sendEstablished()
 {
     sendEstabIndicationToApp();
+}
+
+void MpTcpConnection::assignInterface(SubflowConnection* subflowConn)
+{
+    auto start = m_subflows.begin(); // Force types to match
+    auto it = std::find(start, m_subflows.end(), subflowConn); // @suppress("Function cannot be instantiated")
+
+    if (it != m_subflows.end()) {
+        int index = static_cast<size_t>(std::distance(start, it)); // @suppress("Function cannot be instantiated")
+        auto interface = ift->getInterface(index + 1);
+        if (interface) {
+            subflowConn->setInterfaceId(interface->getInterfaceId());
+        }
+    }
+    else {
+        throw cRuntimeError("Error: Subflow not found.");
+    }
+}
+
+void MpTcpConnection::initConnection(TcpOpenCommand *openCmd)
+{
+    MpTcpConnectionBase::initConnection(openCmd);
+    packetScheduler.setConnection(this);
+    packetScheduler.setSchedulingMode(par("schedulerMode").stringValue());
+    flowScheduler.setConnection(this);
+    flowScheduler.initialize(par("numberOfSubflows").intValue(), par("startAllSubflowsAtBeginning").boolValue());
+    ift = check_and_cast<IInterfaceTable *>(findModuleByPath("^.^.interfaceTable"));
+}
+
+SubflowConnection *MpTcpConnection::createManagedSubflow(bool isMaster)
+{
+    auto *transport = dynamic_cast<MpTcp *>(tcpMain);
+    if (transport == nullptr)
+        throw cRuntimeError("MPTCP flow scheduler requires MpTcp transport");
+
+    return transport->createManagedSubflowConnection(this, isMaster);
+}
+
+void MpTcpConnection::updateTotalCwnd(uint32_t oldSubflowCwnd, uint32_t newSubflowCwnd) {
+    // total = total - what it was + what it is now
+    auto tcpAlg = dynamic_cast<MpTcpFamily*>(tcpAlgorithm);
+    tcpAlg->setTotalCwnd((tcpAlg->getCwnd()- oldSubflowCwnd) + newSubflowCwnd);
 }
 
 }

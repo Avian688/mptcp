@@ -30,7 +30,7 @@ void MpTcpSessionApp::initialize(int stage)
 {
     TcpSessionApp::initialize(stage);
     if (stage == INITSTAGE_LOCAL) {
-        numOfFlows = 2;
+        numOfFlows = par("numberOfSubflows");
         portNumber = 1000;
     }
 }
@@ -57,7 +57,7 @@ TcpSocket* MpTcpSessionApp::createSocket()
     }
 
     newSocket->bind(*localAddress ? L3AddressResolver().resolve(localAddress) : L3Address(), newPortNumber);
-
+    std::cout << "\n BINDING FLOW TO LOCAL ADDRESS: " << newSocket->getLocalAddress().str() << endl;
     // connect
     const char *connectAddress = par("connectAddress");
     int connectPort = par("connectPort");
@@ -67,7 +67,6 @@ TcpSocket* MpTcpSessionApp::createSocket()
 
 
     newSocket->setOutputGate(gate("socketOut"));
-
     if (destination.isUnspecified()) {
         EV_ERROR << "Connecting newSocket to " << connectAddress << " port=" << connectPort << ": cannot resolve destination address\n";
     }
@@ -175,11 +174,6 @@ void MpTcpSessionApp::handleTimer(cMessage *msg)
         case MSGKIND_CONNECT:
             if (activeOpen){
                 connect(); // sending will be scheduled from socketEstablished()
-
-                //create mainsubflow socket??
-                for (int i = 0; i < numOfFlows; i++) {
-                    createSocket();
-                }
             }
             else{
                 throw cRuntimeError("TODO");

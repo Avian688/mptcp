@@ -12,53 +12,61 @@ import tcppaced.networklayer.configurator.ipv4.AutoNetworkConfigurator;
 network multipathdumbbell
 {
     parameters:
-        @display("bgb=512,395");
+        @display("bgb=700,500");
         int numberOfClientServers = default(1);
         int numberOfSubflows = default(2);
+
     types:
-        channel standardLine extends DatarateChannel //look at
+        channel standardLine extends DatarateChannel
         {
             delay = 4.75ms;
             datarate = 10Gbps;
         }
 
-        channel bottleneckLine extends DatarateChannel //look at
+        channel bottleneckLine extends DatarateChannel
         {
             delay = 0.5ms;
             datarate = 50Mbps;
         }
+
     submodules:
         client[numberOfClientServers]: StandardHost {
-            @display("p=68,71,m,n,numberOfClientServers,200");
+            @display("p=80,80,m,1,numberOfClientServers,120");
         }
+
         configurator: AutoNetworkConfigurator {
-            @display("p=450,350");
+            @display("p=500,420");
         }
+
         server[numberOfClientServers]: StandardHost {
-            @display("p=431,50,m,n,numberOfClientServers,200");
+            @display("p=600,80,m,1,numberOfClientServers,120");
         }
+
+        // Routers stacked vertically (each pair forms a dumbbell)
         router1[numberOfSubflows]: Router {
-            @display("p=220,140,m,n,numberOfSubflows,200");
+            @display("p=250,80,m,1,numberOfSubflows,120");
         }
+
         router2[numberOfSubflows]: Router {
-            @display("p=327,140,m,n,numberOfSubflows,200");
+            @display("p=420,80,m,1,numberOfSubflows,120");
         }
+
         scenarioManager: ScenarioManager {
-            @display("p=100,300;is=s");
+            @display("p=100,420;is=s");
         }
+
     connections:
-        for i=0..sizeof(client)-1 {
-            for j=0..sizeof(router1)-1 {
-            	client[i].pppg++ <--> standardLine <--> router1[j].pppg++;
-            }
+        // Connect every client to every router1
+        for idx=0..sizeof(client)*sizeof(router1)-1 {
+            client[int(idx / sizeof(router1))].pppg++ <--> standardLine <--> router1[idx % sizeof(router1)].pppg++;
         }
 
-        for k=0..sizeof(server)-1 {
-            for l=0..sizeof(router2)-1 {
-            	server[k].pppg++ <--> standardLine <--> router2[l].pppg++;
-            }
+        // Connect every server to every router2
+        for idx=0..sizeof(server)*sizeof(router2)-1 {
+            server[int(idx / sizeof(router2))].pppg++ <--> standardLine <--> router2[idx % sizeof(router2)].pppg++;
         }
 
+        // Each router pair forms a dumbbell
         for m=0..sizeof(router1)-1 {
             router1[m].pppg++ <--> bottleneckLine <--> router2[m].pppg++;
         }

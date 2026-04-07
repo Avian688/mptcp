@@ -14,7 +14,7 @@
 // 
 
 #include "MpTcpConnectionBase.h"
-
+#include "MpTcp.h"
 namespace inet {
 namespace tcp {
 
@@ -63,15 +63,15 @@ void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
     tcpAlgorithm->initialize();
 
     m_delivered = 0;
-    throughputInterval = 0;
     paceMsg = new cMessage("pacing message");
     throughputTimer = new cMessage("throughputTimer");
     rackTimer = new cMessage("rackTimer");
+    retransmissionRateTimer = new cMessage("retransmissionRateTimer"); // NEW
     intersendingTime = 0.0000001;
     paceValueVec.setName("paceValue");
     retransmitOnePacket = false;
     retransmitAfterTimeout = false;
-    throughputInterval = 0;
+    throughputInterval = check_and_cast<MpTcp*>(tcpMain)->par("throughputInterval");
     lastBytesReceived = 0;
     prevLastBytesReceived = 0;
     currThroughput = 0;
@@ -113,6 +113,15 @@ void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
 
     fack_enabled = true;
     rack_enabled = true;
+
+    // sender-side retransmission accounting
+    prevLastTotalRetransmittedBytes = 0;
+    lastTotalRetransmittedBytes = 0;
+    totalRetransmittedBytesCounter = 0;
+    currRetransmissionRate = 0;
+    nextSegSelectedRetransmission = false;
+    lastRetransmissionRateTime = simTime();
+    scheduleAt(simTime() + throughputInterval, retransmissionRateTimer);
 }
 
 bool MpTcpConnectionBase::isMeta() const

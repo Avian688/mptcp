@@ -29,6 +29,8 @@ public:
     virtual ~MpTcp();
 
     virtual MpTcpConnection* getMetaConnection();
+
+    virtual SubflowConnection* createManagedSubflowConnection(MpTcpConnection *metaConn, bool isMaster);
 protected:
 
     virtual void initialize(int stage) override;
@@ -36,14 +38,12 @@ protected:
     /** Factory method; may be overriden for customizing Tcp */
     virtual TcpConnection* createConnection(int socketId) override;
 
-    virtual TcpConnection* createSubflowConnection(int socketId, L3Address src, L3Address dest, int srcPort, int destPort);
+    virtual SubflowConnection* createSubflowConnection(int socketId, MpTcpConnection *metaConn, bool isMaster);
 
     virtual void handleUpperCommand(cMessage *message) override;
 
     int mainSocketId;
     bool baseConnectionStarted;
-
-    bool masterCreated;
 
 };
 

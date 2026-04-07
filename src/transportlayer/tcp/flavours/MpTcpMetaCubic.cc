@@ -58,6 +58,7 @@ void MpTcpMetaCubic::reset() {
 }
 
 void MpTcpMetaCubic::initialize() {
+    isMaster = true;
     TcpPacedFamily::initialize();
     reset();
     /* Precompute a bunch of the scaling factors that are used per-packet

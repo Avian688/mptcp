@@ -23,5 +23,12 @@ MpTcpFamily::MpTcpFamily() {
 
 }
 
+void MpTcpFamily::setTotalCwnd(uint32_t cwnd) {
+    if(isMaster){
+        state->snd_cwnd = cwnd;
+        conn->emit(cwndSignal, state->snd_cwnd);
+    }
+}
+
 } // namespace tcp
 } // namespace inet

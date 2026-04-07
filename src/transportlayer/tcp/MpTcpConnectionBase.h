@@ -22,6 +22,8 @@
 #include <inet/transportlayer/tcp/TcpSackRexmitQueue.h>
 #include "../../../../tcpPaced/src/transportlayer/tcp/TcpPacedConnection.h"
 
+#include "flavours/MpTcpFamily.h"
+
 namespace inet {
 namespace tcp {
 
@@ -44,7 +46,6 @@ class MpTcpConnectionBase : public TcpPacedConnection
     virtual bool isMeta() const;
 
   protected:
-
     /** Utility: creates send/receive queues and tcpAlgorithm */
     virtual void initConnection(TcpOpenCommand *openCmd) override;
 };

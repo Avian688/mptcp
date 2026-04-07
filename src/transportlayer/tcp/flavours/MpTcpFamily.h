@@ -17,13 +17,17 @@
 #define INET_TRANSPORTLAYER_TCP_FLAVOURS_MPTCPFAMILY_H_
 
 #include "../../../../../tcpPaced/src/transportlayer/tcp/flavours/TcpPacedFamily.h"
-
 namespace inet {
 namespace tcp {
 
 class MpTcpFamily : public TcpPacedFamily {
 public:
     MpTcpFamily();
+public:
+    void setTotalCwnd(uint32_t cwnd);
+
+protected:
+    bool isMaster;
 
 };
 

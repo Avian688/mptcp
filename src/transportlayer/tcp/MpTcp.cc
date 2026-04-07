@@ -39,7 +39,6 @@ void MpTcp::initialize(int stage)
     if (stage == INITSTAGE_LOCAL) {
         baseConnectionStarted = false;
         mainSocketId = -1;
-        masterCreated = false;
     }
 }
 
@@ -53,7 +52,8 @@ void MpTcp::handleUpperCommand(cMessage *msg)
             conn = createConnection(socketId); //Creating Meta Socket
         }
         else{
-            conn = createSubflowConnection(socketId, L3Address(), L3Address(), 0, 0);
+            MpTcpConnection *metaConn = getMetaConnection();
+            conn = createSubflowConnection(socketId, metaConn, metaConn != nullptr && metaConn->getSubflows().empty());
         }
 
         // add into appConnMap here; it'll be added to connMap during processing
@@ -82,22 +82,20 @@ TcpConnection* MpTcp::createConnection(int socketId)
     return module;
 }
 
-TcpConnection* MpTcp::createSubflowConnection(int socketId, L3Address src, L3Address dest, int srcPort, int destPort)
+SubflowConnection* MpTcp::createSubflowConnection(int socketId, MpTcpConnection *metaConn, bool isMaster)
 {
-    bool isMaster = false;
-    if(!masterCreated){
-        isMaster = true;
-        masterCreated = true;
-    }
     auto moduleType = cModuleType::get("mptcp.transportlayer.tcp.SubflowConnection");
     char submoduleName[24];
     sprintf(submoduleName, "conn-%d", socketId);
     auto module = check_and_cast<SubflowConnection*>(moduleType->createScheduleInit(submoduleName, this));
-    MpTcpConnection* metaConn = check_and_cast<MpTcpConnection*>(tcpAppConnMap[mainSocketId]);
     module->initSubflowConnection(this, socketId, metaConn, isMaster);
-    metaConn->addSubflow(module);
-
+    tcpAppConnMap[socketId] = module;
     return module;
+}
+
+SubflowConnection* MpTcp::createManagedSubflowConnection(MpTcpConnection *metaConn, bool isMaster)
+{
+    return createSubflowConnection(getEnvir()->getUniqueNumber(), metaConn, isMaster);
 }
 
 MpTcpConnection* MpTcp::getMetaConnection()
