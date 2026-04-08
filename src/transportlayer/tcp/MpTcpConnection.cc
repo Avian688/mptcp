@@ -31,6 +31,14 @@ MpTcpConnection::~MpTcpConnection() {
     // TODO Auto-generated destructor stub
 }
 
+bool MpTcpConnection::processTimer(cMessage *msg)
+{
+    if (flowScheduler.processTimer(msg))
+        return true;
+
+    return TcpPacedConnection::processTimer(msg);
+}
+
 void MpTcpConnection::process_OPEN_ACTIVE(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg)
 {
     TcpOpenCommand *openCmd = check_and_cast<TcpOpenCommand *>(tcpCommand);
@@ -1673,7 +1681,11 @@ void MpTcpConnection::initConnection(TcpOpenCommand *openCmd)
     packetScheduler.setConnection(this);
     packetScheduler.setSchedulingMode(par("schedulerMode").stringValue());
     flowScheduler.setConnection(this);
-    flowScheduler.initialize(par("numberOfSubflows").intValue(), par("startAllSubflowsAtBeginning").boolValue());
+    flowScheduler.initialize(
+        par("numberOfSubflows").intValue(),
+        par("startAllSubflowsAtBeginning").boolValue(),
+        par("subflowStartTimes").stringValue()
+    );
     ift = check_and_cast<IInterfaceTable *>(findModuleByPath("^.^.interfaceTable"));
 }
 

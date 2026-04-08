@@ -115,6 +115,8 @@ class MpTcpConnection : public MpTcpConnectionBase
     virtual void assignInterface(SubflowConnection* subflowConn);
 
     virtual void updateTotalCwnd(uint32_t oldSubflowCwnd, uint32_t newSubflowCwnd);
+
+    virtual bool processTimer(cMessage *msg) override;
   protected:
     /** Meta connection state machine states */
     enum mptcp_states_t {

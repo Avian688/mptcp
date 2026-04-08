@@ -24,5 +24,6 @@ simple MpTcpConnection extends TcpPacedConnection
         int numberOfSubflows = default(1);
         bool startAllSubflowsAtBeginning = default(true);
         string schedulerMode = default("default");
+        string subflowStartTimes = default("");
         
 }

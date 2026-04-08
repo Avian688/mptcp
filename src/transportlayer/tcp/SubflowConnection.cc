@@ -1115,7 +1115,12 @@ void SubflowConnection::sendAvailableDataToApp()
         metaConn->receivedChunk(it->second.dsnStart, it->second.dsnEnd);
         it = receivedDsnMapping.erase(it);
     }
-    receiveQueue->extractBytesUpTo(state->rcv_nxt);
+
+    // Subflows do not deliver payload directly to the app. Drain any data
+    // packets materialized by the receive queue so they do not remain owned by
+    // the connection module until teardown.
+    while (auto msg = receiveQueue->extractBytesUpTo(state->rcv_nxt))
+        delete msg;
 }
 
 TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader)

@@ -16,6 +16,7 @@
 #include "MpTcpFlowScheduler.h"
 
 #include <algorithm>
+#include <string>
 
 #include "MpTcpConnection.h"
 #include "SubflowConnection.h"
@@ -27,17 +28,24 @@ MpTcpFlowScheduler::MpTcpFlowScheduler(MpTcpConnection *connection) : connection
 {
 }
 
+MpTcpFlowScheduler::~MpTcpFlowScheduler()
+{
+    cancelPendingSubflowCreations();
+}
+
 void MpTcpFlowScheduler::setConnection(MpTcpConnection *connection)
 {
     this->connection = connection;
 }
 
-void MpTcpFlowScheduler::initialize(int subflowsMax, bool createAllSubflowsAtStart)
+void MpTcpFlowScheduler::initialize(int subflowsMax, bool createAllSubflowsAtStart, const char *subflowStartTimes)
 {
+    cancelPendingSubflowCreations();
     this->subflowsMax = std::max(1, subflowsMax);
     this->createAllSubflowsAtStart = createAllSubflowsAtStart;
     initialSubflowsCreated = false;
     scheduledSubflows.clear();
+    parseSubflowStartTimes(subflowStartTimes);
 }
 
 bool MpTcpFlowScheduler::shouldCreateAllSubflowsAtStart() const
@@ -58,8 +66,17 @@ void MpTcpFlowScheduler::createInitialSubflows()
     initialSubflowsCreated = true;
 
     const int initialSubflowCount = createAllSubflowsAtStart ? subflowsMax : 1;
-    for (int slot = 0; slot < initialSubflowCount; ++slot)
+    for (int slot = 0; slot < initialSubflowCount; ++slot) {
+        if (connection->isActiveSide()) {
+            const omnetpp::simtime_t offset = getSubflowStartOffset(slot);
+            if (offset > SIMTIME_ZERO) {
+                scheduleSubflowCreation(slot, offset);
+                continue;
+            }
+        }
+
         createSubflow(slot);
+    }
 }
 
 SubflowConnection *MpTcpFlowScheduler::createSubflow()
@@ -96,6 +113,8 @@ bool MpTcpFlowScheduler::closeSubflow(SubflowConnection *subflow)
 
 void MpTcpFlowScheduler::closeAllSubflows(SubflowConnection *exceptSubflow)
 {
+    cancelPendingSubflowCreations();
+
     std::vector<SubflowConnection *> subflows;
     subflows.reserve(scheduledSubflows.size());
     for (const auto& entry : scheduledSubflows) {
@@ -123,6 +142,46 @@ void MpTcpFlowScheduler::subflowStateChanged(SubflowConnection *subflow, int old
         initialSubflowsCreated = !scheduledSubflows.empty();
 }
 
+bool MpTcpFlowScheduler::processTimer(omnetpp::cMessage *msg)
+{
+    if (msg == nullptr)
+        return false;
+
+    for (auto it = pendingSubflowTimers.begin(); it != pendingSubflowTimers.end(); ++it) {
+        if (it->second == msg) {
+            const int slot = it->first;
+
+            if (slot > 0 && !isMasterSubflowEstablished()) {
+                connection->scheduleAfter(omnetpp::SimTime(1, omnetpp::SIMTIME_MS), msg);
+                return true;
+            }
+
+            pendingSubflowTimers.erase(it);
+            createSubflow(slot);
+            delete msg;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void MpTcpFlowScheduler::cancelPendingSubflowCreations()
+{
+    for (auto& entry : pendingSubflowTimers) {
+        omnetpp::cMessage *timer = entry.second;
+        if (timer == nullptr)
+            continue;
+
+        if (connection != nullptr && timer->isScheduled())
+            connection->cancelEvent(timer);
+
+        delete timer;
+    }
+
+    pendingSubflowTimers.clear();
+}
+
 int MpTcpFlowScheduler::findNextAvailableSlot() const
 {
     for (int slot = 0; slot < subflowsMax; ++slot) {
@@ -131,6 +190,46 @@ int MpTcpFlowScheduler::findNextAvailableSlot() const
     }
 
     return -1;
+}
+
+bool MpTcpFlowScheduler::isMasterSubflowEstablished() const
+{
+    auto it = scheduledSubflows.find(0);
+    if (it == scheduledSubflows.end() || it->second == nullptr)
+        return false;
+
+    return it->second->getFsmState() == TCP_S_ESTABLISHED;
+}
+
+void MpTcpFlowScheduler::parseSubflowStartTimes(const char *subflowStartTimes)
+{
+    subflowStartOffsets.clear();
+
+    if (subflowStartTimes == nullptr || *subflowStartTimes == '\0')
+        return;
+
+    omnetpp::cStringTokenizer tokenizer(subflowStartTimes);
+    while (const char *token = tokenizer.nextToken())
+        subflowStartOffsets.push_back(omnetpp::SimTime::parse(token));
+}
+
+omnetpp::simtime_t MpTcpFlowScheduler::getSubflowStartOffset(int slot) const
+{
+    if (slot < 0 || slot >= static_cast<int>(subflowStartOffsets.size()))
+        return SIMTIME_ZERO;
+
+    return subflowStartOffsets[slot];
+}
+
+void MpTcpFlowScheduler::scheduleSubflowCreation(int slot, omnetpp::simtime_t offset)
+{
+    if (connection == nullptr || pendingSubflowTimers.find(slot) != pendingSubflowTimers.end())
+        return;
+
+    std::string timerName = "MPTCP-SUBFLOW-START-" + std::to_string(slot);
+    omnetpp::cMessage *timer = new omnetpp::cMessage(timerName.c_str());
+    pendingSubflowTimers[slot] = timer;
+    connection->scheduleAfter(offset, timer);
 }
 
 SubflowConnection *MpTcpFlowScheduler::createSubflow(int slot)
