@@ -75,7 +75,6 @@ void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
     lastBytesReceived = 0;
     prevLastBytesReceived = 0;
     currThroughput = 0;
-    pace = true;
     m_appLimited = false;
     m_rateAppLimited = false;
     m_txItemDelivered = 0;
@@ -92,6 +91,10 @@ void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
     m_deliveredTime = simTime();
 
     m_rack = new TcpRack();
+    m_sndFack = state->snd_una;
+    m_reorder = false;
+    m_dsackSeen = false;
+    isRetransDataAcked = false;
 
     m_rateInterval = 0;
     m_rateDelivered = 0;
@@ -107,12 +110,13 @@ void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
     m_rateSample.m_interval = 0;
     m_rateSample.m_isAppLimited = false;
     m_rateSample.m_priorDelivered = 0;
+    m_rateSample.m_txInFlight = 0;
     m_rateSample.m_priorInFlight = 0;
     m_rateSample.m_priorTime = 0;
     m_rateSample.m_sendElapsed = 0;
-
-    fack_enabled = true;
-    rack_enabled = true;
+    m_rateSample.m_lastSentTime = 0;
+    m_rateSample.m_lastEndSeq = 0;
+    m_lossNotificationSample = {};
 
     // sender-side retransmission accounting
     prevLastTotalRetransmittedBytes = 0;

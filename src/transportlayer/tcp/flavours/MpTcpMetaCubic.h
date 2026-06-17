@@ -48,6 +48,7 @@ protected:
     static simsignal_t sndUnaSignal;
 
     virtual void reset();
+    virtual void setRecoveryCongestionWindow() override;
     uint32_t calculateCubicRoot(uint64_t number) ;
     virtual void updateCubicCwnd(uint32_t acked);
     virtual int32_t fls64(uint64_t x);
@@ -67,6 +68,9 @@ public:
 
     /** Redefine what should happen on retransmission */
     virtual void processRexmitTimer(TcpEventCode &event) override;
+
+    /** Enter or continue CUBIC recovery after RACK marks packets lost. */
+    virtual void rackLossDetected() override;
 
     /** Redefine what should happen when data got acked, to add congestion window management */
     virtual void receivedDataAck(uint32_t firstSeqAcked) override;

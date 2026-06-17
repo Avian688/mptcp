@@ -15,12 +15,22 @@
 
 #include <algorithm>
 #include <iterator>
+#include <string>
+
+#include "inet/networklayer/common/L3AddressResolver.h"
+#include "inet/networklayer/contract/IInterfaceTable.h"
+
 #include "MpTcpConnection.h"
 #include "MpTcp.h"
 namespace inet {
 namespace tcp {
 
 Define_Module(MpTcpConnection);
+
+simsignal_t MpTcpConnection::holBlockedBytesSignal = registerSignal("holBlockedBytes");
+simsignal_t MpTcpConnection::metaExpectedDsnSignal = registerSignal("metaExpectedDsn");
+simsignal_t MpTcpConnection::metaArrivedDsnStartSignal = registerSignal("metaArrivedDsnStart");
+simsignal_t MpTcpConnection::metaDsnGapBytesSignal = registerSignal("metaDsnGapBytes");
 
 MpTcpConnection::MpTcpConnection() : packetScheduler(this), flowScheduler(this) {
     // TODO Auto-generated constructor stub
@@ -1534,6 +1544,10 @@ void MpTcpConnection::receivedChunk(uint32_t fromSeqNo, uint32_t toSeqNo)
     else{
         std::cerr << "\n ERROR RECEIVE QUEUE NOT LARGE ENOUGH" << endl;
     }
+    emit(holBlockedBytesSignal, receiveQueue->getAmountOfBufferedBytes());
+    emit(metaExpectedDsnSignal, state->rcv_nxt);
+    emit(metaArrivedDsnStartSignal, fromSeqNo);
+    emit(metaDsnGapBytesSignal, seqGreater(fromSeqNo, state->rcv_nxt) ? fromSeqNo - state->rcv_nxt : 0);
     delete tcpSegment;
 }
 
@@ -1658,6 +1672,53 @@ void MpTcpConnection::sendEstablished()
     sendEstabIndicationToApp();
 }
 
+NetworkInterface *MpTcpConnection::getInterfaceForSubflow(int slot) const
+{
+    if (ift == nullptr || slot < 0)
+        return nullptr;
+
+    const std::string pppName = "ppp" + std::to_string(slot);
+    if (auto *interface = ift->findInterfaceByName(pppName.c_str()))
+        return interface;
+
+    return ift->getInterface(slot + 1);
+}
+
+L3Address MpTcpConnection::getLocalAddressForSubflow(int slot) const
+{
+    if (auto *interface = getInterfaceForSubflow(slot)) {
+        L3Address address = L3AddressResolver().getAddressFrom(interface, L3AddressResolver::ADDR_IPv4);
+        if (!address.isUnspecified())
+            return address;
+    }
+
+    return localAddr;
+}
+
+L3Address MpTcpConnection::getRemoteAddressForSubflow(int slot) const
+{
+    if (tcpMain != nullptr && tcpMain->hasPar("subflowRemoteAddresses")) {
+        const char *addressList = tcpMain->par("subflowRemoteAddresses").stringValue();
+        if (addressList != nullptr && addressList[0] != '\0') {
+            omnetpp::cStringTokenizer tokenizer(addressList);
+            int index = 0;
+            while (const char *token = tokenizer.nextToken()) {
+                if (index == slot) {
+                    L3Address address;
+                    L3AddressResolver().tryResolve(token, address);
+                    if (address.isUnspecified())
+                        throw cRuntimeError(tcpMain, "Cannot resolve subflowRemoteAddresses entry '%s' for subflow %d", token, slot);
+                    return address;
+                }
+                ++index;
+            }
+            throw cRuntimeError(tcpMain, "subflowRemoteAddresses has no entry for subflow %d", slot);
+        }
+    }
+
+    return remoteAddr;
+}
+
 void MpTcpConnection::assignInterface(SubflowConnection* subflowConn)
 {
     auto start = m_subflows.begin(); // Force types to match
@@ -1665,7 +1726,7 @@ void MpTcpConnection::assignInterface(SubflowConnection* subflowConn)
 
     if (it != m_subflows.end()) {
         int index = static_cast<size_t>(std::distance(start, it)); // @suppress("Function cannot be instantiated")
-        auto interface = ift->getInterface(index + 1);
+        auto interface = getInterfaceForSubflow(index);
         if (interface) {
             subflowConn->setInterfaceId(interface->getInterfaceId());
         }

@@ -642,8 +642,9 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     // if sack_enabled copy region of tcpHeader to rexmitQueue
     if (state->sack_enabled){
         rexmitQueue->enqueueSentData(old_snd_nxt, state->snd_nxt);
-        if(pace){
-            rexmitQueue->skbSent(state->snd_nxt, m_firstSentTime, simTime(), m_deliveredTime, false, m_delivered, m_appLimited);
+        if ((pace || rack_enabled) && rexmitQueue->isUpdatedSackEnabled()) {
+            rexmitQueue->skbSent(state->snd_nxt, m_firstSentTime, simTime(), m_deliveredTime,
+                    m_bytesInFlight + sentBytes, false, m_delivered, m_appLimited);
         }
     }
 
@@ -806,19 +807,19 @@ uint32_t SubflowConnection::getSchedulerQueueLimit() const
     if (state == nullptr)
         return 0;
 
-    if (state->sendQueueLimit > 0)
-        return state->sendQueueLimit;
-
-    const uint32_t inFlight = std::max(m_bytesInFlight, state->pipe);
-    uint32_t queueAllowance = std::max(state->snd_wnd, state->snd_mss);
+    uint32_t windowBudget = state->snd_wnd;
 
     if (auto *pacedAlgorithm = dynamic_cast<TcpPacedFamily *>(tcpAlgorithm))
-        queueAllowance = std::max(queueAllowance, pacedAlgorithm->getCwnd());
+        windowBudget = std::min(windowBudget, pacedAlgorithm->getCwnd());
 
-    // Approximate the socket write buffer used by the Linux scheduler:
-    // retain room for already in-flight data plus roughly one additional
-    // window of queued data when no explicit send queue limit is configured.
-    return inFlight + queueAllowance;
+    if (state->sendQueueLimit > 0)
+        windowBudget = std::min(windowBudget, state->sendQueueLimit);
+
+    // bytesAvailable(bufferStartSeq) includes sent-but-unacked bytes and
+    // locally queued bytes. Capping it at min(cwnd,rwnd) makes the scheduler
+    // leave a subflow once its usable window is full, matching Linux's
+    // "memory-free subflow, then TCP enforces cwnd" behavior in this model.
+    return windowBudget;
 }
 
 double SubflowConnection::getSchedulerPacingRateBytesPerSecond() const
@@ -1741,6 +1742,7 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
     uint32_t previousLost = m_bytesLoss; //TODO Create Sack method to get exact amount of lost packets
     uint32_t priorInFlight = m_bytesInFlight;//get current BytesInFlight somehow
     int payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
+    beginRateSample();
 
     // ECN
     TcpStateVariables *state = getState();
@@ -1749,6 +1751,12 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
             EV_INFO << "Received packet with ECE\n";
 
         state->gotEce = tcpHeader->getEceBit();
+    }
+
+    if (payloadLength == 0 && metaConn != nullptr && tcpHeader->findTag<DataSequenceNumberTag>()) {
+        const uint32_t dataAckNo = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
+        metaConn->receivedUpTo(dataAckNo);
+        eraseSentDsnMappingsUpToDataAck(dataAckNo);
     }
 
     //
@@ -1797,41 +1805,31 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
             // could have been changed if faulty data receiver is not respecting the "do not shrink window" rule
             if (rack_enabled)
             {
-             uint32_t tser = state->ts_recent;
-             simtime_t rtt = dynamic_cast<TcpPacedFamily*>(tcpAlgorithm)->getRtt();
+                if (!scoreboardUpdated && rexmitQueue->findRegion(tcpHeader->getAckNo()))
+                    rackAdvance(tcpHeader->getAckNo(), tcpHeader);
+                else
+                    rackAdvance(rexmitQueue->getHighestSackedSeqNum(), tcpHeader);
 
-             // Get information of the latest packet (cumulatively)ACKed packet and update RACK parameters
-             if (!scoreboardUpdated && rexmitQueue->findRegion(tcpHeader->getAckNo()))
-             {
-                 TcpSackRexmitQueue::Region& skbRegion = rexmitQueue->getRegion(tcpHeader->getAckNo());
-                 m_rack->updateStats(tser, skbRegion.rexmitted, skbRegion.m_lastSentTime, tcpHeader->getAckNo(), state->snd_nxt, rtt);
-             }
-             else // Get information of the latest packet (Selectively)ACKed packet and update RACK parameters
-             {
-                 uint32_t highestSacked;
-                 highestSacked = rexmitQueue->getHighestSackedSeqNum();
-                 if(rexmitQueue->findRegion(highestSacked)){
-                     TcpSackRexmitQueue::Region& skbRegion = rexmitQueue->getRegion(highestSacked);
-                     m_rack->updateStats(tser, skbRegion.rexmitted,  skbRegion.m_lastSentTime, highestSacked, state->snd_nxt, rtt);
-                 }
-             }
-
-             // Check if TCP will be exiting loss recovery
-            bool exiting = false;
-            if (state->lossRecovery && dynamic_cast<TcpPacedFamily*>(tcpAlgorithm)->getRecoveryPoint() <= tcpHeader->getAckNo())
-            {
-                 exiting = true;
-            }
-
-            m_rack->updateReoWnd(m_reorder, m_dsackSeen, state->snd_nxt, tcpHeader->getAckNo(), rexmitQueue->getTotalAmountOfSackedBytes(), 3, exiting, state->lossRecovery);
+                const bool inLossState = state->lossRecovery || isInRtoRecovery();
+                const bool exiting = inLossState &&
+                        seqGE(tcpHeader->getAckNo(), getPacedAlgorithm()->getRecoveryPoint());
+                m_rack->updateReoWnd(m_reorder, m_dsackSeen, state->snd_nxt, tcpHeader->getAckNo(),
+                        rexmitQueue->getTotalAmountOfSackedBytes(), 3, state->snd_mss,
+                        exiting, inLossState);
             }
             scoreboardUpdated = false;
 
             updateWndInfo(tcpHeader);
 
-            std::list<uint32_t> skbDeliveredList = rexmitQueue->getDiscardList(tcpHeader->getAckNo());
-            for (uint32_t endSeqNo : skbDeliveredList) {
-                skbDelivered(endSeqNo);
+            if (rexmitQueue->isUpdatedSackEnabled()) {
+                std::list<uint32_t> skbDeliveredList = rexmitQueue->getDiscardList(tcpHeader->getAckNo());
+                for (uint32_t endSeqNo : skbDeliveredList) {
+                    bool wasRetransmitted = rexmitQueue->isRetransmitted(endSeqNo);
+                    rackAdvance(endSeqNo, tcpHeader);
+                    skbDelivered(endSeqNo);
+                    if ((fack_enabled || rack_enabled) && seqLess(endSeqNo, m_sndFack) && !wasRetransmitted)
+                        m_reorder = true;
+                }
             }
 //
             uint32_t currentDelivered  = m_delivered - previousDelivered;
@@ -1840,29 +1838,18 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
             updateInFlight();
 ////
             uint32_t currentLost = m_bytesLoss;
-            uint32_t lost = (currentLost > previousLost) ? currentLost - previousLost : previousLost - currentLost;
+            uint32_t lost = (currentLost > previousLost) ? currentLost - previousLost : 0;
 ////
             updateSample(currentDelivered, lost, false, priorInFlight, connMinRtt);
+
+            bool newRackLoss = false;
+            bool rackRecovery = checkRackLoss(&newRackLoss);
+            if (shouldApplyRackCongestionResponse() && (rackRecovery || newRackLoss))
+                getPacedAlgorithm()->rackLossDetected();
 
             tcpAlgorithm->receivedDuplicateAck();
             isRetransDataAcked = false;
             sendPendingData();
-
-            m_reorder = false;
-            //
-            // Update m_sndFack if possible
-            if (fack_enabled || rack_enabled)
-            {
-              if (tcpHeader->getAckNo() > m_sndFack)
-                {
-                  m_sndFack = tcpHeader->getAckNo();
-                }
-              // Packet reordering seen
-              else if (tcpHeader->getAckNo() < m_sndFack)
-                {
-                  m_reorder = true;
-                }
-            }
         }
         else {
             // if doesn't qualify as duplicate ACK, just ignore it.
@@ -1913,54 +1900,37 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
 
         if (rack_enabled)
         {
-          uint32_t tser = state->ts_recent;
-          simtime_t rtt = dynamic_cast<TcpPacedFamily*>(tcpAlgorithm)->getRtt();
+            if (!scoreboardUpdated && rexmitQueue->findRegion(tcpHeader->getAckNo()))
+                rackAdvance(tcpHeader->getAckNo(), tcpHeader);
+            else
+                rackAdvance(rexmitQueue->getHighestSackedSeqNum(), tcpHeader);
 
-          // Get information of the latest packet (cumulatively)ACKed packet and update RACK parameters
-          if (!scoreboardUpdated && rexmitQueue->findRegion(tcpHeader->getAckNo()))
-          {
-              TcpSackRexmitQueue::Region& skbRegion = rexmitQueue->getRegion(tcpHeader->getAckNo());
-              m_rack->updateStats(tser, skbRegion.rexmitted, skbRegion.m_lastSentTime, tcpHeader->getAckNo(), state->snd_nxt, rtt);
-          }
-          else // Get information of the latest packet (Selectively)ACKed packet and update RACK parameters
-          {
-              uint32_t highestSacked;
-              highestSacked = rexmitQueue->getHighestSackedSeqNum();
-              if(rexmitQueue->findRegion(highestSacked)){
-                  TcpSackRexmitQueue::Region& skbRegion = rexmitQueue->getRegion(highestSacked);
-                  m_rack->updateStats(tser, skbRegion.rexmitted,  skbRegion.m_lastSentTime, highestSacked, state->snd_nxt, rtt);
-              }
-          }
-
-          // Check if TCP will be exiting loss recovery
-          bool exiting = false;
-          if (state->lossRecovery && dynamic_cast<TcpPacedFamily*>(tcpAlgorithm)->getRecoveryPoint() <= tcpHeader->getAckNo())
-            {
-              exiting = true;
-            }
-
-          m_rack->updateReoWnd(m_reorder, m_dsackSeen, state->snd_nxt, old_snd_una, rexmitQueue->getTotalAmountOfSackedBytes(), 3, exiting, state->lossRecovery);
+            const bool inLossState = state->lossRecovery || isInRtoRecovery();
+            const bool exiting = inLossState &&
+                    seqGE(state->snd_una, getPacedAlgorithm()->getRecoveryPoint());
+            m_rack->updateReoWnd(m_reorder, m_dsackSeen, state->snd_nxt, state->snd_una,
+                    rexmitQueue->getTotalAmountOfSackedBytes(), 3, state->snd_mss,
+                    exiting, inLossState);
         }
         scoreboardUpdated = false;
         // acked data no longer needed in send queue
 
         // acked data no longer needed in rexmit queue
-        std::list<uint32_t> skbDeliveredList = rexmitQueue->getDiscardList(discardUpToSeq);
-        for (uint32_t endSeqNo : skbDeliveredList) {
-            skbDelivered(endSeqNo);
-            if(state->lossRecovery){
-                if(rexmitQueue->isRetransmittedDataAcked(endSeqNo)){
+        if (rexmitQueue->isUpdatedSackEnabled()) {
+            std::list<uint32_t> skbDeliveredList = rexmitQueue->getDiscardList(discardUpToSeq);
+            for (uint32_t endSeqNo : skbDeliveredList) {
+                bool wasRetransmitted = rexmitQueue->isRetransmitted(endSeqNo);
+                rackAdvance(endSeqNo, tcpHeader);
+                skbDelivered(endSeqNo);
+                if (state->lossRecovery && rexmitQueue->isRetransmittedDataAcked(endSeqNo))
                     isRetransDataAcked = true;
-                }
+                if ((fack_enabled || rack_enabled) && seqLess(endSeqNo, m_sndFack) && !wasRetransmitted)
+                    m_reorder = true;
             }
         }
 
         // acked data no longer needed in send queue
         sendQueue->discardUpTo(discardUpToSeq);
-
-        uint32_t metaAckNo = 0;
-        if (translateAckToMetaLevel(discardUpToSeq, metaAckNo))
-            metaConn->receivedUpTo(metaAckNo);
 
         // acked data no longer needed in rexmit queue
         if (state->sack_enabled){
@@ -1979,10 +1949,15 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
             updateInFlight();
 
             uint32_t currentLost = m_bytesLoss;
-            uint32_t lost = (currentLost > previousLost) ? currentLost - previousLost : previousLost - currentLost;
+            uint32_t lost = (currentLost > previousLost) ? currentLost - previousLost : 0;
             // notify
 
             updateSample(currentDelivered, lost, false, priorInFlight, connMinRtt);
+
+            bool newRackLoss = false;
+            bool rackRecovery = checkRackLoss(&newRackLoss);
+            if (shouldApplyRackCongestionResponse() && (rackRecovery || newRackLoss))
+                getPacedAlgorithm()->rackLossDetected();
 
             tcpAlgorithm->receivedDataAck(old_snd_una);
             isRetransDataAcked = false;
@@ -1991,19 +1966,11 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
 
             sendPendingData();
 
-            m_reorder = false;
-            //
-            // Update m_sndFack if possible
             if (fack_enabled || rack_enabled)
             {
               if (tcpHeader->getAckNo() > m_sndFack)
                 {
                   m_sndFack = tcpHeader->getAckNo();
-                }
-              // Packet reordering seen
-              else if (tcpHeader->getAckNo() < m_sndFack)
-                {
-                  m_reorder = true;
                 }
             }
 
@@ -2111,7 +2078,8 @@ void SubflowConnection::sendAck()
     // write header options
     writeHeaderOptions(tcpHeader);
 
-    tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(state->snd_nxt);
+    const uint32_t dataAckNo = metaConn != nullptr ? metaConn->getRcvNxt() : state->rcv_nxt;
+    tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(dataAckNo);
 
     Packet *fp = new Packet("TcpAck");
 
@@ -2600,6 +2568,21 @@ void SubflowConnection::eraseReceivedMappingsUpTo(uint32_t seqNo)
             break;
 
         it = receivedDsnMapping.erase(it);
+    }
+}
+
+void SubflowConnection::eraseSentDsnMappingsUpToDataAck(uint32_t dataAckNo)
+{
+    auto it = sentDsnMapping.begin();
+    while (it != sentDsnMapping.end()) {
+        if (seqLE(it->second.dsnEnd, dataAckNo)) {
+            it = sentDsnMapping.erase(it);
+        }
+        else {
+            if (seqLess(it->second.dsnStart, dataAckNo))
+                it->second.dsnStart = dataAckNo;
+            ++it;
+        }
     }
 }
 

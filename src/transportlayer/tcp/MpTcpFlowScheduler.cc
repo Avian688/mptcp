@@ -255,12 +255,15 @@ SubflowConnection *MpTcpFlowScheduler::createSubflow(int slot)
     bool opened = false;
     if (connection->isActiveSide()) {
         const int remotePort = connection->getRemotePortNumber() + slot + 1;
-        opened = subflow->openActive(connection->getLocalAddressForSubflows(),
-                                     connection->getRemoteAddressForSubflows(),
+        const L3Address localAddress = connection->getLocalAddressForSubflow(slot);
+        const L3Address remoteAddress = connection->getRemoteAddressForSubflow(slot);
+        opened = subflow->openActive(localAddress,
+                                     remoteAddress,
                                      localPort, remotePort);
     }
     else {
-        opened = subflow->openPassive(connection->getLocalAddressForSubflows(), localPort);
+        const L3Address localAddress = connection->getLocalAddressForSubflow(slot);
+        opened = subflow->openPassive(localAddress, localPort);
     }
 
     if (!opened)

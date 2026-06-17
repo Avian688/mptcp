@@ -178,6 +178,8 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual void eraseReceivedMappingsUpTo(uint32_t seqNo);
 
+    virtual void eraseSentDsnMappingsUpToDataAck(uint32_t dataAckNo);
+
     virtual bool translateAckToMetaLevel(uint32_t discardUpToSeq, uint32_t& metaAckNo);
 
     virtual bool consumePendingDsnMapping(uint32_t subflowSeqNo, uint32_t bytes, uint32_t& dsnStart);

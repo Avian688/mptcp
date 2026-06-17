@@ -21,4 +21,5 @@ simple MpTcp extends TcpPaced
 {
     parameters:
         @class("inet::tcp::MpTcp");
+        string subflowRemoteAddresses = default("");
 }

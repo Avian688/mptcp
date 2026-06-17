@@ -37,6 +37,9 @@
 #include "SubflowConnection.h"
 
 namespace inet {
+
+class NetworkInterface;
+
 namespace tcp {
 
 /**
@@ -86,7 +89,11 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual const L3Address& getLocalAddressForSubflows() const { return localAddr; }
 
+    virtual L3Address getLocalAddressForSubflow(int slot) const;
+
     virtual const L3Address& getRemoteAddressForSubflows() const { return remoteAddr; }
+
+    virtual L3Address getRemoteAddressForSubflow(int slot) const;
 
     virtual int getLocalPortNumber() const { return localPort; }
 
@@ -118,6 +125,11 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual bool processTimer(cMessage *msg) override;
   protected:
+    static simsignal_t holBlockedBytesSignal;
+    static simsignal_t metaExpectedDsnSignal;
+    static simsignal_t metaArrivedDsnStartSignal;
+    static simsignal_t metaDsnGapBytesSignal;
+
     /** Meta connection state machine states */
     enum mptcp_states_t {
         Established,   // ESTABLISHED / CLOSE_WAIT
@@ -131,6 +143,8 @@ class MpTcpConnection : public MpTcpConnectionBase
     MpTcpFlowScheduler flowScheduler;
 
     IInterfaceTable* ift;
+
+    virtual NetworkInterface *getInterfaceForSubflow(int slot) const;
 
     virtual void initConnection(TcpOpenCommand *openCmd) override;
     /** Active open processing */

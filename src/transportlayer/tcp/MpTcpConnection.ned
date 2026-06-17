@@ -25,5 +25,14 @@ simple MpTcpConnection extends TcpPacedConnection
         bool startAllSubflowsAtBeginning = default(true);
         string schedulerMode = default("default");
         string subflowStartTimes = default("");
+
+        @signal[holBlockedBytes];
+        @statistic[holBlockedBytes](record=vector; interpolationmode=sample-hold);
+        @signal[metaExpectedDsn];      // next meta-level DSN the receiver is waiting for
+        @signal[metaArrivedDsnStart];  // DSN start of the chunk that just arrived at the meta receiver
+        @signal[metaDsnGapBytes];      // arrived DSN start minus expected DSN when the arrival is ahead
+        @statistic[metaExpectedDsn](record=vector; interpolationmode=sample-hold);
+        @statistic[metaArrivedDsnStart](record=vector; interpolationmode=sample-hold);
+        @statistic[metaDsnGapBytes](record=vector; interpolationmode=sample-hold);
         
 }

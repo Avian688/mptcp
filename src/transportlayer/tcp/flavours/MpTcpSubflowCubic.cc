@@ -7,6 +7,8 @@
 
 #include "MpTcpSubflowCubic.h"
 
+#include <limits>
+
 namespace inet {
 namespace tcp {
 
@@ -312,16 +314,27 @@ void MpTcpSubflowCubic::recalculateSlowStartThreshold() {
 
 }
 
+void MpTcpSubflowCubic::setRecoveryCongestionWindow()
+{
+    auto pacedConn = dynamic_cast<TcpPacedConnection *>(conn);
+    uint64_t recoveryCwnd = static_cast<uint64_t>(pacedConn->getBytesInFlight()) + state->snd_mss;
+    state->snd_cwnd = static_cast<uint32_t>(
+            std::min(recoveryCwnd, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())));
+}
+
 void MpTcpSubflowCubic::processRexmitTimer(TcpEventCode &event) {
     uint32_t old_cwnd = state->snd_cwnd;
     TcpPacedFamily::processRexmitTimer(event);
+    if (event == TCP_E_ABORT)
+        return;
 
     std::cerr << "RTO at " << simTime() << std::endl;
     std::cerr << "cwnd=: " << state->snd_cwnd / state->snd_mss << ", in-flight="
             << (state->snd_max - state->snd_una) / state->snd_mss << std::endl;
 
     reset();
-    recalculateSlowStartThreshold();
+    if (shouldApplyRtoCongestionResponse())
+        recalculateSlowStartThreshold();
     state->snd_cwnd = state->snd_mss;
     dynamic_cast<SubflowConnection*>(conn)->updateTotalCwnd(old_cwnd, state->snd_cwnd);
 
@@ -344,12 +357,41 @@ void MpTcpSubflowCubic::processRexmitTimer(TcpEventCode &event) {
     conn->emit(cwndSegSignal, state->snd_cwnd / state->snd_mss);
 }
 
+void MpTcpSubflowCubic::rackLossDetected()
+{
+    auto pacedConn = dynamic_cast<TcpPacedConnection *>(conn);
+    if (!state->sack_enabled)
+        return;
+
+    uint32_t old_cwnd = state->snd_cwnd;
+    if (!state->lossRecovery) {
+        state->recoveryPoint = state->snd_max;
+        pacedConn->updateInFlight();
+        state->lossRecovery = true;
+
+        recalculateSlowStartThreshold();
+        setRecoveryCongestionWindow();
+        dynamic_cast<SubflowConnection *>(conn)->updateTotalCwnd(old_cwnd, state->snd_cwnd);
+        conn->emit(recoveryPointSignal, state->recoveryPoint);
+        conn->emit(cwndSignal, state->snd_cwnd);
+        conn->emit(ssthreshSignal, state->ssthresh);
+        conn->emit(cwndSegSignal, state->snd_cwnd / state->snd_mss);
+    }
+    else {
+        pacedConn->updateInFlight();
+    }
+
+    if (pacedConn->doRetransmit())
+        restartRexmitTimer();
+}
+
 void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
     uint32_t old_cwnd = state->snd_cwnd;
     TcpTahoeRenoFamily::receivedDataAck(firstSeqAcked);
     state->delay_min = state->srtt.inUnit(SIMTIME_US);
+    bool wasInLossRecovery = state->sack_enabled && state->lossRecovery;
     // Check if recovery phase has ended
-    if (state->sack_enabled && state->lossRecovery) {
+    if (wasInLossRecovery) {
         //dynamic_cast<PacedTcpConnection*>(conn)->changeIntersendingTime(0.000000001);
         // RFC 3517, page 7: "Once a TCP is in the loss recovery phase the following procedure MUST
         // be used for each arriving ACK:
@@ -365,14 +407,13 @@ void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
             state->snd_cwnd = state->ssthresh;
             state->lossRecovery = false;
         }
-        else{
-            dynamic_cast<TcpPacedConnection*>(conn)->doRetransmit();
-            //conn->setPipe();
-            //if (((int)state->snd_cwnd - (int)state->pipe) >= (int)state->snd_mss) // Note: Typecast needed to avoid prohibited transmissions
-            //    dynamic_cast<TcpPacedConnection*>(conn)->sendDataDuringLossRecoveryPhase(state->snd_cwnd);
-        }
         conn->emit(sndUnaSignal, state->snd_una);
         conn->emit(recoveryPointSignal, state->recoveryPoint);
+        conn->emit(cwndSignal, state->snd_cwnd);
+        conn->emit(ssthreshSignal, state->ssthresh);
+        conn->emit(cwndSegSignal, state->snd_cwnd / state->snd_mss);
+        dynamic_cast<SubflowConnection *>(conn)->updateTotalCwnd(old_cwnd, state->snd_cwnd);
+        return;
     }
 
     if (state->snd_cwnd < state->ssthresh) {
@@ -428,9 +469,8 @@ void MpTcpSubflowCubic::receivedDuplicateAck()
     //TcpTahoeRenoFamily::receivedDuplicateAck();
     state->delay_min = state->srtt.inUnit(SIMTIME_US);
 
-    bool isHighRxtLost = dynamic_cast<TcpPacedConnection*>(conn)->checkIsLost(state->snd_una+state->snd_mss);
-    bool rackLoss = dynamic_cast<TcpPacedConnection*>(conn)->checkRackLoss();
-    if ((rackLoss && !state->lossRecovery) || state->dupacks == state->dupthresh || (isHighRxtLost && !state->lossRecovery)) {
+    auto pacedConn = dynamic_cast<TcpPacedConnection *>(conn);
+    if (shouldEnterLossRecoveryOnDuplicateAck()) {
         EV_INFO << "Reno on dupAcks == DUPTHRESH(=" << state->dupthresh << ": perform Fast Retransmit, and enter Fast Recovery:";
 
         if (state->sack_enabled) {
@@ -454,17 +494,17 @@ void MpTcpSubflowCubic::receivedDuplicateAck()
             // recovery phase (as described in section 5) MUST NOT be initiated
             // until HighACK is greater than or equal to the new value of
             // RecoveryPoint."
-            if (state->recoveryPoint == 0 || seqGE(state->snd_una, state->recoveryPoint)) { // HighACK = snd_una
+            if ((state->recoveryPoint == 0 || seqGE(state->snd_una, state->recoveryPoint)) && !state->lossRecovery) { // HighACK = snd_una
                 state->recoveryPoint = state->snd_max; // HighData = snd_max
-                dynamic_cast<TcpPacedConnection*>(conn)->setSackedHeadLost();
-                dynamic_cast<TcpPacedConnection*>(conn)->updateInFlight();
+                pacedConn->setSackedHeadLostIfRackDisabled();
+                pacedConn->updateInFlight();
                 state->lossRecovery = true;
 
                 recalculateSlowStartThreshold();
-                state->snd_cwnd = state->ssthresh + (3*state->snd_mss); // 20051129 (1)
+                setRecoveryCongestionWindow();
                 EV_DETAIL << " recoveryPoint=" << state->recoveryPoint;
 
-                dynamic_cast<TcpPacedConnection*>(conn)->doRetransmit();
+                pacedConn->doRetransmit();
             }
         }
         // RFC 2581, page 5:
@@ -506,32 +546,9 @@ void MpTcpSubflowCubic::receivedDuplicateAck()
 
         // try to transmit new segments (RFC 2581)
     }
-    else if (state->dupacks > state->dupthresh) {
-        //
-        // Cubic: For each additional duplicate ACK received, increment cwnd by SMSS.
-        // This artificially inflates the congestion window in order to reflect the
-        // additional segment that has left the network
-        //
-        //state->snd_cwnd += state->snd_mss;
-        EV_DETAIL << "Cubic on dupAcks > DUPTHRESH(=" << state->dupthresh << ": Fast Recovery: inflating cwnd by SMSS, new cwnd=" << state->snd_cwnd << "\n";
-
-        //conn->emit(cwndSignal, state->snd_cwnd);
-
-        // Note: Steps (A) - (C) of RFC 3517, page 7 ("Once a TCP is in the loss recovery phase the following procedure MUST be used for each arriving ACK")
-        // should not be used here!
-
-        // RFC 3517, pages 7 and 8: "5.1 Retransmission Timeouts
-        // (...)
-        // If there are segments missing from the receiver's buffer following
-        // processing of the retransmitted segment, the corresponding ACK will
-        // contain SACK information.  In this case, a TCP sender SHOULD use this
-        // SACK information when determining what data should be sent in each
-        // segment of the slow start.  The exact algorithm for this selection is
-        // not specified in this document (specifically NextSeg () is
-        // inappropriate during slow start after an RTO).  A relatively
-        // straightforward approach to "filling in" the sequence space reported
-        // as missing should be a reasonable approach."
-    }
+    else if (state->lossRecovery && state->dupacks > state->dupthresh)
+        EV_DETAIL << "Additional duplicate ACK during RACK recovery; cwnd remains "
+                  << state->snd_cwnd << "\n";
 
     if(state->snd_cwnd > 0){
         double paceFactor;
@@ -541,13 +558,14 @@ void MpTcpSubflowCubic::receivedDuplicateAck()
         else{
             paceFactor = 1.2;
         }
-       uint32_t maxWindow = std::max(state->snd_cwnd, dynamic_cast<TcpPacedConnection*>(conn)->getBytesInFlight());
+       uint32_t maxWindow = std::max(state->snd_cwnd, pacedConn->getBytesInFlight());
        double pace = state->srtt.dbl()/((double) (maxWindow*paceFactor)/(double)state->snd_mss);
-       dynamic_cast<TcpPacedConnection*>(conn)->changeIntersendingTime(pace);
+       pacedConn->changeIntersendingTime(pace);
     }
 
     dynamic_cast<SubflowConnection*>(conn)->updateTotalCwnd(old_cwnd, state->snd_cwnd);
-    sendData(false);
+    if (!state->lossRecovery)
+        sendData(false);
 }
 
 void MpTcpSubflowCubic::rttMeasurementComplete(simtime_t tSent, simtime_t tAcked)
