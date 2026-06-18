@@ -93,6 +93,8 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual bool canAcceptRetransmission(uint32_t bytes) const;
 
+    virtual bool isActiveForDefaultScheduler() const;
+
     virtual bool canUseDefaultScheduler(uint32_t bytes) const;
 
     virtual void enqueueScheduledData(uint32_t bytes);

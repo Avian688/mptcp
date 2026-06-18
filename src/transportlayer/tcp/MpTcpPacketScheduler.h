@@ -52,10 +52,12 @@ class MpTcpPacketScheduler
 
     SubflowConnection *scheduleLowestRtt(SubflowConnection *requester, uint32_t bytes);
 
-    double getAveragePacingRate(SubflowConnection *subflow) const;
+    double getAveragePacingRate(SubflowConnection *subflow);
 
-    void updateBurstState(SubflowConnection *subflow, uint32_t bytes,
-                          uint32_t queuedBytesBeforeEnqueue, double currentPacingRate);
+    void startBurst(SubflowConnection *subflow, uint32_t bytes,
+                    uint32_t queuedBytesBeforeEnqueue, double currentPacingRate);
+
+    void consumeBurst(uint32_t bytes);
 
     MpTcpConnection *connection = nullptr;
     std::string schedulingMode = "default";

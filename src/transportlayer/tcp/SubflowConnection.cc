@@ -619,9 +619,8 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 
     uint32_t metaSnd_nxt = 0;
     if (!consumePendingDsnMapping(old_snd_nxt, sentBytes, metaSnd_nxt)) {
-        if (!isRetransmission) { // Must be from meta socket.
-            metaSnd_nxt = metaConn->sendSegment(bytes); //TODO ensure seqNo lines up with pulled metaConn packet
-        }
+        if (!isRetransmission)
+            throw cRuntimeError("Missing scheduled MPTCP DSN mapping at subflow sequence %u", old_snd_nxt);
         else {
             auto it = sentDsnMapping.find(old_snd_nxt);
             if (it != sentDsnMapping.end())
@@ -754,22 +753,42 @@ bool SubflowConnection::canAcceptRetransmission(uint32_t bytes) const
 
 bool SubflowConnection::canUseDefaultScheduler(uint32_t bytes) const
 {
-    if (!canAcceptScheduledData(bytes))
+    if (!isActiveForDefaultScheduler())
         return false;
 
-    auto *pacedAlgorithm = dynamic_cast<TcpPacedFamily *>(tcpAlgorithm);
-    if (pacedAlgorithm == nullptr)
+    // sk_stream_memory_free() is a write-memory test, not a cwnd test. A zero
+    // INET sendQueueLimit means unlimited socket write memory in this model.
+    if (state->sendQueueLimit == 0)
+        return true;
+
+    const uint32_t alreadyQueued = getSchedulerQueuedBytes();
+    return alreadyQueued <= state->sendQueueLimit &&
+            bytes <= state->sendQueueLimit - alreadyQueued;
+}
+
+bool SubflowConnection::isActiveForDefaultScheduler() const
+{
+    if (state == nullptr || sendQueue == nullptr ||
+            dynamic_cast<TcpPacedFamily *>(tcpAlgorithm) == nullptr)
         return false;
 
-    // The Linux default scheduler selects among active subflows with available
-    // write memory, then relies on the actual TCP transmit path to enforce cwnd
-    // and advertised-window limits. In this model, canAcceptScheduledData()
-    // provides the closest analogue to that write-memory gate.
-    return true;
+    const int currentState = fsm.getState();
+    return currentState == TCP_S_ESTABLISHED || currentState == TCP_S_CLOSE_WAIT;
 }
 
 void SubflowConnection::enqueueScheduledData(uint32_t bytes)
 {
+    ASSERT(metaConn != nullptr);
+    ASSERT(sendQueue != nullptr);
+
+    const uint32_t subflowSeqStart = sendQueue->getBufferEndSeq();
+    const uint32_t dsnStart = metaConn->sendSegment(bytes);
+
+    DsnMapping mapping;
+    mapping.dsnStart = dsnStart;
+    mapping.dsnEnd = dsnStart + bytes;
+    pendingDsnMapping[subflowSeqStart] = mapping;
+
     Packet *msg = new Packet("Packet");
     Ptr<Chunk> packetBytes = makeShared<ByteCountChunk>(B(bytes));
     msg->insertAtBack(packetBytes);
