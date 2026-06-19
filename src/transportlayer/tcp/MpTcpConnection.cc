@@ -602,11 +602,17 @@ uint32_t MpTcpConnection::getBytesAvailable()
 
 uint32_t MpTcpConnection::getSendWindowRemaining() const
 {
+    // The meta socket is not itself carried over the wire, so it does not
+    // negotiate TCP window scaling. Its snd_wnd therefore contains the
+    // unscaled master-subflow SYN window (normally 65535 bytes). Use the
+    // configured data-level receive-buffer contract here; each subflow still
+    // enforces its independently negotiated TCP send window.
+    const uint32_t dataWindow = state->maxRcvBuffer;
     const uint32_t outstandingBytes = state->snd_nxt - state->snd_una;
-    if (outstandingBytes >= state->snd_wnd)
+    if (outstandingBytes >= dataWindow)
         return 0;
 
-    return state->snd_wnd - outstandingBytes;
+    return dataWindow - outstandingBytes;
 }
 
 Packet *MpTcpConnection::createDataPacket(uint32_t dsnStart, uint32_t bytes) const
