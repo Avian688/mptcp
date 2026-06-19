@@ -59,6 +59,8 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual bool getIsMaster();
 
+    virtual MpTcpConnection *getMetaConnection() const { return metaConn; }
+
     /** Called by the meta connection to initialise the subflow. */
     virtual void initSubflowConnection(Tcp *mod, int socketId,
                                        MpTcpConnection *metaConn, bool isMaster);

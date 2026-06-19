@@ -52,6 +52,15 @@ void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
     if (strcmp(tcpAlgorithmClass, "MpTcpMetaCubic") == 0 && !this->isMeta()) {
         tcpAlgorithmClass = "MpTcpSubflowCubic";
     }
+    else if (strcmp(tcpAlgorithmClass, "MpTcpOlia") == 0 && this->isMeta()) {
+        tcpAlgorithmClass = "MpTcpMetaCubic";
+    }
+    else if (strcmp(tcpAlgorithmClass, "MpTcpBalia") == 0 && this->isMeta()) {
+        tcpAlgorithmClass = "MpTcpMetaCubic";
+    }
+    else if (strcmp(tcpAlgorithmClass, "MpTcpReno") == 0 && this->isMeta()) {
+        tcpAlgorithmClass = "MpTcpMetaCubic";
+    }
 
     tcpAlgorithm = check_and_cast<TcpAlgorithm *>(inet::utils::createOne(tcpAlgorithmClass));
     tcpAlgorithm->setConnection(this);

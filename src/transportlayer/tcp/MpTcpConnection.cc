@@ -582,31 +582,17 @@ uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
 
 uint32_t MpTcpConnection::getSegment(uint32_t bytes)
 {
-    uint32_t bytesAvailable = sendQueue->getBytesAvailable(state->snd_max);
-    if(bytesAvailable <= bytes){
-        return bytesAvailable;
-    }
-    else{
-        return bytes;
-    }
+    const uint32_t bytesAvailable = sendQueue->getBytesAvailable(state->snd_max);
+    return std::min({bytes, bytesAvailable, getSendWindowRemaining()});
 }
 
 bool MpTcpConnection::nextUnsentSeg(uint32_t& seqNum)
 {
-    uint32_t buffered = getBytesAvailable();
-    if(buffered > 0){
-        seqNum = state->snd_max;
-        return true;
-    }
-    uint32_t maxWindow = state->snd_wnd;
-    // effectiveWindow: number of bytes we're allowed to send now
-    uint32_t effectiveWin = maxWindow - state->pipe;
+    if (getBytesAvailable() == 0 || getSendWindowRemaining() < state->snd_mss)
+        return false;
 
-    if (buffered > 0 && effectiveWin >= state->snd_mss) {
-        seqNum = state->snd_max; // HighData = snd_max
-        return true;
-    }
-    return false;
+    seqNum = state->snd_max;
+    return true;
 }
 
 uint32_t MpTcpConnection::getBytesAvailable()
@@ -616,11 +602,11 @@ uint32_t MpTcpConnection::getBytesAvailable()
 
 uint32_t MpTcpConnection::getSendWindowRemaining() const
 {
-    const uint32_t windowEnd = state->snd_una + state->snd_wnd;
-    if (seqLess(windowEnd, state->snd_nxt))
+    const uint32_t outstandingBytes = state->snd_nxt - state->snd_una;
+    if (outstandingBytes >= state->snd_wnd)
         return 0;
 
-    return windowEnd - state->snd_nxt;
+    return state->snd_wnd - outstandingBytes;
 }
 
 Packet *MpTcpConnection::createDataPacket(uint32_t dsnStart, uint32_t bytes) const
@@ -1541,8 +1527,13 @@ void MpTcpConnection::receivedChunk(uint32_t fromSeqNo, uint32_t toSeqNo)
 //            std::cout << "\n MISMATCH old_rcv_nxt = " << old_rcv_nxt << " state->rcv_nxt << " << state->rcv_nxt << endl;
 //        }
     }
-    else{
-        std::cerr << "\n ERROR RECEIVE QUEUE NOT LARGE ENOUGH" << endl;
+    else {
+        state->tcpRcvQueueDrops++;
+        emit(tcpRcvQueueDropsSignal, state->tcpRcvQueueDrops);
+        EV_WARN << "MPTCP meta receive window full: expected DSN " << state->rcv_nxt
+                << ", arrived range [" << fromSeqNo << ", " << toSeqNo << ")"
+                << ", buffered " << receiveQueue->getAmountOfBufferedBytes()
+                << " of " << state->maxRcvBuffer << " bytes\n";
     }
     emit(holBlockedBytesSignal, receiveQueue->getAmountOfBufferedBytes());
     emit(metaExpectedDsnSignal, state->rcv_nxt);

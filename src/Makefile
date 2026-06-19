@@ -35,9 +35,13 @@ OBJS = \
     $O/transportlayer/tcp/MpTcpFlowScheduler.o \
     $O/transportlayer/tcp/MpTcpPacketScheduler.o \
     $O/transportlayer/tcp/SubflowConnection.o \
+    $O/transportlayer/tcp/flavours/MpTcpBalia.o \
+    $O/transportlayer/tcp/flavours/MpTcpCoupled.o \
     $O/transportlayer/tcp/flavours/MpTcpCubicBase.o \
     $O/transportlayer/tcp/flavours/MpTcpFamily.o \
     $O/transportlayer/tcp/flavours/MpTcpMetaCubic.o \
+    $O/transportlayer/tcp/flavours/MpTcpOlia.o \
+    $O/transportlayer/tcp/flavours/MpTcpReno.o \
     $O/transportlayer/tcp/flavours/MpTcpSubflowCubic.o \
     $O/common/DataSequenceNumberTag_m.o \
     $O/transportlayer/tcp/TcpOpenSubflowCommand_m.o \
