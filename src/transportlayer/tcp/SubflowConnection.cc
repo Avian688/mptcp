@@ -849,6 +849,23 @@ double SubflowConnection::getSchedulerPacingRateBytesPerSecond() const
     return static_cast<double>(state->snd_mss) / intersendingTime.dbl();
 }
 
+bool SubflowConnection::sendPendingData()
+{
+    // Current Linux MPTCP dispatches pending meta-level data before entering
+    // a particular subflow's TCP send path. Keep retransmission handling local,
+    // but let the legacy lowest-RTT policy select any available subflow for new data.
+    if (state != nullptr && sendQueue != nullptr && metaConn != nullptr && !state->lossRecovery &&
+            metaConn->getPacketScheduler().usesLowestRttScheduling() &&
+            sendQueue->getBytesAvailable(state->snd_max) == 0)
+    {
+        SubflowConnection *selected = metaConn->getPacketScheduler().schedulePacket(this, state->snd_mss);
+        if (selected == nullptr || selected != this)
+            return selected != nullptr;
+    }
+
+    return TcpPacedConnection::sendPendingData();
+}
+
 bool SubflowConnection::sendDataDuringLossRecovery(uint32_t congestionWindow)
 {
 

@@ -78,6 +78,8 @@ class SubflowConnection : public MpTcpConnectionBase
     /** Outgoing data transmission from the subflow. */
     virtual uint32_t sendSegment(uint32_t bytes) override;
 
+    virtual bool sendPendingData() override;
+
     virtual bool sendDataDuringLossRecovery(uint32_t congestionWindow) override;
 
     /** Create and bind a new socket for this subflow. */

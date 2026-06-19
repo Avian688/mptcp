@@ -111,9 +111,7 @@ SubflowConnection *MpTcpPacketScheduler::scheduleLowestRtt(SubflowConnection *re
             continue;
 
         const simtime_t candidateRtt = subflow->getSchedulingRtt();
-        if (bestSubflow == nullptr || candidateRtt < bestRtt ||
-                (candidateRtt == bestRtt && subflow == requester))
-        {
+        if (bestSubflow == nullptr || candidateRtt < bestRtt) {
             bestSubflow = subflow;
             bestRtt = candidateRtt;
         }
