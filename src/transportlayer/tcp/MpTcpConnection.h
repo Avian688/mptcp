@@ -83,6 +83,10 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual Packet *createDataPacket(uint32_t dsnStart, uint32_t bytes) const;
 
+    virtual bool hasPendingMetaRetransmission() const { return metaRetransmissionPending; }
+
+    virtual SubflowConnection *dispatchPendingMetaRetransmission(SubflowConnection *requester, uint32_t bytes);
+
     virtual uint32_t getSndNxt() {return state->snd_nxt;};
 
     virtual uint32_t getRcvNxt() {return state->rcv_nxt;};
@@ -129,6 +133,8 @@ class MpTcpConnection : public MpTcpConnectionBase
     static simsignal_t metaExpectedDsnSignal;
     static simsignal_t metaArrivedDsnStartSignal;
     static simsignal_t metaDsnGapBytesSignal;
+    static simsignal_t metaReinjectedBytesSignal;
+    static simsignal_t metaReinjectionsSignal;
 
     /** Meta connection state machine states */
     enum mptcp_states_t {
@@ -141,10 +147,25 @@ class MpTcpConnection : public MpTcpConnectionBase
     std::vector<SubflowConnection*> m_subflows;
     MpTcpPacketScheduler packetScheduler;
     MpTcpFlowScheduler flowScheduler;
+    cMessage *metaRexmitTimer = nullptr;
+    bool metaRetransmissionPending = false;
+    uint32_t pendingMetaRetransmitDsn = 0;
+    uint64_t metaReinjectedBytes = 0;
+    uint64_t metaReinjections = 0;
 
     IInterfaceTable* ift;
 
     virtual NetworkInterface *getInterfaceForSubflow(int slot) const;
+
+    virtual void armMetaRexmitTimer(bool restart);
+
+    virtual void cancelMetaRexmitTimer();
+
+    virtual simtime_t getMetaRexmitDelay() const;
+
+    virtual void processMetaRexmitTimer();
+
+    virtual SubflowConnection *findSubflowForDsn(uint32_t dsn) const;
 
     virtual void initConnection(TcpOpenCommand *openCmd) override;
     /** Active open processing */

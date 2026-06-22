@@ -93,6 +93,8 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual simtime_t getSchedulingRtt() const;
 
+    virtual simtime_t getSchedulingRto() const;
+
     virtual bool canAcceptScheduledData(uint32_t bytes) const;
 
     virtual bool canAcceptRetransmission(uint32_t bytes) const;
@@ -112,6 +114,8 @@ class SubflowConnection : public MpTcpConnectionBase
     virtual double getSchedulerPacingRateBytesPerSecond() const;
 
     virtual const std::map<uint32_t, DsnMapping>& getSentDsnMappings() const { return sentDsnMapping; }
+
+    virtual uint32_t getOutstandingDsnBytes(uint32_t dsn) const;
 
     virtual bool nextSeg(uint32_t& seqNum, bool isRecovery) override;
 

@@ -31,8 +31,12 @@ simple MpTcpConnection extends TcpPacedConnection
         @signal[metaExpectedDsn];      // next meta-level DSN the receiver is waiting for
         @signal[metaArrivedDsnStart];  // DSN start of the chunk that just arrived at the meta receiver
         @signal[metaDsnGapBytes];      // arrived DSN start minus expected DSN when the arrival is ahead
+        @signal[metaReinjectedBytes];  // cumulative bytes retransmitted at the MPTCP data level
+        @signal[metaReinjections];     // cumulative MPTCP data-level retransmission count
         @statistic[metaExpectedDsn](record=vector; interpolationmode=sample-hold);
         @statistic[metaArrivedDsnStart](record=vector; interpolationmode=sample-hold);
         @statistic[metaDsnGapBytes](record=vector; interpolationmode=sample-hold);
+        @statistic[metaReinjectedBytes](record=vector; interpolationmode=sample-hold);
+        @statistic[metaReinjections](record=vector; interpolationmode=sample-hold);
         
 }

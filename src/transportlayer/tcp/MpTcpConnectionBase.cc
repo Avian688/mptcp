@@ -134,6 +134,8 @@ void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
     currRetransmissionRate = 0;
     nextSegSelectedRetransmission = false;
     lastRetransmissionRateTime = simTime();
+    if (!isMeta())
+        scheduleAt(simTime() + throughputInterval, throughputTimer);
     scheduleAt(simTime() + throughputInterval, retransmissionRateTimer);
 }
 

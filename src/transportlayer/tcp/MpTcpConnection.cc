@@ -31,18 +31,25 @@ simsignal_t MpTcpConnection::holBlockedBytesSignal = registerSignal("holBlockedB
 simsignal_t MpTcpConnection::metaExpectedDsnSignal = registerSignal("metaExpectedDsn");
 simsignal_t MpTcpConnection::metaArrivedDsnStartSignal = registerSignal("metaArrivedDsnStart");
 simsignal_t MpTcpConnection::metaDsnGapBytesSignal = registerSignal("metaDsnGapBytes");
+simsignal_t MpTcpConnection::metaReinjectedBytesSignal = registerSignal("metaReinjectedBytes");
+simsignal_t MpTcpConnection::metaReinjectionsSignal = registerSignal("metaReinjections");
 
 MpTcpConnection::MpTcpConnection() : packetScheduler(this), flowScheduler(this) {
-    // TODO Auto-generated constructor stub
-
+    metaRexmitTimer = new cMessage("MPTCP-META-REXMIT");
 }
 
 MpTcpConnection::~MpTcpConnection() {
-    // TODO Auto-generated destructor stub
+    cancelMetaRexmitTimer();
+    delete metaRexmitTimer;
 }
 
 bool MpTcpConnection::processTimer(cMessage *msg)
 {
+    if (msg == metaRexmitTimer) {
+        processMetaRexmitTimer();
+        return true;
+    }
+
     if (flowScheduler.processTimer(msg))
         return true;
 
@@ -567,6 +574,8 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
 
 uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
 { //MpTcpConnection shouldnt send packets! Subflows control this.
+    Enter_Method_Silent("sendSegment");
+
     uint32_t old_snd_nxt = state->snd_nxt;
     state->snd_nxt += bytes;
 
@@ -577,6 +586,7 @@ uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
             state->snd_max = state->snd_nxt;
 
     emit(sndNxtSignal, state->snd_nxt);
+    armMetaRexmitTimer(false);
     return old_snd_nxt;
 }
 
@@ -629,6 +639,107 @@ Packet *MpTcpConnection::createDataPacket(uint32_t dsnStart, uint32_t bytes) con
     return sendQueue->createSegmentWithBytes(dsnStart, bytes);
 }
 
+SubflowConnection *MpTcpConnection::findSubflowForDsn(uint32_t dsn) const
+{
+    for (SubflowConnection *subflow : m_subflows) {
+        if (subflow != nullptr && subflow->getOutstandingDsnBytes(dsn) > 0)
+            return subflow;
+    }
+
+    return nullptr;
+}
+
+SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowConnection *requester, uint32_t bytes)
+{
+    Enter_Method_Silent("dispatchPendingMetaRetransmission");
+
+    if (!metaRetransmissionPending || state == nullptr || sendQueue == nullptr || bytes == 0)
+        return nullptr;
+
+    const uint32_t dsn = state->snd_una;
+    if (seqGE(dsn, state->snd_max)) {
+        metaRetransmissionPending = false;
+        return nullptr;
+    }
+
+    pendingMetaRetransmitDsn = dsn;
+    SubflowConnection *source = findSubflowForDsn(dsn);
+    uint32_t retransmitBytes = std::min(bytes, sendQueue->getBytesAvailable(dsn));
+    if (source != nullptr) {
+        const uint32_t mappedBytes = source->getOutstandingDsnBytes(dsn);
+        retransmitBytes = std::min(retransmitBytes, mappedBytes);
+    }
+    if (retransmitBytes == 0)
+        return nullptr;
+
+    SubflowConnection *target = packetScheduler.selectRetransmissionSubflow(source, retransmitBytes);
+    if (target == nullptr || !target->enqueueRetransmissionData(dsn, retransmitBytes))
+        return nullptr;
+
+    metaRetransmissionPending = false;
+    metaReinjectedBytes += retransmitBytes;
+    metaReinjections++;
+    emit(metaReinjectedBytesSignal, metaReinjectedBytes);
+    emit(metaReinjectionsSignal, metaReinjections);
+
+    EV_INFO << "MPTCP meta retransmitted DSN " << dsn << " for " << retransmitBytes
+            << " bytes on subflow " << target->getSocketId() << "\n";
+
+    if (target != requester)
+        target->invokeSendCommand();
+    return target;
+}
+
+simtime_t MpTcpConnection::getMetaRexmitDelay() const
+{
+    simtime_t delay = SimTime(200, SIMTIME_MS);
+    for (SubflowConnection *subflow : m_subflows) {
+        if (subflow == nullptr)
+            continue;
+
+        const simtime_t subflowRto = subflow->getSchedulingRto();
+        if (subflowRto > delay)
+            delay = subflowRto;
+    }
+    return delay;
+}
+
+void MpTcpConnection::armMetaRexmitTimer(bool restart)
+{
+    if (metaRexmitTimer == nullptr || state == nullptr || seqGE(state->snd_una, state->snd_max)) {
+        cancelMetaRexmitTimer();
+        return;
+    }
+
+    if (metaRexmitTimer->isScheduled()) {
+        if (!restart)
+            return;
+        cancelEvent(metaRexmitTimer);
+    }
+
+    scheduleAfter(getMetaRexmitDelay(), metaRexmitTimer);
+}
+
+void MpTcpConnection::cancelMetaRexmitTimer()
+{
+    if (metaRexmitTimer != nullptr && metaRexmitTimer->isScheduled())
+        cancelEvent(metaRexmitTimer);
+}
+
+void MpTcpConnection::processMetaRexmitTimer()
+{
+    if (state == nullptr || seqGE(state->snd_una, state->snd_max)) {
+        metaRetransmissionPending = false;
+        return;
+    }
+
+    pendingMetaRetransmitDsn = state->snd_una;
+    metaRetransmissionPending = true;
+    if (dispatchPendingMetaRetransmission(nullptr, state->snd_mss) == nullptr)
+        metaRetransmissionPending = false;
+    armMetaRexmitTimer(false);
+}
+
 void MpTcpConnection::retransmitOutstandingSubflowData(SubflowConnection *subflowConn)
 {
     if (subflowConn == nullptr)
@@ -648,7 +759,7 @@ void MpTcpConnection::retransmitOutstandingSubflowData(SubflowConnection *subflo
             continue;
 
         if (targetSubflow == nullptr || !targetSubflow->canAcceptScheduledData(bytes))
-            targetSubflow = packetScheduler.selectRetransmissionSubflow(subflowConn, bytes);
+            targetSubflow = packetScheduler.selectRetransmissionSubflow(subflowConn, bytes, false);
 
         if (targetSubflow == nullptr)
             break;
@@ -1550,6 +1661,8 @@ void MpTcpConnection::receivedChunk(uint32_t fromSeqNo, uint32_t toSeqNo)
 
 void MpTcpConnection::receivedUpTo(uint32_t toSeqNo)
 {
+    Enter_Method_Silent("receivedUpTo");
+
     uint32_t ackNo = toSeqNo;
     if (seqGE(state->snd_una, ackNo)) {
         //
@@ -1580,6 +1693,10 @@ void MpTcpConnection::receivedUpTo(uint32_t toSeqNo)
         // ack in window.
         uint32_t old_snd_una = state->snd_una;
         state->snd_una = ackNo;
+
+        if (metaRetransmissionPending && seqGreater(ackNo, pendingMetaRetransmitDsn))
+            metaRetransmissionPending = false;
+        armMetaRexmitTimer(true);
 
         emit(unackedSignal, state->snd_max - state->snd_una);
 

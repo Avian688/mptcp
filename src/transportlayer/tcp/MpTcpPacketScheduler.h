@@ -41,7 +41,8 @@ class MpTcpPacketScheduler
 
     SubflowConnection *schedulePacket(SubflowConnection *requester, uint32_t bytes);
 
-    SubflowConnection *selectRetransmissionSubflow(SubflowConnection *source, uint32_t bytes) const;
+    SubflowConnection *selectRetransmissionSubflow(SubflowConnection *source, uint32_t bytes,
+                                                   bool requireIdle = true) const;
 
     void forgetSubflow(SubflowConnection *subflow);
 

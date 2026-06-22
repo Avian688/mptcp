@@ -546,12 +546,14 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
         event = processSegmentInSynSent(tcpSegment, tcpHeader, src, dest);
     }
     else {
-        //sentToMasterConn = true;
-        // RFC 793 steps "first check sequence number", "second check the RST bit", etc
-        bytesRcvd += tcpSegment->getByteLength();
-        //this should be sent to main connection??
-        //masterConn->processTCPSegment(tcpSegment, tcpHeader, src, dest);
+        const uint32_t oldRcvNxt = state->rcv_nxt;
         event = processSegment1stThru8th(tcpSegment, tcpHeader);
+
+        // Count unique, in-order payload delivered by this subflow. A jump in
+        // RCV.NXT may release previously buffered out-of-order data, while
+        // duplicate and pure ACK segments contribute nothing.
+        if (seqGreater(state->rcv_nxt, oldRcvNxt))
+            bytesRcvd += state->rcv_nxt - oldRcvNxt;
     }
     delete tcpSegment;
     return event;
@@ -702,6 +704,9 @@ bool SubflowConnection::enqueueDataFromMeta(uint32_t bytes)
     if (metaConn == nullptr)
         return false;
 
+    if (metaConn->hasPendingMetaRetransmission())
+        return metaConn->dispatchPendingMetaRetransmission(this, bytes) == this;
+
     if (metaConn->getPacketScheduler().usesDirectPullMode()) {
         if (metaConn->getSegment(bytes) < bytes)
             return false;
@@ -721,6 +726,30 @@ simtime_t SubflowConnection::getSchedulingRtt() const
 
     const simtime_t srtt = pacedAlgorithm->getRtt();
     return srtt > SIMTIME_ZERO ? srtt : SIMTIME_MAX;
+}
+
+simtime_t SubflowConnection::getSchedulingRto() const
+{
+    if (state == nullptr || state->snd_una == state->snd_max)
+        return SIMTIME_ZERO;
+
+    auto *pacedAlgorithm = dynamic_cast<TcpPacedFamily *>(tcpAlgorithm);
+    if (pacedAlgorithm != nullptr) {
+        const simtime_t expiry = pacedAlgorithm->getRexmitTimerExpiry();
+        if (expiry != SIMTIME_MAX && expiry > simTime())
+            return expiry - simTime();
+    }
+    return SIMTIME_ZERO;
+}
+
+uint32_t SubflowConnection::getOutstandingDsnBytes(uint32_t dsn) const
+{
+    for (const auto& entry : sentDsnMapping) {
+        const DsnMapping& mapping = entry.second;
+        if (seqLE(mapping.dsnStart, dsn) && seqLess(dsn, mapping.dsnEnd))
+            return mapping.dsnEnd - dsn;
+    }
+    return 0;
 }
 
 bool SubflowConnection::canAcceptScheduledData(uint32_t bytes) const
@@ -778,6 +807,8 @@ bool SubflowConnection::isActiveForDefaultScheduler() const
 
 void SubflowConnection::enqueueScheduledData(uint32_t bytes)
 {
+    Enter_Method_Silent("enqueueScheduledData");
+
     ASSERT(metaConn != nullptr);
     ASSERT(sendQueue != nullptr);
 
@@ -797,6 +828,8 @@ void SubflowConnection::enqueueScheduledData(uint32_t bytes)
 
 bool SubflowConnection::enqueueRetransmissionData(uint32_t dsnStart, uint32_t bytes)
 {
+    Enter_Method_Silent("enqueueRetransmissionData");
+
     if (metaConn == nullptr || sendQueue == nullptr || bytes == 0 || !canAcceptScheduledData(bytes))
         return false;
 
@@ -854,7 +887,8 @@ bool SubflowConnection::sendPendingData()
     // Current Linux MPTCP dispatches pending meta-level data before entering
     // a particular subflow's TCP send path. Keep retransmission handling local,
     // but let the legacy lowest-RTT policy select any available subflow for new data.
-    if (state != nullptr && sendQueue != nullptr && metaConn != nullptr && !state->lossRecovery &&
+    if (state != nullptr && sendQueue != nullptr && metaConn != nullptr &&
+            !state->lossRecovery && !state->afterRto &&
             metaConn->getPacketScheduler().usesLowestRttScheduling() &&
             sendQueue->getBytesAvailable(state->snd_max) == 0)
     {
@@ -2478,6 +2512,8 @@ TcpEventCode SubflowConnection::processSegmentInSynSent(Packet *tcpSegment, cons
 
 void SubflowConnection::invokeSendCommand()
 {
+    Enter_Method_Silent("invokeSendCommand");
+
     tcpAlgorithm->sendCommandInvoked();
 }
 

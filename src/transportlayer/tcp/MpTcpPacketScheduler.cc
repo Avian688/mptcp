@@ -55,7 +55,15 @@ bool MpTcpPacketScheduler::usesLowestRttScheduling() const
 
 SubflowConnection *MpTcpPacketScheduler::schedulePacket(SubflowConnection *requester, uint32_t bytes)
 {
-    if (connection == nullptr || bytes == 0 || connection->getSegment(bytes) < bytes)
+    if (connection == nullptr || bytes == 0)
+        return nullptr;
+
+    if (connection->hasPendingMetaRetransmission()) {
+        SubflowConnection *target = connection->dispatchPendingMetaRetransmission(requester, bytes);
+        return target;
+    }
+
+    if (connection->getSegment(bytes) < bytes)
         return nullptr;
 
     if (usesLowestRttScheduling())
@@ -64,29 +72,43 @@ SubflowConnection *MpTcpPacketScheduler::schedulePacket(SubflowConnection *reque
     return scheduleDefault(requester, bytes);
 }
 
-SubflowConnection *MpTcpPacketScheduler::selectRetransmissionSubflow(SubflowConnection *source, uint32_t bytes) const
+SubflowConnection *MpTcpPacketScheduler::selectRetransmissionSubflow(SubflowConnection *source, uint32_t bytes,
+        bool requireIdle) const
 {
     if (connection == nullptr || bytes == 0)
         return nullptr;
 
-    SubflowConnection *bestSubflow = nullptr;
-    simtime_t bestRtt = SIMTIME_MAX;
+    auto select = [&](bool requireIdle, bool excludeSource) {
+        SubflowConnection *bestSubflow = nullptr;
+        simtime_t bestRtt = SIMTIME_MAX;
 
-    for (SubflowConnection *subflow : connection->getSubflows()) {
-        if (subflow == nullptr || subflow == source || !subflow->canAcceptRetransmission(bytes))
-            continue;
+        for (SubflowConnection *subflow : connection->getSubflows()) {
+            if (subflow == nullptr || (excludeSource && subflow == source))
+                continue;
 
-        if (!usesLowestRttScheduling())
-            return subflow;
+            const bool available = requireIdle ? subflow->canAcceptRetransmission(bytes)
+                                               : subflow->canAcceptScheduledData(bytes);
+            if (!available)
+                continue;
 
-        const simtime_t candidateRtt = subflow->getSchedulingRtt();
-        if (bestSubflow == nullptr || candidateRtt < bestRtt) {
-            bestSubflow = subflow;
-            bestRtt = candidateRtt;
+            if (!usesLowestRttScheduling())
+                return subflow;
+
+            const simtime_t candidateRtt = subflow->getSchedulingRtt();
+            if (bestSubflow == nullptr || candidateRtt < bestRtt) {
+                bestSubflow = subflow;
+                bestRtt = candidateRtt;
+            }
         }
-    }
+        return bestSubflow;
+    };
 
-    return bestSubflow;
+    if (requireIdle)
+        return select(true, false);
+
+    // Closing a subflow requeues its outstanding meta data onto any remaining
+    // subflow with send-window space, matching Linux's close/failover path.
+    return select(false, true);
 }
 
 void MpTcpPacketScheduler::forgetSubflow(SubflowConnection *subflow)
