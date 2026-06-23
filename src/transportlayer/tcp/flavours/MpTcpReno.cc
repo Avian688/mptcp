@@ -23,12 +23,31 @@ void MpTcpReno::initialize()
     isMaster = false;
     TcpPacedFamily::initialize();
     congestionAvoidanceAckCounter = 0.0L;
+    wasCwndLimited = false;
+    maxBytesInFlightForCwnd = 0;
+    cwndUsageSeq = 0;
 }
 
 void MpTcpReno::established(bool active)
 {
     TcpPacedFamily::established(active);
+    wasCwndLimited = false;
+    maxBytesInFlightForCwnd = 0;
+    cwndUsageSeq = state != nullptr ? state->snd_max : 0;
     check_and_cast<TcpPacedConnection *>(conn)->changeIntersendingTime(0.000001);
+}
+
+void MpTcpReno::dataSent(uint32_t fromseq)
+{
+    TcpPacedFamily::dataSent(fromseq);
+
+    if (state == nullptr || state->snd_mss == 0)
+        return;
+
+    auto *pacedConnection = check_and_cast<TcpPacedConnection *>(conn);
+    const uint32_t cwndPackets = std::max(state->snd_cwnd / state->snd_mss, 1U);
+    const uint32_t sendableCwnd = cwndPackets * state->snd_mss;
+    recordCwndUsage(pacedConnection->getBytesInFlight() >= sendableCwnd);
 }
 
 void MpTcpReno::increaseCongestionWindow()
@@ -71,7 +90,21 @@ void MpTcpReno::updatePacing()
         pacedConnection->changeIntersendingTime(state->srtt.dbl() / (packetsInWindow * paceFactor));
 }
 
-bool MpTcpReno::isConnectionCwndLimited() const
+void MpTcpReno::recordCwndUsage(bool cwndLimitedSample)
+{
+    auto *pacedConnection = check_and_cast<TcpPacedConnection *>(conn);
+    const uint32_t bytesInFlight = pacedConnection->getBytesInFlight();
+
+    if (cwndUsageSeq == 0 || seqGE(state->snd_una, cwndUsageSeq) ||
+            cwndLimitedSample || (!wasCwndLimited && bytesInFlight > maxBytesInFlightForCwnd))
+    {
+        wasCwndLimited = cwndLimitedSample;
+        maxBytesInFlightForCwnd = bytesInFlight;
+        cwndUsageSeq = state->snd_max;
+    }
+}
+
+bool MpTcpReno::isConnectionCwndLimited()
 {
     if (state->snd_mss == 0)
         return false;
@@ -84,13 +117,26 @@ bool MpTcpReno::isConnectionCwndLimited() const
     const uint32_t cwndPackets = std::max(state->snd_cwnd / state->snd_mss, 1U);
     const uint32_t sendableCwnd = cwndPackets * state->snd_mss;
 
-    if (pacedConnection->isCwndLimited(sendableCwnd))
+    const bool subflowCwndLimited = pacedConnection->isCwndLimited(sendableCwnd);
+    if (subflowCwndLimited)
         return true;
 
     auto *subflow = dynamic_cast<SubflowConnection *>(conn);
     MpTcpConnection *metaConnection = subflow != nullptr ? subflow->getMetaConnection() : nullptr;
-    return metaConnection != nullptr && metaConnection->getBytesAvailable() > 0 &&
-            pacedConnection->getBytesInFlight() + state->snd_mss >= sendableCwnd;
+    if (metaConnection != nullptr && metaConnection->getBytesAvailable() > 0 &&
+            pacedConnection->getBytesInFlight() + state->snd_mss >= sendableCwnd)
+        return true;
+
+    if (wasCwndLimited)
+        return true;
+
+    // Linux lets slow start keep probing if the connection used at least half
+    // of the current cwnd during the remembered cwnd window.
+    if (state->snd_cwnd < state->ssthresh)
+        return static_cast<uint64_t>(sendableCwnd) <
+                2ULL * static_cast<uint64_t>(maxBytesInFlightForCwnd);
+
+    return false;
 }
 
 void MpTcpReno::setRecoveryCongestionWindow()

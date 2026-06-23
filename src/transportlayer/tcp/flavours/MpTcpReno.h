@@ -20,6 +20,9 @@ class INET_API MpTcpReno : public MpTcpFamily
     static simsignal_t sndUnaSignal;
 
     long double congestionAvoidanceAckCounter = 0.0L;
+    bool wasCwndLimited = false;
+    uint32_t maxBytesInFlightForCwnd = 0;
+    uint32_t cwndUsageSeq = 0;
 
     virtual TcpStateVariables *createStateVariables() override
     {
@@ -30,7 +33,9 @@ class INET_API MpTcpReno : public MpTcpFamily
 
     virtual void updatePacing();
 
-    virtual bool isConnectionCwndLimited() const;
+    virtual void recordCwndUsage(bool cwndLimitedSample);
+
+    virtual bool isConnectionCwndLimited();
 
     virtual void setRecoveryCongestionWindow() override;
 
@@ -38,6 +43,8 @@ class INET_API MpTcpReno : public MpTcpFamily
     virtual void initialize() override;
 
     virtual void established(bool active) override;
+
+    virtual void dataSent(uint32_t fromseq) override;
 
     virtual void recalculateSlowStartThreshold();
 
