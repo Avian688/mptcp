@@ -785,8 +785,9 @@ bool SubflowConnection::canUseDefaultScheduler(uint32_t bytes) const
     if (!isActiveForDefaultScheduler())
         return false;
 
-    // sk_stream_memory_free() is a write-memory test, not a cwnd test. A zero
-    // INET sendQueueLimit means unlimited socket write memory in this model.
+    // Linux's default scheduler tests sk_stream_memory_free(), which is socket
+    // write memory rather than cwnd. In this model a zero sendQueueLimit means
+    // unlimited write memory; TCP still enforces cwnd when the subflow sends.
     if (state->sendQueueLimit == 0)
         return true;
 
@@ -868,9 +869,10 @@ uint32_t SubflowConnection::getSchedulerQueueLimit() const
         windowBudget = std::min(windowBudget, state->sendQueueLimit);
 
     // bytesAvailable(bufferStartSeq) includes sent-but-unacked bytes and
-    // locally queued bytes. Capping it at min(cwnd,rwnd) makes the scheduler
-    // leave a subflow once its usable window is full, matching Linux's
-    // "memory-free subflow, then TCP enforces cwnd" behavior in this model.
+    // locally queued bytes. This helper is used by schedulers that need actual
+    // cwnd/rwnd admission; the Linux-like default scheduler uses
+    // canUseDefaultScheduler(), where the stream memory check is send-buffer
+    // pressure rather than cwnd.
     return windowBudget;
 }
 
