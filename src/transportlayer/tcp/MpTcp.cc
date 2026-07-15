@@ -63,11 +63,63 @@ void MpTcp::handleUpperCommand(cMessage *msg)
         EV_INFO << "Tcp connection created for " << msg << "\n";
     }
 
-    if (!conn->processAppCommand(msg)){
-        std::cout << "\n REMOVING CONNECTION: " << conn->getClassAndFullName() << endl;
-        std::cout << "\n MSG: " << msg->str() << endl;
+    if (!conn->processAppCommand(msg))
         removeConnection(conn);
+}
+
+void MpTcp::removeConnection(TcpConnection *conn)
+{
+    if (conn == nullptr)
+        return;
+
+    auto eraseConnectionMappings = [this](TcpConnection *connection) {
+        for (auto it = tcpAppConnMap.begin(); it != tcpAppConnMap.end(); ) {
+            if (it->second == connection)
+                it = tcpAppConnMap.erase(it);
+            else
+                ++it;
+        }
+
+        for (auto it = tcpConnMap.begin(); it != tcpConnMap.end(); ) {
+            if (it->second == connection)
+                it = tcpConnMap.erase(it);
+            else
+                ++it;
+        }
+    };
+
+    if (auto *metaConn = dynamic_cast<MpTcpConnection *>(conn)) {
+        const std::vector<SubflowConnection *> subflows = metaConn->getSubflows();
+        metaConn->prepareForRemoval();
+
+        for (SubflowConnection *subflow : subflows) {
+            if (subflow == nullptr)
+                continue;
+
+            // TCP_C_DESTROY takes the subflow through CLOSED, which cancels
+            // its timers and lets the congestion-control algorithm clean up.
+            // teardownInProgress makes the meta callback detach-only, so the
+            // object remains valid until this call returns.
+            if (subflow->getFsmState() != TCP_S_CLOSED)
+                subflow->destroyFlow(false);
+
+            metaConn->removeSubflow(subflow);
+            eraseConnectionMappings(subflow);
+            Tcp::removeConnection(subflow);
+        }
+
+        if (mainSocketId == metaConn->getSocketId()) {
+            mainSocketId = -1;
+            baseConnectionStarted = false;
+        }
     }
+    else if (auto *subflow = dynamic_cast<SubflowConnection *>(conn)) {
+        if (MpTcpConnection *metaConn = subflow->getMetaConnection())
+            metaConn->removeSubflow(subflow);
+    }
+
+    eraseConnectionMappings(conn);
+    Tcp::removeConnection(conn);
 }
 
 TcpConnection* MpTcp::createConnection(int socketId)

@@ -29,6 +29,8 @@ class SubflowConnection;
 class MpTcpPacketScheduler
 {
   public:
+    static constexpr uint32_t DEFAULT_SEND_BURST_SIZE = 65428;
+
     explicit MpTcpPacketScheduler(MpTcpConnection *connection = nullptr);
 
     void setConnection(MpTcpConnection *connection);
@@ -47,16 +49,16 @@ class MpTcpPacketScheduler
     void forgetSubflow(SubflowConnection *subflow);
 
   protected:
-    static constexpr uint32_t DEFAULT_SEND_BURST_SIZE = 65428;
-
     SubflowConnection *scheduleDefault(SubflowConnection *requester, uint32_t bytes);
+
+    SubflowConnection *selectDefaultSubflow(uint32_t bytes);
 
     SubflowConnection *scheduleLowestRtt(SubflowConnection *requester, uint32_t bytes);
 
     double getAveragePacingRate(SubflowConnection *subflow);
 
-    void startBurst(SubflowConnection *subflow, uint32_t bytes,
-                    uint32_t queuedBytesBeforeEnqueue, double currentPacingRate);
+    void startBurst(SubflowConnection *subflow, uint32_t queuedBytesBeforeEnqueue,
+                    double currentPacingRate);
 
     void consumeBurst(uint32_t bytes);
 

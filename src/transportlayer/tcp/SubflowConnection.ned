@@ -27,6 +27,8 @@ simple SubflowConnection extends TcpPacedConnection
         @signal[state];
         @signal[pacingGain];
         @signal[paceRate];
+        @signal[cwndLimited];
+        @signal[liaAlpha];
         @signal[oliaEpsilon];
         @signal[baliaAi];
         @signal[baliaMd];
@@ -51,6 +53,8 @@ simple SubflowConnection extends TcpPacedConnection
         @statistic[state](record=vector; interpolationmode=sample-hold);
         @statistic[pacingGain](record=vector; interpolationmode=sample-hold);
         @statistic[paceRate](record=vector; interpolationmode=sample-hold);
+        @statistic[cwndLimited](record=vector; interpolationmode=sample-hold);
+        @statistic[liaAlpha](record=vector; interpolationmode=sample-hold);
         @statistic[oliaEpsilon](record=vector; interpolationmode=sample-hold);
         @statistic[baliaAi](record=vector; interpolationmode=sample-hold);
         @statistic[baliaMd](record=vector; interpolationmode=sample-hold);

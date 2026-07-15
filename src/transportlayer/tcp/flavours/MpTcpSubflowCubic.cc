@@ -350,8 +350,9 @@ void MpTcpSubflowCubic::processRexmitTimer(TcpEventCode &event) {
     conn->emit(cwndSignal, state->snd_cwnd);
 
     state->afterRto = true;
-    dynamic_cast<TcpPacedConnection*>(conn)->cancelPaceTimer();
-    sendData(false);
+    auto *pacedConnection = check_and_cast<TcpPacedConnection *>(conn);
+    pacedConnection->cancelPaceTimer();
+    pacedConnection->retransmitOneSegment(true);
 
     conn->emit(ssthreshSignal, state->ssthresh);
     conn->emit(cwndSegSignal, state->snd_cwnd / state->snd_mss);

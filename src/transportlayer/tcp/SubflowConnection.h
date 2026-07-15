@@ -71,12 +71,14 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual bool closeFlow();
 
-    virtual bool abortFlow();
+    virtual bool abortFlow(bool removeWhenClosed = true);
 
-    virtual bool destroyFlow();
+    virtual bool destroyFlow(bool removeWhenClosed = true);
 
     /** Outgoing data transmission from the subflow. */
     virtual uint32_t sendSegment(uint32_t bytes) override;
+
+    virtual void retransmitOneSegment(bool calledAtRto) override;
 
     virtual bool sendPendingData() override;
 
@@ -103,9 +105,12 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual bool canUseDefaultScheduler(uint32_t bytes) const;
 
+    virtual uint32_t getDefaultSchedulerWriteLimit() const;
+
     virtual void enqueueScheduledData(uint32_t bytes);
 
-    virtual bool enqueueRetransmissionData(uint32_t dsnStart, uint32_t bytes);
+    virtual bool enqueueRetransmissionData(uint32_t dsnStart, uint32_t bytes,
+                                           bool useWriteMemory = false);
 
     virtual uint32_t getSchedulerQueuedBytes() const;
 
@@ -180,15 +185,17 @@ class SubflowConnection : public MpTcpConnectionBase
     /** Utility: send SYN+ACK */
     virtual void sendSynAck() override;
 
-    virtual bool processInternalCommand(int commandCode, TcpCommand *tcpCommand);
+    virtual bool processInternalCommand(int commandCode, TcpCommand *tcpCommand, bool removeWhenClosed = true);
 
     virtual void rememberSentDsnMapping(uint32_t subflowSeqNo, uint32_t dsnStart, uint32_t bytes);
 
+    virtual bool findSentDsnMapping(uint32_t subflowSeqNo, uint32_t& dsnStart, uint32_t& bytesAvailable) const;
+
     virtual void rememberReceivedDsnMapping(uint32_t subflowSeqNo, uint32_t dsnStart, uint32_t bytes);
 
-    virtual void eraseReceivedMappingsUpTo(uint32_t seqNo);
+    virtual uint32_t insertPayloadAndRememberDsn(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader);
 
-    virtual void eraseSentDsnMappingsUpToDataAck(uint32_t dataAckNo);
+    virtual void eraseReceivedMappingsUpTo(uint32_t seqNo);
 
     virtual bool translateAckToMetaLevel(uint32_t discardUpToSeq, uint32_t& metaAckNo);
 

@@ -81,6 +81,10 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual uint32_t getSendWindowRemaining() const;
 
+    virtual uint32_t getSendBufferRemaining() const;
+
+    virtual bool canSchedulePartialSegment(uint32_t bytes) const;
+
     virtual Packet *createDataPacket(uint32_t dsnStart, uint32_t bytes) const;
 
     virtual bool hasPendingMetaRetransmission() const { return metaRetransmissionPending; }
@@ -106,6 +110,15 @@ class MpTcpConnection : public MpTcpConnectionBase
     virtual bool isActiveSide() const { return state != nullptr && state->active; }
 
     virtual bool nextUnsentSeg(uint32_t& seqNum);
+
+    /** Finish assigning a just-scheduled DSN before starting a deferred close. */
+    virtual void notifyDataScheduled();
+
+    /** Stop meta-level timers before the transport removes this connection group. */
+    virtual void prepareForRemoval();
+
+    /** Remove a subflow after its internal close command has fully returned. */
+    virtual void removeClosedSubflow(SubflowConnection *subflow);
 
     virtual void receivedChunk(uint32_t fromSeqNo, uint32_t toSeqNo);
 
@@ -148,7 +161,11 @@ class MpTcpConnection : public MpTcpConnectionBase
     MpTcpPacketScheduler packetScheduler;
     MpTcpFlowScheduler flowScheduler;
     cMessage *metaRexmitTimer = nullptr;
+    cMessage *metaRemovalTimer = nullptr;
     bool metaRetransmissionPending = false;
+    bool teardownInProgress = false;
+    bool issuingSubflowClose = false;
+    bool subflowCloseStarted = false;
     uint32_t pendingMetaRetransmitDsn = 0;
     uint64_t metaReinjectedBytes = 0;
     uint64_t metaReinjections = 0;
@@ -165,6 +182,10 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual void processMetaRexmitTimer();
 
+    virtual void scheduleMetaRemoval();
+
+    virtual void startSubflowClose();
+
     virtual SubflowConnection *findSubflowForDsn(uint32_t dsn) const;
 
     virtual void initConnection(TcpOpenCommand *openCmd) override;
@@ -177,6 +198,10 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     /** Application send request */
     virtual void process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg) override;
+
+    virtual void process_CLOSE(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg) override;
+
+    virtual void process_ABORT(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg) override;
 
     /** Incoming SYN in LISTEN */
     virtual TcpEventCode processSegmentInListen(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader,

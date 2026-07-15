@@ -22,4 +22,6 @@ simple MpTcp extends TcpPaced
     parameters:
         @class("inet::tcp::MpTcp");
         string subflowRemoteAddresses = default("");
+        int sendQueueLimit @unit(B) = default(4MiB);
+        bool sendingEnabled @mutable = default(true);
 }

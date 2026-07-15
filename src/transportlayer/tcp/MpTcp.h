@@ -31,6 +31,8 @@ public:
     virtual MpTcpConnection* getMetaConnection();
 
     virtual SubflowConnection* createManagedSubflowConnection(MpTcpConnection *metaConn, bool isMaster);
+
+    virtual void removeConnection(TcpConnection *conn) override;
 protected:
 
     virtual void initialize(int stage) override;

@@ -52,6 +52,9 @@ void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
     if (strcmp(tcpAlgorithmClass, "MpTcpMetaCubic") == 0 && !this->isMeta()) {
         tcpAlgorithmClass = "MpTcpSubflowCubic";
     }
+    else if (strcmp(tcpAlgorithmClass, "MpTcpLia") == 0 && this->isMeta()) {
+        tcpAlgorithmClass = "MpTcpMetaCubic";
+    }
     else if (strcmp(tcpAlgorithmClass, "MpTcpOlia") == 0 && this->isMeta()) {
         tcpAlgorithmClass = "MpTcpMetaCubic";
     }
@@ -68,6 +71,10 @@ void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
     // create state block
     state = tcpAlgorithm->getStateVariables();
     configureStateVariables();
+    if (openCmd->getUserId() > 0)
+        state->sendQueueLimit = openCmd->getUserId();
+    else if (tcpMain != nullptr && tcpMain->hasPar("sendQueueLimit"))
+        state->sendQueueLimit = tcpMain->par("sendQueueLimit").intValue();
 
     tcpAlgorithm->initialize();
 

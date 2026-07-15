@@ -16,6 +16,7 @@
 #include <algorithm>
 #include "SubflowConnection.h"
 #include "MpTcpConnection.h"
+#include "flavours/MpTcpReno.h"
 
 #include <inet/common/socket/SocketTag_m.h>
 #include <inet/common/packet/Message.h>
@@ -26,6 +27,10 @@ namespace inet {
 namespace tcp {
 
 Define_Module(SubflowConnection);
+
+namespace {
+constexpr uint32_t DEFAULT_MPTCP_SEND_QUEUE_LIMIT = 4U * 1024U * 1024U;
+}
 
 SubflowConnection::SubflowConnection()
 {
@@ -86,14 +91,14 @@ bool SubflowConnection::closeFlow()
     return processInternalCommand(TCP_C_CLOSE, new TcpCommand());
 }
 
-bool SubflowConnection::abortFlow()
+bool SubflowConnection::abortFlow(bool removeWhenClosed)
 {
-    return processInternalCommand(TCP_C_ABORT, new TcpCommand());
+    return processInternalCommand(TCP_C_ABORT, new TcpCommand(), removeWhenClosed);
 }
 
-bool SubflowConnection::destroyFlow()
+bool SubflowConnection::destroyFlow(bool removeWhenClosed)
 {
-    return processInternalCommand(TCP_C_DESTROY, new TcpCommand());
+    return processInternalCommand(TCP_C_DESTROY, new TcpCommand(), removeWhenClosed);
 }
 
 void SubflowConnection::setUpConnection(L3Address src, L3Address dest, int srcPort, int destPort)
@@ -562,7 +567,8 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
 uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 {
     // FIXME check it: where is the right place for the next code (sacked/rexmitted)
-    if (state->sack_enabled && state->afterRto) {
+    const bool retransmissionCursor = seqLess(state->snd_nxt, state->snd_max);
+    if (state->sack_enabled && state->afterRto && !isRetransmission && !retransmissionCursor) {
         // check rexmitQ and try to forward snd_nxt before sending new data
         uint32_t forward = rexmitQueue->checkRexmitQueueForSackedOrRexmittedSegments(state->snd_nxt);
 
@@ -591,6 +597,28 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     //ASSERT(options_len < state->snd_mss);
 
     bytes = std::min(bytes, state->snd_mss);
+    if (bytes == 0)
+        return 0;
+
+    uint32_t metaSnd_nxt = 0;
+    uint32_t mappingBytes = 0;
+    const auto pendingMapping = pendingDsnMapping.find(state->snd_nxt);
+    const bool isFirstTransmission = pendingMapping != pendingDsnMapping.end();
+
+    if (isFirstTransmission) {
+        metaSnd_nxt = pendingMapping->second.dsnStart;
+        mappingBytes = pendingMapping->second.dsnEnd - pendingMapping->second.dsnStart;
+    }
+    else if (!findSentDsnMapping(state->snd_nxt, metaSnd_nxt, mappingBytes)) {
+        throw cRuntimeError("Missing MPTCP DSN mapping at subflow sequence %u", state->snd_nxt);
+    }
+
+    // Keep a TCP segment within one DSS mapping. The full-MSS scheduler gate
+    // normally makes this a no-op; it also protects a genuine final tail.
+    bytes = std::min(bytes, mappingBytes);
+    if (bytes == 0)
+        throw cRuntimeError("Empty MPTCP DSN mapping at subflow sequence %u", state->snd_nxt);
+
     uint32_t sentBytes = bytes;
 
     // send one segment of 'bytes' bytes from snd_nxt, and advance snd_nxt
@@ -619,15 +647,9 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 
     state->snd_nxt += bytes;
 
-    uint32_t metaSnd_nxt = 0;
-    if (!consumePendingDsnMapping(old_snd_nxt, sentBytes, metaSnd_nxt)) {
-        if (!isRetransmission)
-            throw cRuntimeError("Missing scheduled MPTCP DSN mapping at subflow sequence %u", old_snd_nxt);
-        else {
-            auto it = sentDsnMapping.find(old_snd_nxt);
-            if (it != sentDsnMapping.end())
-                metaSnd_nxt = it->second.dsnStart;
-        }
+    if (isFirstTransmission) {
+        const bool consumed = consumePendingDsnMapping(old_snd_nxt, sentBytes, metaSnd_nxt);
+        ASSERT(consumed);
     }
 
     // check if afterRto bit can be reset
@@ -660,7 +682,8 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     calculateAppLimited();
 
     tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(metaSnd_nxt);
-    rememberSentDsnMapping(tcpHeader->getSequenceNo(), metaSnd_nxt, sentBytes);
+    if (isFirstTransmission)
+        rememberSentDsnMapping(tcpHeader->getSequenceNo(), metaSnd_nxt, sentBytes);
 
     // send it
     sendToIP(tcpSegment, tcpHeader);
@@ -682,6 +705,14 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
 
     updateInFlight();
     return sentBytes;
+}
+
+void SubflowConnection::retransmitOneSegment(bool calledAtRto)
+{
+    const bool previousIsRetransmission = isRetransmission;
+    isRetransmission = true;
+    TcpPacedConnection::retransmitOneSegment(calledAtRto);
+    isRetransmission = previousIsRetransmission;
 }
 
 void SubflowConnection::sendEstabIndicationToApp()
@@ -708,10 +739,12 @@ bool SubflowConnection::enqueueDataFromMeta(uint32_t bytes)
         return metaConn->dispatchPendingMetaRetransmission(this, bytes) == this;
 
     if (metaConn->getPacketScheduler().usesDirectPullMode()) {
-        if (metaConn->getSegment(bytes) < bytes)
+        const uint32_t schedulableBytes = metaConn->getSegment(bytes);
+        if (schedulableBytes == 0 ||
+                (schedulableBytes < bytes && !metaConn->canSchedulePartialSegment(schedulableBytes)))
             return false;
 
-        enqueueScheduledData(bytes);
+        enqueueScheduledData(schedulableBytes);
         return true;
     }
 
@@ -785,15 +818,23 @@ bool SubflowConnection::canUseDefaultScheduler(uint32_t bytes) const
     if (!isActiveForDefaultScheduler())
         return false;
 
-    // Linux's default scheduler tests sk_stream_memory_free(), which is socket
-    // write memory rather than cwnd. In this model a zero sendQueueLimit means
-    // unlimited write memory; TCP still enforces cwnd when the subflow sends.
-    if (state->sendQueueLimit == 0)
-        return true;
-
     const uint32_t alreadyQueued = getSchedulerQueuedBytes();
-    return alreadyQueued <= state->sendQueueLimit &&
-            bytes <= state->sendQueueLimit - alreadyQueued;
+    const uint32_t writeLimit = getDefaultSchedulerWriteLimit();
+    return alreadyQueued <= writeLimit && bytes <= writeLimit - alreadyQueued;
+}
+
+uint32_t SubflowConnection::getDefaultSchedulerWriteLimit() const
+{
+    if (state == nullptr)
+        return 0;
+
+    // Linux gates default scheduling with sk_stream_memory_free(); the
+    // subflow TCP write path enforces cwnd later. Approximate sk_sndbuf with
+    // the configured sendQueueLimit, falling back to a Linux-like autotuned max.
+    if (state->sendQueueLimit > 0)
+        return state->sendQueueLimit;
+
+    return DEFAULT_MPTCP_SEND_QUEUE_LIMIT;
 }
 
 bool SubflowConnection::isActiveForDefaultScheduler() const
@@ -825,13 +866,20 @@ void SubflowConnection::enqueueScheduledData(uint32_t bytes)
     Ptr<Chunk> packetBytes = makeShared<ByteCountChunk>(B(bytes));
     msg->insertAtBack(packetBytes);
     sendQueue->enqueueAppData(msg);
+    metaConn->notifyDataScheduled();
 }
 
-bool SubflowConnection::enqueueRetransmissionData(uint32_t dsnStart, uint32_t bytes)
+bool SubflowConnection::enqueueRetransmissionData(uint32_t dsnStart, uint32_t bytes,
+        bool useWriteMemory)
 {
     Enter_Method_Silent("enqueueRetransmissionData");
 
-    if (metaConn == nullptr || sendQueue == nullptr || bytes == 0 || !canAcceptScheduledData(bytes))
+    if (metaConn == nullptr || sendQueue == nullptr || bytes == 0)
+        return false;
+
+    const bool canAccept = useWriteMemory ? canUseDefaultScheduler(bytes) :
+            canAcceptScheduledData(bytes);
+    if (!canAccept)
         return false;
 
     Packet *msg = metaConn->createDataPacket(dsnStart, bytes);
@@ -870,9 +918,7 @@ uint32_t SubflowConnection::getSchedulerQueueLimit() const
 
     // bytesAvailable(bufferStartSeq) includes sent-but-unacked bytes and
     // locally queued bytes. This helper is used by schedulers that need actual
-    // cwnd/rwnd admission; the Linux-like default scheduler uses
-    // canUseDefaultScheduler(), where the stream memory check is send-buffer
-    // pressure rather than cwnd.
+    // cwnd/rwnd admission.
     return windowBudget;
 }
 
@@ -1016,27 +1062,24 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
     // octets of previously unsent data starting with sequence number
     // HighData+1 MUST be returned."
     {
-        if(metaConn->nextUnsentSeg(seqNum)){
-            isRetransmission = false;
+        isRetransmission = false;
 
-            uint32_t buffered = sendQueue->getBytesAvailable(state->snd_max);
-            uint32_t maxWindow = state->snd_wnd;
-            // effectiveWindow: number of bytes we're allowed to send now
-            uint32_t effectiveWin = maxWindow - state->pipe;
-            if (effectiveWin >= state->snd_mss) {
-                if(buffered <= 0){
-                    if (!enqueueDataFromMeta(state->snd_mss))
-                        return false;
-                    buffered = sendQueue->getBytesAvailable(state->snd_max);
-                    if (buffered <= 0)
-                        return false;
-                }
-                seqNum = state->snd_max; // HighData = snd_max
-                return true;
+        uint32_t buffered = sendQueue->getBytesAvailable(state->snd_max);
+        const uint32_t effectiveWin = state->snd_wnd > state->pipe ? state->snd_wnd - state->pipe : 0;
+        if (effectiveWin >= state->snd_mss) {
+            // Already assigned bytes are independent of the meta socket's
+            // remaining dispatch budget. Request a DSN only when needed.
+            if (buffered == 0) {
+                if (!metaConn->nextUnsentSeg(seqNum))
+                    return false;
+                if (!enqueueDataFromMeta(state->snd_mss))
+                    return false;
+                buffered = sendQueue->getBytesAvailable(state->snd_max);
+                if (buffered == 0)
+                    return false;
             }
-        }
-        else{
-            std::cout << "\n Meta Connection bottlenecking sending data" << endl;
+            seqNum = state->snd_max; // HighData = snd_max
+            return true;
         }
     }
 
@@ -1173,6 +1216,11 @@ uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
     }
     else // don't measure RTT for retransmitted packets
         tcpAlgorithm->dataSent(seqNum); // seqNum = old_snd_nxt
+
+    if (sentBytes > 0) {
+        if (auto *renoAlgorithm = dynamic_cast<MpTcpReno *>(tcpAlgorithm))
+            renoAlgorithm->recoveryDataSent(sentBytes);
+    }
 
     return sentBytes;
 }
@@ -1580,10 +1628,7 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
                     dsn_rcv_nxt = receiveQueue->getRE(tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber());
                 }
 
-                rememberReceivedDsnMapping(tcpHeader->getSequenceNo(),
-                                           tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(),
-                                           payloadLength);
-                state->rcv_nxt = receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
+                state->rcv_nxt = insertPayloadAndRememberDsn(tcpSegment, tcpHeader);
 
                 if (seqGreater(state->snd_una, old_snd_una)) {
 
@@ -1828,7 +1873,6 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
     if (payloadLength == 0 && metaConn != nullptr && tcpHeader->findTag<DataSequenceNumberTag>()) {
         const uint32_t dataAckNo = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
         metaConn->receivedUpTo(dataAckNo);
-        eraseSentDsnMappingsUpToDataAck(dataAckNo);
     }
 
     //
@@ -2003,6 +2047,12 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
 
         // acked data no longer needed in send queue
         sendQueue->discardUpTo(discardUpToSeq);
+
+        // DATA_ACK is connection-wide and may precede this subflow's TCP ACK
+        // after reinjection. Retain DSS state until these TCP sequence bytes
+        // are acknowledged, so RTO and SACK retransmissions remain mappable.
+        uint32_t ignoredMetaAck = 0;
+        translateAckToMetaLevel(discardUpToSeq, ignoredMetaAck);
 
         // acked data no longer needed in rexmit queue
         if (state->sack_enabled){
@@ -2230,11 +2280,7 @@ TcpEventCode SubflowConnection::processSynInListen(Packet *tcpSegment, const Ptr
         updateRcvQueueVars();
 
         if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
-            const uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
-            rememberReceivedDsnMapping(tcpHeader->getSequenceNo(),
-                                       tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(),
-                                       payloadLength);
-            receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
+            insertPayloadAndRememberDsn(tcpSegment, tcpHeader);
 
             if(tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() == 0){
                std::cout << "\n ERROR FOUND: " << endl;
@@ -2399,11 +2445,7 @@ TcpEventCode SubflowConnection::processSegmentInSynSent(Packet *tcpSegment, cons
                 updateRcvQueueVars();
 
                 if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
-                    const uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
-                    rememberReceivedDsnMapping(tcpHeader->getSequenceNo(),
-                                               tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(),
-                                               payloadLength);
-                    receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
+                    insertPayloadAndRememberDsn(tcpSegment, tcpHeader); // TODO forward to app, etc.
                 }
                 else { // not enough freeRcvBuffer in rcvQueue for new segment
                     state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
@@ -2483,11 +2525,7 @@ TcpEventCode SubflowConnection::processSegmentInSynSent(Packet *tcpSegment, cons
             updateRcvQueueVars();
 
             if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
-                const uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
-                rememberReceivedDsnMapping(tcpHeader->getSequenceNo(),
-                                           tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber(),
-                                           payloadLength);
-                receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader); // TODO forward to app, etc.
+                insertPayloadAndRememberDsn(tcpSegment, tcpHeader); // TODO forward to app, etc.
             }
             else { // not enough freeRcvBuffer in rcvQueue for new segment
                 state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
@@ -2604,13 +2642,14 @@ void SubflowConnection::updateTotalCwnd(uint32_t oldSubflowCwnd, uint32_t newSub
     metaConn->updateTotalCwnd(oldSubflowCwnd, newSubflowCwnd);
 }
 
-bool SubflowConnection::processInternalCommand(int commandCode, TcpCommand *tcpCommand)
+bool SubflowConnection::processInternalCommand(int commandCode, TcpCommand *tcpCommand, bool removeWhenClosed)
 {
     cMessage *msg = new cMessage("InternalSubflowCommand", commandCode);
     msg->setControlInfo(tcpCommand);
 
     if (!processAppCommand(msg)) {
-        tcpMain->removeConnection(this);
+        if (removeWhenClosed)
+            tcpMain->removeConnection(this);
         return false;
     }
 
@@ -2625,12 +2664,53 @@ void SubflowConnection::rememberSentDsnMapping(uint32_t subflowSeqNo, uint32_t d
     sentDsnMapping[subflowSeqNo] = mapping;
 }
 
+bool SubflowConnection::findSentDsnMapping(uint32_t subflowSeqNo, uint32_t& dsnStart, uint32_t& bytesAvailable) const
+{
+    auto it = sentDsnMapping.upper_bound(subflowSeqNo);
+    if (it == sentDsnMapping.begin())
+        return false;
+
+    --it;
+    const uint32_t mappingBytes = it->second.dsnEnd - it->second.dsnStart;
+    const uint32_t mappingOffset = subflowSeqNo - it->first;
+    if (mappingOffset >= mappingBytes)
+        return false;
+
+    dsnStart = it->second.dsnStart + mappingOffset;
+    bytesAvailable = mappingBytes - mappingOffset;
+    return true;
+}
+
 void SubflowConnection::rememberReceivedDsnMapping(uint32_t subflowSeqNo, uint32_t dsnStart, uint32_t bytes)
 {
     DsnMapping mapping;
     mapping.dsnStart = dsnStart;
     mapping.dsnEnd = dsnStart + bytes;
     receivedDsnMapping[subflowSeqNo] = mapping;
+}
+
+uint32_t SubflowConnection::insertPayloadAndRememberDsn(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader)
+{
+    const uint32_t payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
+    const uint32_t subflowSeqNo = tcpHeader->getSequenceNo();
+    const B expectedOffset = receiveQueue->getReorderBuffer().getExpectedOffset();
+    const uint32_t expectedSeqNo = static_cast<uint32_t>(expectedOffset.get());
+
+    uint32_t duplicatePrefix = 0;
+    if (seqLess(subflowSeqNo, expectedSeqNo)) {
+        duplicatePrefix = expectedSeqNo - subflowSeqNo;
+        if (duplicatePrefix >= payloadLength) {
+            EV_DETAIL << "Ignoring fully duplicate subflow payload [" << subflowSeqNo
+                      << ", " << subflowSeqNo + payloadLength << ")\n";
+            return seqGreater(expectedSeqNo, state->rcv_nxt) ? expectedSeqNo : state->rcv_nxt;
+        }
+    }
+
+    const uint32_t dsnStart = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
+    rememberReceivedDsnMapping(subflowSeqNo + duplicatePrefix,
+                               dsnStart + duplicatePrefix,
+                               payloadLength - duplicatePrefix);
+    return receiveQueue->insertBytesFromSegment(tcpSegment, tcpHeader);
 }
 
 void SubflowConnection::eraseReceivedMappingsUpTo(uint32_t seqNo)
@@ -2642,21 +2722,6 @@ void SubflowConnection::eraseReceivedMappingsUpTo(uint32_t seqNo)
             break;
 
         it = receivedDsnMapping.erase(it);
-    }
-}
-
-void SubflowConnection::eraseSentDsnMappingsUpToDataAck(uint32_t dataAckNo)
-{
-    auto it = sentDsnMapping.begin();
-    while (it != sentDsnMapping.end()) {
-        if (seqLE(it->second.dsnEnd, dataAckNo)) {
-            it = sentDsnMapping.erase(it);
-        }
-        else {
-            if (seqLess(it->second.dsnStart, dataAckNo))
-                it->second.dsnStart = dataAckNo;
-            ++it;
-        }
     }
 }
 

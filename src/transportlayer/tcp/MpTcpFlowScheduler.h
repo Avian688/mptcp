@@ -49,6 +49,8 @@ class MpTcpFlowScheduler
 
     void closeAllSubflows(SubflowConnection *exceptSubflow = nullptr);
 
+    void forgetSubflow(SubflowConnection *subflow);
+
     void subflowStateChanged(SubflowConnection *subflow, int oldState, int newState);
 
     bool processTimer(omnetpp::cMessage *msg);

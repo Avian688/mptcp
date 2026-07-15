@@ -93,14 +93,17 @@ bool MpTcpFlowScheduler::closeSubflow(SubflowConnection *subflow)
     if (subflow == nullptr)
         return false;
 
+    bool active = true;
     switch (subflow->getFsmState()) {
         case TCP_S_INIT:
         case TCP_S_LISTEN:
-            return subflow->destroyFlow();
+            active = subflow->destroyFlow(false);
+            break;
 
         case TCP_S_SYN_SENT:
         case TCP_S_SYN_RCVD:
-            return subflow->abortFlow();
+            active = subflow->abortFlow(false);
+            break;
 
         case TCP_S_ESTABLISHED:
         case TCP_S_CLOSE_WAIT:
@@ -109,6 +112,10 @@ bool MpTcpFlowScheduler::closeSubflow(SubflowConnection *subflow)
         default:
             return false;
     }
+
+    if (!active && connection != nullptr)
+        connection->removeClosedSubflow(subflow);
+    return active;
 }
 
 void MpTcpFlowScheduler::closeAllSubflows(SubflowConnection *exceptSubflow)
@@ -126,17 +133,22 @@ void MpTcpFlowScheduler::closeAllSubflows(SubflowConnection *exceptSubflow)
         closeSubflow(subflow);
 }
 
+void MpTcpFlowScheduler::forgetSubflow(SubflowConnection *subflow)
+{
+    for (auto it = scheduledSubflows.begin(); it != scheduledSubflows.end(); ) {
+        if (it->second == subflow)
+            it = scheduledSubflows.erase(it);
+        else
+            ++it;
+    }
+}
+
 void MpTcpFlowScheduler::subflowStateChanged(SubflowConnection *subflow, int oldState, int newState)
 {
     if (subflow == nullptr || newState != TCP_S_CLOSED)
         return;
 
-    for (auto it = scheduledSubflows.begin(); it != scheduledSubflows.end(); ++it) {
-        if (it->second == subflow) {
-            scheduledSubflows.erase(it);
-            break;
-        }
-    }
+    forgetSubflow(subflow);
 
     if (oldState == TCP_S_INIT)
         initialSubflowsCreated = !scheduledSubflows.empty();

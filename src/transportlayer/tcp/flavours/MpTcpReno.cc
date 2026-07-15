@@ -15,6 +15,7 @@ namespace tcp {
 Register_Class(MpTcpReno);
 
 simsignal_t MpTcpReno::cwndSegSignal = cComponent::registerSignal("cwndSeg");
+simsignal_t MpTcpReno::cwndLimitedSignal = cComponent::registerSignal("cwndLimited");
 simsignal_t MpTcpReno::recoveryPointSignal = cComponent::registerSignal("recoveryPoint");
 simsignal_t MpTcpReno::sndUnaSignal = cComponent::registerSignal("sndUna");
 
@@ -26,6 +27,7 @@ void MpTcpReno::initialize()
     wasCwndLimited = false;
     maxBytesInFlightForCwnd = 0;
     cwndUsageSeq = 0;
+    resetPrrRecovery();
 }
 
 void MpTcpReno::established(bool active)
@@ -34,6 +36,8 @@ void MpTcpReno::established(bool active)
     wasCwndLimited = false;
     maxBytesInFlightForCwnd = 0;
     cwndUsageSeq = state != nullptr ? state->snd_max : 0;
+    resetPrrRecovery();
+    conn->emit(cwndLimitedSignal, false);
     check_and_cast<TcpPacedConnection *>(conn)->changeIntersendingTime(0.000001);
 }
 
@@ -148,9 +152,88 @@ void MpTcpReno::setRecoveryCongestionWindow()
             std::min(recoveryCwnd, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())));
 }
 
+uint64_t MpTcpReno::packetsForBytes(uint64_t bytes) const
+{
+    if (bytes == 0 || state == nullptr || state->snd_mss == 0)
+        return 0;
+
+    return (bytes + state->snd_mss - 1) / state->snd_mss;
+}
+
+void MpTcpReno::beginPrrRecovery()
+{
+    if (state == nullptr || state->snd_mss == 0)
+        return;
+
+    prrActive = true;
+    prrDeliveredPackets = 0;
+    prrOutPackets = 0;
+    prrPriorCwndPackets = std::max<uint64_t>(state->snd_cwnd / state->snd_mss, 1);
+}
+
+void MpTcpReno::resetPrrRecovery()
+{
+    prrActive = false;
+    prrDeliveredPackets = 0;
+    prrOutPackets = 0;
+    prrPriorCwndPackets = 0;
+}
+
+void MpTcpReno::recoveryDataSent(uint32_t bytes)
+{
+    if (prrActive && state != nullptr && state->lossRecovery)
+        prrOutPackets += packetsForBytes(bytes);
+}
+
+void MpTcpReno::updatePrrCongestionWindow(uint32_t newlyDeliveredBytes,
+        bool sndUnaAdvanced, uint32_t newlyLostBytes)
+{
+    if (!prrActive || state == nullptr || !state->lossRecovery ||
+            state->snd_mss == 0 || prrPriorCwndPackets == 0)
+        return;
+
+    const uint64_t newlyDeliveredPackets = packetsForBytes(newlyDeliveredBytes);
+    if (newlyDeliveredPackets == 0)
+        return;
+
+    prrDeliveredPackets += newlyDeliveredPackets;
+
+    const uint64_t inFlightPackets = packetsForBytes(state->pipe);
+    const uint64_t ssthreshPackets = std::max<uint64_t>(state->ssthresh / state->snd_mss, 1);
+    const int64_t delta = static_cast<int64_t>(ssthreshPackets) -
+            static_cast<int64_t>(inFlightPackets);
+
+    uint64_t sendCount = 0;
+    if (delta < 0) {
+        const uint64_t targetOut =
+                (ssthreshPackets * prrDeliveredPackets + prrPriorCwndPackets - 1) /
+                prrPriorCwndPackets;
+        if (targetOut > prrOutPackets)
+            sendCount = targetOut - prrOutPackets;
+    }
+    else {
+        const uint64_t deliveredCredit = prrDeliveredPackets > prrOutPackets ?
+                prrDeliveredPackets - prrOutPackets : 0;
+        sendCount = std::max(deliveredCredit, newlyDeliveredPackets);
+        if (sndUnaAdvanced && newlyLostBytes == 0)
+            sendCount++;
+        sendCount = std::min(sendCount, static_cast<uint64_t>(delta));
+    }
+
+    // Linux always permits the first recovery retransmission.
+    if (prrOutPackets == 0)
+        sendCount = std::max<uint64_t>(sendCount, 1);
+
+    const uint64_t recoveryCwnd = static_cast<uint64_t>(state->pipe) +
+            sendCount * state->snd_mss;
+    state->snd_cwnd = static_cast<uint32_t>(
+            std::min(recoveryCwnd, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())));
+}
+
 void MpTcpReno::processRexmitTimer(TcpEventCode& event)
 {
     const uint32_t oldCwnd = state->snd_cwnd;
+    resetPrrRecovery();
     TcpPacedFamily::processRexmitTimer(event);
     if (event == TCP_E_ABORT)
         return;
@@ -163,7 +246,7 @@ void MpTcpReno::processRexmitTimer(TcpEventCode& event)
     state->afterRto = true;
     auto *pacedConnection = check_and_cast<TcpPacedConnection *>(conn);
     pacedConnection->cancelPaceTimer();
-    sendData(false);
+    pacedConnection->retransmitOneSegment(true);
 
     conn->emit(cwndSignal, state->snd_cwnd);
     conn->emit(ssthreshSignal, state->ssthresh);
@@ -177,10 +260,13 @@ void MpTcpReno::rackLossDetected()
         return;
 
     const uint32_t oldCwnd = state->snd_cwnd;
+    bool enteredRecovery = false;
     if (!state->lossRecovery) {
         state->recoveryPoint = state->snd_max;
         pacedConnection->updateInFlight();
         state->lossRecovery = true;
+        beginPrrRecovery();
+        enteredRecovery = true;
 
         recalculateSlowStartThreshold();
         setRecoveryCongestionWindow();
@@ -194,7 +280,9 @@ void MpTcpReno::rackLossDetected()
         pacedConnection->updateInFlight();
     }
 
-    if (pacedConnection->doRetransmit())
+    // The first retransmission is forced when entering recovery. Later sends
+    // must wait for PRR to expose cwnd - pipe credit on the current ACK.
+    if (enteredRecovery && pacedConnection->doRetransmit())
         restartRexmitTimer();
 }
 
@@ -208,6 +296,16 @@ void MpTcpReno::receivedDataAck(uint32_t firstSeqAcked)
         if (seqGE(state->snd_una, state->recoveryPoint)) {
             state->snd_cwnd = state->ssthresh;
             state->lossRecovery = false;
+            resetPrrRecovery();
+        }
+        else {
+            auto *pacedConnection = check_and_cast<TcpPacedConnection *>(conn);
+            const auto rateSample = pacedConnection->getRateSample();
+            const uint32_t cumulativelyAcked = state->snd_una - firstSeqAcked;
+            const uint32_t newlyDelivered = std::max(
+                    rateSample.m_ackedSacked, cumulativelyAcked);
+            const uint32_t newlyLost = rateSample.m_bytesLoss;
+            updatePrrCongestionWindow(newlyDelivered, true, newlyLost);
         }
         conn->emit(sndUnaSignal, state->snd_una);
         conn->emit(recoveryPointSignal, state->recoveryPoint);
@@ -218,7 +316,9 @@ void MpTcpReno::receivedDataAck(uint32_t firstSeqAcked)
         return;
     }
 
-    if (isConnectionCwndLimited()) {
+    const bool cwndLimited = isConnectionCwndLimited();
+    conn->emit(cwndLimitedSignal, cwndLimited);
+    if (cwndLimited) {
         if (state->snd_cwnd < state->ssthresh)
             state->snd_cwnd += state->snd_mss;
         else
@@ -236,10 +336,15 @@ void MpTcpReno::receivedDataAck(uint32_t firstSeqAcked)
 void MpTcpReno::receivedDuplicateAck()
 {
     const uint32_t oldCwnd = state->snd_cwnd;
-    TcpTahoeRenoFamily::receivedDuplicateAck();
+    // TcpBaseAlg's limited transmit is only valid before recovery. RACK may
+    // have entered recovery before this callback, in which case PRR owns the
+    // send allowance.
+    if (!state->lossRecovery)
+        TcpTahoeRenoFamily::receivedDuplicateAck();
 
     auto *pacedConnection = check_and_cast<TcpPacedConnection *>(conn);
-    if (shouldEnterLossRecoveryOnDuplicateAck()) {
+    const bool duplicateAckRecovery = shouldEnterLossRecoveryOnDuplicateAck();
+    if (duplicateAckRecovery) {
         if (state->sack_enabled &&
                 (state->recoveryPoint == 0 || seqGE(state->snd_una, state->recoveryPoint)) &&
                 !state->lossRecovery)
@@ -248,19 +353,32 @@ void MpTcpReno::receivedDuplicateAck()
             pacedConnection->setSackedHeadLostIfRackDisabled();
             pacedConnection->updateInFlight();
             state->lossRecovery = true;
+            beginPrrRecovery();
 
             recalculateSlowStartThreshold();
             setRecoveryCongestionWindow();
             pacedConnection->doRetransmit();
         }
 
+        if (state->lossRecovery)
+            restartRexmitTimer();
+    }
+
+    // With RACK, loss recovery is entered before this duplicate-ACK callback,
+    // so PRR must consume newly SACKed delivery even though the dupACK fallback
+    // above is disabled.
+    if (state->lossRecovery) {
+        const auto rateSample = pacedConnection->getRateSample();
+        const uint32_t newlyDelivered = rateSample.m_ackedSacked;
+        const uint32_t newlyLost = rateSample.m_bytesLoss;
+        updatePrrCongestionWindow(newlyDelivered, false, newlyLost);
+    }
+
+    if (duplicateAckRecovery || state->lossRecovery) {
         conn->emit(recoveryPointSignal, state->recoveryPoint);
         conn->emit(cwndSignal, state->snd_cwnd);
         conn->emit(ssthreshSignal, state->ssthresh);
         conn->emit(cwndSegSignal, state->snd_cwnd / state->snd_mss);
-
-        if (state->lossRecovery)
-            restartRexmitTimer();
     }
 
     updatePacing();

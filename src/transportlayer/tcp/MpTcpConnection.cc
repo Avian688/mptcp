@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <limits>
 #include <string>
 
 #include "inet/networklayer/common/L3AddressResolver.h"
@@ -27,6 +28,10 @@ namespace tcp {
 
 Define_Module(MpTcpConnection);
 
+namespace {
+constexpr uint32_t DEFAULT_MPTCP_SEND_QUEUE_LIMIT = 4U * 1024U * 1024U;
+}
+
 simsignal_t MpTcpConnection::holBlockedBytesSignal = registerSignal("holBlockedBytes");
 simsignal_t MpTcpConnection::metaExpectedDsnSignal = registerSignal("metaExpectedDsn");
 simsignal_t MpTcpConnection::metaArrivedDsnStartSignal = registerSignal("metaArrivedDsnStart");
@@ -34,17 +39,23 @@ simsignal_t MpTcpConnection::metaDsnGapBytesSignal = registerSignal("metaDsnGapB
 simsignal_t MpTcpConnection::metaReinjectedBytesSignal = registerSignal("metaReinjectedBytes");
 simsignal_t MpTcpConnection::metaReinjectionsSignal = registerSignal("metaReinjections");
 
-MpTcpConnection::MpTcpConnection() : packetScheduler(this), flowScheduler(this) {
-    metaRexmitTimer = new cMessage("MPTCP-META-REXMIT");
+MpTcpConnection::MpTcpConnection() : packetScheduler(this), flowScheduler(this)
+{
 }
 
 MpTcpConnection::~MpTcpConnection() {
     cancelMetaRexmitTimer();
     delete metaRexmitTimer;
+    if (metaRemovalTimer != nullptr && metaRemovalTimer->isScheduled())
+        cancelEvent(metaRemovalTimer);
+    delete metaRemovalTimer;
 }
 
 bool MpTcpConnection::processTimer(cMessage *msg)
 {
+    if (msg == metaRemovalTimer)
+        return false;
+
     if (msg == metaRexmitTimer) {
         processMetaRexmitTimer();
         return true;
@@ -197,6 +208,7 @@ void MpTcpConnection::removeSubflow(SubflowConnection *subflowConn)
         m_subflows.erase(it);
 
     packetScheduler.forgetSubflow(subflowConn);
+    flowScheduler.forgetSubflow(subflowConn);
 }
 
 void MpTcpConnection::subflowStateChange(SubflowConnection *subflowConn, const TcpEventCode& event, int oldState, int newState)
@@ -204,6 +216,12 @@ void MpTcpConnection::subflowStateChange(SubflowConnection *subflowConn, const T
     Enter_Method("subflowStateChange");
 
     flowScheduler.subflowStateChanged(subflowConn, oldState, newState);
+
+    if (teardownInProgress || issuingSubflowClose) {
+        if (newState == TCP_S_CLOSED)
+            removeSubflow(subflowConn);
+        return;
+    }
 
     if (subflowConn != nullptr && subflowConn->getIsMaster() && newState == TCP_S_CLOSED)
         flowScheduler.closeAllSubflows(subflowConn);
@@ -217,7 +235,8 @@ void MpTcpConnection::subflowStateChange(SubflowConnection *subflowConn, const T
     if (subflowConn != nullptr && subflowConn->getIsMaster() && oldState != newState &&
             event != TCP_E_OPEN_ACTIVE && event != TCP_E_OPEN_PASSIVE)
     {
-        performStateTransition(event);
+        if (!performStateTransition(event))
+            scheduleMetaRemoval();
     }
 }
 
@@ -572,6 +591,65 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
         state->queueUpdate = false;
 }
 
+void MpTcpConnection::process_CLOSE(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg)
+{
+    delete tcpCommand;
+    delete msg;
+
+    switch (fsm.getState()) {
+        case TCP_S_INIT:
+        case TCP_S_LISTEN:
+        case TCP_S_SYN_SENT:
+            startSubflowClose();
+            break;
+
+        case TCP_S_SYN_RCVD:
+        case TCP_S_ESTABLISHED:
+        case TCP_S_CLOSE_WAIT:
+            state->send_fin = true;
+            state->snd_fin_seq = sendQueue->getBufferEndSeq();
+            if (state->snd_max == state->snd_fin_seq)
+                startSubflowClose();
+            else {
+                EV_DETAIL << "Deferring MPTCP close until all meta-level data has been assigned to subflows\n";
+                event = TCP_E_IGNORE;
+            }
+            break;
+
+        case TCP_S_FIN_WAIT_1:
+        case TCP_S_FIN_WAIT_2:
+        case TCP_S_CLOSING:
+        case TCP_S_LAST_ACK:
+        case TCP_S_TIME_WAIT:
+            throw cRuntimeError(tcpMain, "Duplicate CLOSE command: connection already closing");
+    }
+}
+
+void MpTcpConnection::process_ABORT(TcpEventCode& event, TcpCommand *tcpCommand, cMessage *msg)
+{
+    // The meta connection has no wire-level TCP path of its own. Once the
+    // command closes it, MpTcp removes its subflows as one connection group.
+    delete tcpCommand;
+    delete msg;
+}
+
+void MpTcpConnection::startSubflowClose()
+{
+    if (subflowCloseStarted)
+        return;
+
+    subflowCloseStarted = true;
+    issuingSubflowClose = true;
+    try {
+        flowScheduler.closeAllSubflows();
+    }
+    catch (...) {
+        issuingSubflowClose = false;
+        throw;
+    }
+    issuingSubflowClose = false;
+}
+
 uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
 { //MpTcpConnection shouldnt send packets! Subflows control this.
     Enter_Method_Silent("sendSegment");
@@ -592,17 +670,55 @@ uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
 
 uint32_t MpTcpConnection::getSegment(uint32_t bytes)
 {
+    if (!tcpMain->par("sendingEnabled").boolValue())
+        return 0;
+
     const uint32_t bytesAvailable = sendQueue->getBytesAvailable(state->snd_max);
-    return std::min({bytes, bytesAvailable, getSendWindowRemaining()});
+    return std::min({bytes, bytesAvailable, getSendWindowRemaining(), getSendBufferRemaining()});
 }
 
 bool MpTcpConnection::nextUnsentSeg(uint32_t& seqNum)
 {
-    if (getBytesAvailable() == 0 || getSendWindowRemaining() < state->snd_mss)
+    const uint32_t schedulableBytes = getSegment(state->snd_mss);
+    if (schedulableBytes == 0 ||
+            (schedulableBytes < state->snd_mss && !canSchedulePartialSegment(schedulableBytes)))
         return false;
 
     seqNum = state->snd_max;
     return true;
+}
+
+void MpTcpConnection::notifyDataScheduled()
+{
+    Enter_Method_Silent("notifyDataScheduled");
+
+    if (state == nullptr || sendQueue == nullptr || !state->send_fin || subflowCloseStarted ||
+            state->snd_max != sendQueue->getBufferEndSeq())
+        return;
+
+    startSubflowClose();
+    if (!performStateTransition(TCP_E_CLOSE))
+        scheduleMetaRemoval();
+}
+
+void MpTcpConnection::prepareForRemoval()
+{
+    Enter_Method_Silent("prepareForRemoval");
+
+    if (teardownInProgress)
+        return;
+
+    teardownInProgress = true;
+    cancelMetaRexmitTimer();
+    flowScheduler.cancelPendingSubflowCreations();
+}
+
+void MpTcpConnection::removeClosedSubflow(SubflowConnection *subflow)
+{
+    Enter_Method_Silent("removeClosedSubflow");
+
+    if (subflow != nullptr && subflow->getFsmState() == TCP_S_CLOSED)
+        tcpMain->removeConnection(subflow);
 }
 
 uint32_t MpTcpConnection::getBytesAvailable()
@@ -623,6 +739,20 @@ uint32_t MpTcpConnection::getSendWindowRemaining() const
         return 0;
 
     return dataWindow - outstandingBytes;
+}
+
+uint32_t MpTcpConnection::getSendBufferRemaining() const
+{
+    const uint32_t sendBufferLimit = state->sendQueueLimit > 0 ?
+            state->sendQueueLimit : DEFAULT_MPTCP_SEND_QUEUE_LIMIT;
+    const uint32_t outstandingBytes = state->snd_nxt - state->snd_una;
+    return outstandingBytes < sendBufferLimit ? sendBufferLimit - outstandingBytes : 0;
+}
+
+bool MpTcpConnection::canSchedulePartialSegment(uint32_t bytes) const
+{
+    return bytes > 0 && state != nullptr && sendQueue != nullptr && state->send_fin &&
+            state->snd_max + bytes == sendQueue->getBufferEndSeq();
 }
 
 Packet *MpTcpConnection::createDataPacket(uint32_t dsnStart, uint32_t bytes) const
@@ -673,17 +803,32 @@ SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowCon
         return nullptr;
 
     SubflowConnection *target = packetScheduler.selectRetransmissionSubflow(source, retransmitBytes);
-    if (target == nullptr || !target->enqueueRetransmissionData(dsn, retransmitBytes))
+    if (target == nullptr)
+        return nullptr;
+
+    // Linux retransmits a complete MPTCP data fragment through an idle
+    // subflow. Model one such fragment with the scheduler's 64 KiB burst,
+    // rather than repairing one MSS or filling the entire socket write queue.
+    const uint32_t queuedBytes = target->getSchedulerQueuedBytes();
+    const uint32_t writeLimit = target->getDefaultSchedulerWriteLimit();
+    const uint32_t writeSpace = queuedBytes < writeLimit ? writeLimit - queuedBytes : 0;
+    const uint32_t outstandingBytes = state->snd_max - dsn;
+    const uint32_t retransmittedBytes = std::min({
+            sendQueue->getBytesAvailable(dsn), outstandingBytes, writeSpace,
+            MpTcpPacketScheduler::DEFAULT_SEND_BURST_SIZE});
+    if (retransmittedBytes == 0 ||
+            !target->enqueueRetransmissionData(dsn, retransmittedBytes, true))
         return nullptr;
 
     metaRetransmissionPending = false;
-    metaReinjectedBytes += retransmitBytes;
+    metaReinjectedBytes += retransmittedBytes;
     metaReinjections++;
     emit(metaReinjectedBytesSignal, metaReinjectedBytes);
     emit(metaReinjectionsSignal, metaReinjections);
 
-    EV_INFO << "MPTCP meta retransmitted DSN " << dsn << " for " << retransmitBytes
-            << " bytes on subflow " << target->getSocketId() << "\n";
+    EV_INFO << "MPTCP meta retransmitted " << retransmittedBytes
+            << " bytes starting at DSN " << dsn << " on subflow "
+            << target->getSocketId() << "\n";
 
     if (target != requester)
         target->invokeSendCommand();
@@ -724,6 +869,12 @@ void MpTcpConnection::cancelMetaRexmitTimer()
 {
     if (metaRexmitTimer != nullptr && metaRexmitTimer->isScheduled())
         cancelEvent(metaRexmitTimer);
+}
+
+void MpTcpConnection::scheduleMetaRemoval()
+{
+    if (!teardownInProgress && metaRemovalTimer != nullptr && !metaRemovalTimer->isScheduled())
+        scheduleAt(simTime(), metaRemovalTimer);
 }
 
 void MpTcpConnection::processMetaRexmitTimer()
@@ -1614,8 +1765,31 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
 
 void MpTcpConnection::receivedChunk(uint32_t fromSeqNo, uint32_t toSeqNo)
 {
+    Enter_Method_Silent("receivedChunk");
+
+    const uint32_t arrivedDsnStart = fromSeqNo;
     uint32_t old_rcv_nxt = state->rcv_nxt;
     uint32_t bytes = toSeqNo - fromSeqNo;
+
+    const B expectedOffset = receiveQueue->getReorderBuffer().getExpectedOffset();
+    const uint32_t expectedDsn = static_cast<uint32_t>(expectedOffset.get());
+    if (seqLess(fromSeqNo, expectedDsn)) {
+        const uint32_t duplicatePrefix = expectedDsn - fromSeqNo;
+        if (duplicatePrefix >= bytes) {
+            emit(holBlockedBytesSignal, receiveQueue->getAmountOfBufferedBytes());
+            emit(metaExpectedDsnSignal, state->rcv_nxt);
+            emit(metaArrivedDsnStartSignal, arrivedDsnStart);
+            emit(metaDsnGapBytesSignal, 0);
+            return;
+        }
+
+        fromSeqNo += duplicatePrefix;
+        bytes -= duplicatePrefix;
+    }
+
+    if (bytes == 0)
+        return;
+
     const auto& tcpHeader = makeShared<TcpHeader>();
     tcpHeader->setSequenceNo(fromSeqNo);
 
@@ -1654,8 +1828,8 @@ void MpTcpConnection::receivedChunk(uint32_t fromSeqNo, uint32_t toSeqNo)
     }
     emit(holBlockedBytesSignal, receiveQueue->getAmountOfBufferedBytes());
     emit(metaExpectedDsnSignal, state->rcv_nxt);
-    emit(metaArrivedDsnStartSignal, fromSeqNo);
-    emit(metaDsnGapBytesSignal, seqGreater(fromSeqNo, state->rcv_nxt) ? fromSeqNo - state->rcv_nxt : 0);
+    emit(metaArrivedDsnStartSignal, arrivedDsnStart);
+    emit(metaDsnGapBytesSignal, seqGreater(arrivedDsnStart, state->rcv_nxt) ? arrivedDsnStart - state->rcv_nxt : 0);
     delete tcpSegment;
 }
 
@@ -1853,6 +2027,8 @@ void MpTcpConnection::assignInterface(SubflowConnection* subflowConn)
 void MpTcpConnection::initConnection(TcpOpenCommand *openCmd)
 {
     MpTcpConnectionBase::initConnection(openCmd);
+    metaRexmitTimer = new cMessage("MPTCP-META-REXMIT");
+    metaRemovalTimer = new cMessage("MPTCP-META-REMOVE");
     packetScheduler.setConnection(this);
     packetScheduler.setSchedulingMode(par("schedulerMode").stringValue());
     flowScheduler.setConnection(this);
@@ -1873,10 +2049,18 @@ SubflowConnection *MpTcpConnection::createManagedSubflow(bool isMaster)
     return transport->createManagedSubflowConnection(this, isMaster);
 }
 
-void MpTcpConnection::updateTotalCwnd(uint32_t oldSubflowCwnd, uint32_t newSubflowCwnd) {
-    // total = total - what it was + what it is now
-    auto tcpAlg = dynamic_cast<MpTcpFamily*>(tcpAlgorithm);
-    tcpAlg->setTotalCwnd((tcpAlg->getCwnd()- oldSubflowCwnd) + newSubflowCwnd);
+void MpTcpConnection::updateTotalCwnd(uint32_t, uint32_t)
+{
+    uint64_t totalCwnd = 0;
+    for (SubflowConnection *subflow : m_subflows) {
+        auto *subflowAlgorithm = dynamic_cast<TcpPacedFamily *>(subflow->getTcpAlgorithm());
+        if (subflowAlgorithm != nullptr)
+            totalCwnd += subflowAlgorithm->getCwnd();
+    }
+
+    auto *metaAlgorithm = check_and_cast<MpTcpFamily *>(tcpAlgorithm);
+    metaAlgorithm->setTotalCwnd(static_cast<uint32_t>(std::min(
+            totalCwnd, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))));
 }
 
 }

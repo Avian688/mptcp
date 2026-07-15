@@ -39,6 +39,7 @@ OBJS = \
     $O/transportlayer/tcp/flavours/MpTcpCoupled.o \
     $O/transportlayer/tcp/flavours/MpTcpCubicBase.o \
     $O/transportlayer/tcp/flavours/MpTcpFamily.o \
+    $O/transportlayer/tcp/flavours/MpTcpLia.o \
     $O/transportlayer/tcp/flavours/MpTcpMetaCubic.o \
     $O/transportlayer/tcp/flavours/MpTcpOlia.o \
     $O/transportlayer/tcp/flavours/MpTcpReno.o \

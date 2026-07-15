@@ -117,6 +117,7 @@
   ../../inet4.5/src/inet/common/socket/ISocket.h \
   transportlayer/tcp/MpTcpFlowScheduler.h \
   transportlayer/tcp/MpTcpPacketScheduler.h \
+  transportlayer/tcp/flavours/MpTcpReno.h \
   ../../inet4.5/src/inet/common/socket/SocketTag_m.h \
   ../../inet4.5/src/inet/common/packet/Message.h \
   ../../inet4.5/src/inet/linklayer/common/InterfaceTag_m.h
@@ -238,6 +239,7 @@ transportlayer/tcp/MpTcpConnection.h:
 ../../inet4.5/src/inet/common/socket/ISocket.h:
 transportlayer/tcp/MpTcpFlowScheduler.h:
 transportlayer/tcp/MpTcpPacketScheduler.h:
+transportlayer/tcp/flavours/MpTcpReno.h:
 ../../inet4.5/src/inet/common/socket/SocketTag_m.h:
 ../../inet4.5/src/inet/common/packet/Message.h:
 ../../inet4.5/src/inet/linklayer/common/InterfaceTag_m.h:

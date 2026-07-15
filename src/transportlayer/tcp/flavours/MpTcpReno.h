@@ -16,6 +16,7 @@ class INET_API MpTcpReno : public MpTcpFamily
 {
   protected:
     static simsignal_t cwndSegSignal;
+    static simsignal_t cwndLimitedSignal;
     static simsignal_t recoveryPointSignal;
     static simsignal_t sndUnaSignal;
 
@@ -23,6 +24,11 @@ class INET_API MpTcpReno : public MpTcpFamily
     bool wasCwndLimited = false;
     uint32_t maxBytesInFlightForCwnd = 0;
     uint32_t cwndUsageSeq = 0;
+
+    bool prrActive = false;
+    uint64_t prrDeliveredPackets = 0;
+    uint64_t prrOutPackets = 0;
+    uint64_t prrPriorCwndPackets = 0;
 
     virtual TcpStateVariables *createStateVariables() override
     {
@@ -39,12 +45,24 @@ class INET_API MpTcpReno : public MpTcpFamily
 
     virtual void setRecoveryCongestionWindow() override;
 
+    virtual void beginPrrRecovery();
+
+    virtual void resetPrrRecovery();
+
+    virtual void updatePrrCongestionWindow(uint32_t newlyDeliveredBytes,
+                                           bool sndUnaAdvanced,
+                                           uint32_t newlyLostBytes);
+
+    virtual uint64_t packetsForBytes(uint64_t bytes) const;
+
   public:
     virtual void initialize() override;
 
     virtual void established(bool active) override;
 
     virtual void dataSent(uint32_t fromseq) override;
+
+    virtual void recoveryDataSent(uint32_t bytes);
 
     virtual void recalculateSlowStartThreshold();
 

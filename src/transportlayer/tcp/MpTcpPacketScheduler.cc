@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <vector>
 
 #include "MpTcpConnection.h"
 #include "SubflowConnection.h"
@@ -63,13 +64,15 @@ SubflowConnection *MpTcpPacketScheduler::schedulePacket(SubflowConnection *reque
         return target;
     }
 
-    if (connection->getSegment(bytes) < bytes)
+    const uint32_t schedulableBytes = connection->getSegment(bytes);
+    if (schedulableBytes == 0 ||
+            (schedulableBytes < bytes && !connection->canSchedulePartialSegment(schedulableBytes)))
         return nullptr;
 
     if (usesLowestRttScheduling())
-        return scheduleLowestRtt(requester, bytes);
+        return scheduleLowestRtt(requester, schedulableBytes);
 
-    return scheduleDefault(requester, bytes);
+    return scheduleDefault(requester, schedulableBytes);
 }
 
 SubflowConnection *MpTcpPacketScheduler::selectRetransmissionSubflow(SubflowConnection *source, uint32_t bytes,
@@ -155,20 +158,47 @@ SubflowConnection *MpTcpPacketScheduler::scheduleLowestRtt(SubflowConnection *re
 
 SubflowConnection *MpTcpPacketScheduler::scheduleDefault(SubflowConnection *requester, uint32_t bytes)
 {
+    SubflowConnection *firstSubflow = nullptr;
+    bool queuedOnRequester = false;
+    std::vector<SubflowConnection *> activatedSubflows;
+
+    // Linux keeps pushing pending MPTCP data while socket memory is
+    // available. Dispatch complete 64 KiB bursts here instead of waiting for
+    // one future pacing callback per MSS; otherwise every subflow becomes
+    // scheduler-limited before it can fill its congestion window.
+    while (true) {
+        const uint32_t schedulableBytes = connection->getSegment(bytes);
+        if (schedulableBytes == 0 ||
+                (schedulableBytes < bytes && !connection->canSchedulePartialSegment(schedulableBytes)))
+            break;
+
+        SubflowConnection *subflow = selectDefaultSubflow(schedulableBytes);
+        if (subflow == nullptr)
+            break;
+
+        subflow->enqueueScheduledData(schedulableBytes);
+        consumeBurst(schedulableBytes);
+
+        if (firstSubflow == nullptr)
+            firstSubflow = subflow;
+        if (subflow == requester)
+            queuedOnRequester = true;
+        else if (std::find(activatedSubflows.begin(), activatedSubflows.end(), subflow) ==
+                activatedSubflows.end())
+            activatedSubflows.push_back(subflow);
+    }
+
+    for (SubflowConnection *subflow : activatedSubflows)
+        subflow->invokeSendCommand();
+
+    return queuedOnRequester ? requester : firstSubflow;
+}
+
+SubflowConnection *MpTcpPacketScheduler::selectDefaultSubflow(uint32_t bytes)
+{
     if (lastSubflow != nullptr && remainingBurstBytes > 0 &&
             lastSubflow->canUseDefaultScheduler(bytes))
-    {
-        lastSubflow->enqueueScheduledData(bytes);
-        consumeBurst(bytes);
-
-        EV_INFO << "MPTCP default scheduler reusing subflow " << lastSubflow->getSocketId()
-                << " with burst budget " << remainingBurstBytes << " bytes\n";
-
-        if (lastSubflow != requester)
-            lastSubflow->invokeSendCommand();
-
         return lastSubflow;
-    }
 
     SubflowConnection *bestSubflow = nullptr;
     double bestLingerTime = std::numeric_limits<double>::infinity();
@@ -195,14 +225,10 @@ SubflowConnection *MpTcpPacketScheduler::scheduleDefault(SubflowConnection *requ
 
     const uint32_t queuedBytesBeforeEnqueue = bestSubflow->getSchedulerQueuedBytes();
     const double currentPacingRate = bestSubflow->getSchedulerPacingRateBytesPerSecond();
-    startBurst(bestSubflow, bytes, queuedBytesBeforeEnqueue, currentPacingRate);
-    bestSubflow->enqueueScheduledData(bytes);
+    startBurst(bestSubflow, queuedBytesBeforeEnqueue, currentPacingRate);
 
     EV_INFO << "MPTCP default scheduler selected subflow " << bestSubflow->getSocketId()
             << " with linger_time=" << bestLingerTime << "s\n";
-
-    if (bestSubflow != requester)
-        bestSubflow->invokeSendCommand();
 
     return bestSubflow;
 }
@@ -219,10 +245,11 @@ double MpTcpPacketScheduler::getAveragePacingRate(SubflowConnection *subflow)
     return pacingRate;
 }
 
-void MpTcpPacketScheduler::startBurst(SubflowConnection *subflow, uint32_t bytes,
+void MpTcpPacketScheduler::startBurst(SubflowConnection *subflow,
         uint32_t queuedBytesBeforeEnqueue, double currentPacingRate)
 {
-    const uint32_t burst = std::min(DEFAULT_SEND_BURST_SIZE, connection->getSendWindowRemaining());
+    const uint32_t burst = std::min({DEFAULT_SEND_BURST_SIZE,
+            connection->getSendWindowRemaining(), connection->getSendBufferRemaining()});
     const double previousPacingRate = getAveragePacingRate(subflow);
     const uint32_t totalWeight = queuedBytesBeforeEnqueue + burst;
 
@@ -233,7 +260,6 @@ void MpTcpPacketScheduler::startBurst(SubflowConnection *subflow, uint32_t bytes
 
     lastSubflow = subflow;
     remainingBurstBytes = burst;
-    consumeBurst(bytes);
 }
 
 void MpTcpPacketScheduler::consumeBurst(uint32_t bytes)
