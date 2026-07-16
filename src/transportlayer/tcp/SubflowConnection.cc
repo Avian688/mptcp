@@ -1004,6 +1004,8 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
 
     state->highRxt = rexmitQueue->getHighestRexmittedSeqNum();// not needed?
     uint32_t highestSackedSeqNum = rexmitQueue->getHighestSackedSeqNum();
+    // After an RTO, all pre-RTO outstanding data is eligible for repair.
+    uint32_t retransmitSearchEnd = state->afterRto ? state->snd_max : highestSackedSeqNum;
     uint32_t shift = state->snd_mss;
     bool sacked = false; // required for rexmitQueue->checkSackBlock()
     bool rexmitted = false; // required for rexmitQueue->checkSackBlock()
@@ -1031,7 +1033,7 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
     bool isSeqPerRule3Valid = false;
 
     for (uint32_t s2 = rexmitQueue->getBufferStartSeq();
-         seqLess(s2, state->snd_max) && seqLess(s2, highestSackedSeqNum);
+         seqLess(s2, state->snd_max) && seqLess(s2, retransmitSearchEnd);
          s2 += shift)
     {
         //rexmitQueue->checkSackBlockIter(s2, shift, sacked, rexmitted, currIter);
