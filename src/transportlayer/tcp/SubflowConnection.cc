@@ -16,7 +16,6 @@
 #include <algorithm>
 #include "SubflowConnection.h"
 #include "MpTcpConnection.h"
-#include "flavours/MpTcpReno.h"
 
 #include <inet/common/socket/SocketTag_m.h>
 #include <inet/common/packet/Message.h>
@@ -1219,10 +1218,8 @@ uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
     else // don't measure RTT for retransmitted packets
         tcpAlgorithm->dataSent(seqNum); // seqNum = old_snd_nxt
 
-    if (sentBytes > 0) {
-        if (auto *renoAlgorithm = dynamic_cast<MpTcpReno *>(tcpAlgorithm))
-            renoAlgorithm->recoveryDataSent(sentBytes);
-    }
+    if (sentBytes > 0)
+        getPacedAlgorithm()->recoveryDataSent(sentBytes);
 
     return sentBytes;
 }
@@ -1857,8 +1854,10 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
 bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader)
 {
     EV_DETAIL << "Processing ACK in a data transfer state\n";
+    const uint32_t newlySackedBytes = m_newlySackedBytesForAck;
+    m_newlySackedBytesForAck = 0;
     uint64_t previousDelivered = m_delivered;  //RATE SAMPLER SPECIFIC STUFF
-    uint32_t previousLost = m_bytesLoss; //TODO Create Sack method to get exact amount of lost packets
+    uint64_t previousTotalDetectedLostBytes = getTotalDetectedLostBytes();
     uint32_t priorInFlight = m_bytesInFlight;//get current BytesInFlight somehow
     int payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
     beginRateSample();
@@ -1950,18 +1949,17 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
                 }
             }
 //
-            uint32_t currentDelivered  = m_delivered - previousDelivered;
+            uint32_t currentDelivered = newlySackedBytes + (m_delivered - previousDelivered);
             m_lastAckedSackedBytes = currentDelivered;
-////
-            updateInFlight();
-////
-            uint32_t currentLost = m_bytesLoss;
-            uint32_t lost = (currentLost > previousLost) ? currentLost - previousLost : 0;
-////
-            updateSample(currentDelivered, lost, false, priorInFlight, connMinRtt);
 
             bool newRackLoss = false;
             bool rackRecovery = checkRackLoss(&newRackLoss);
+            updateInFlight();
+
+            uint32_t lost = getNewlyDetectedLostBytes(
+                    previousTotalDetectedLostBytes, newRackLoss);
+            updateSample(currentDelivered, lost, false, priorInFlight, connMinRtt);
+
             if (shouldApplyRackCongestionResponse() && (rackRecovery || newRackLoss))
                 getPacedAlgorithm()->rackLossDetected();
 
@@ -2067,19 +2065,17 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
         // otherwise we would use an old ACKNo
         if (payloadLength == 0 && fsm.getState() != TCP_S_SYN_RCVD) {
 
-            uint32_t currentDelivered  = m_delivered - previousDelivered;
+            uint32_t currentDelivered = newlySackedBytes + (m_delivered - previousDelivered);
             m_lastAckedSackedBytes = currentDelivered;
-
-            updateInFlight();
-
-            uint32_t currentLost = m_bytesLoss;
-            uint32_t lost = (currentLost > previousLost) ? currentLost - previousLost : 0;
-            // notify
-
-            updateSample(currentDelivered, lost, false, priorInFlight, connMinRtt);
 
             bool newRackLoss = false;
             bool rackRecovery = checkRackLoss(&newRackLoss);
+            updateInFlight();
+
+            uint32_t lost = getNewlyDetectedLostBytes(
+                    previousTotalDetectedLostBytes, newRackLoss);
+            updateSample(currentDelivered, lost, false, priorInFlight, connMinRtt);
+
             if (shouldApplyRackCongestionResponse() && (rackRecovery || newRackLoss))
                 getPacedAlgorithm()->rackLossDetected();
 

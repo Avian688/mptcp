@@ -7,8 +7,6 @@
 
 #include "MpTcpSubflowCubic.h"
 
-#include <limits>
-
 namespace inet {
 namespace tcp {
 
@@ -316,10 +314,7 @@ void MpTcpSubflowCubic::recalculateSlowStartThreshold() {
 
 void MpTcpSubflowCubic::setRecoveryCongestionWindow()
 {
-    auto pacedConn = dynamic_cast<TcpPacedConnection *>(conn);
-    uint64_t recoveryCwnd = static_cast<uint64_t>(pacedConn->getBytesInFlight()) + state->snd_mss;
-    state->snd_cwnd = static_cast<uint32_t>(
-            std::min(recoveryCwnd, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())));
+    TcpPacedFamily::setRecoveryCongestionWindow();
 }
 
 void MpTcpSubflowCubic::processRexmitTimer(TcpEventCode &event) {
@@ -365,10 +360,13 @@ void MpTcpSubflowCubic::rackLossDetected()
         return;
 
     uint32_t old_cwnd = state->snd_cwnd;
+    bool enteredRecovery = false;
     if (!state->lossRecovery) {
         state->recoveryPoint = state->snd_max;
         pacedConn->updateInFlight();
         state->lossRecovery = true;
+        beginPrrRecovery();
+        enteredRecovery = true;
 
         recalculateSlowStartThreshold();
         setRecoveryCongestionWindow();
@@ -382,8 +380,14 @@ void MpTcpSubflowCubic::rackLossDetected()
         pacedConn->updateInFlight();
     }
 
-    if (pacedConn->doRetransmit())
-        restartRexmitTimer();
+    if (pacedConn->isRackTimerLossDetection()) {
+        if (enteredRecovery) {
+            if (pacedConn->doRetransmit())
+                restartRexmitTimer();
+        }
+        else
+            pacedConn->sendPendingData();
+    }
 }
 
 void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
@@ -407,6 +411,14 @@ void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
             EV_INFO << "Loss Recovery terminated.\n";
             state->snd_cwnd = state->ssthresh;
             state->lossRecovery = false;
+            resetPrrRecovery();
+        }
+        else {
+            const auto rateSample = dynamic_cast<TcpPacedConnection *>(conn)->getRateSample();
+            const uint32_t cumulativelyAcked = state->snd_una - firstSeqAcked;
+            const uint32_t newlyDelivered = std::max(
+                    rateSample.m_ackedSacked, cumulativelyAcked);
+            updatePrrCongestionWindow(newlyDelivered, true, rateSample.m_bytesLoss);
         }
         conn->emit(sndUnaSignal, state->snd_una);
         conn->emit(recoveryPointSignal, state->recoveryPoint);
@@ -500,12 +512,11 @@ void MpTcpSubflowCubic::receivedDuplicateAck()
                 pacedConn->setSackedHeadLostIfRackDisabled();
                 pacedConn->updateInFlight();
                 state->lossRecovery = true;
+                beginPrrRecovery();
 
                 recalculateSlowStartThreshold();
                 setRecoveryCongestionWindow();
                 EV_DETAIL << " recoveryPoint=" << state->recoveryPoint;
-
-                pacedConn->doRetransmit();
             }
         }
         // RFC 2581, page 5:
@@ -515,8 +526,8 @@ void MpTcpSubflowCubic::receivedDuplicateAck()
         // (...) the TCP sender can continue to transmit new
         // segments (although transmission must continue using a reduced cwnd)."
 
-        // enter Fast Recovery
-        // "set cwnd to ssthresh plus 3 * SMSS." (RFC 2581)
+        // PRR controls the recovery send allowance instead of duplicate-ACK
+        // inflation to ssthresh + 3 * SMSS.
         conn->emit(cwndSignal, state->snd_cwnd);
 
         EV_DETAIL << " set cwnd=" << state->snd_cwnd << ", ssthresh=" << state->ssthresh << "\n";
@@ -548,8 +559,13 @@ void MpTcpSubflowCubic::receivedDuplicateAck()
         // try to transmit new segments (RFC 2581)
     }
     else if (state->lossRecovery && state->dupacks > state->dupthresh)
-        EV_DETAIL << "Additional duplicate ACK during RACK recovery; cwnd remains "
-                  << state->snd_cwnd << "\n";
+        EV_DETAIL << "Additional duplicate ACK during RACK recovery; applying PRR credit\n";
+
+    if (state->lossRecovery) {
+        const auto rateSample = pacedConn->getRateSample();
+        updatePrrCongestionWindow(rateSample.m_ackedSacked, false,
+                rateSample.m_bytesLoss);
+    }
 
     if(state->snd_cwnd > 0){
         double paceFactor;

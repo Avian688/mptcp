@@ -25,11 +25,6 @@ class INET_API MpTcpReno : public MpTcpFamily
     uint32_t maxBytesInFlightForCwnd = 0;
     uint32_t cwndUsageSeq = 0;
 
-    bool prrActive = false;
-    uint64_t prrDeliveredPackets = 0;
-    uint64_t prrOutPackets = 0;
-    uint64_t prrPriorCwndPackets = 0;
-
     virtual TcpStateVariables *createStateVariables() override
     {
         return new TcpTahoeRenoFamilyStateVariables();
@@ -43,17 +38,9 @@ class INET_API MpTcpReno : public MpTcpFamily
 
     virtual bool isConnectionCwndLimited();
 
+    virtual bool usesPrrRecovery() const override { return true; }
+
     virtual void setRecoveryCongestionWindow() override;
-
-    virtual void beginPrrRecovery();
-
-    virtual void resetPrrRecovery();
-
-    virtual void updatePrrCongestionWindow(uint32_t newlyDeliveredBytes,
-                                           bool sndUnaAdvanced,
-                                           uint32_t newlyLostBytes);
-
-    virtual uint64_t packetsForBytes(uint64_t bytes) const;
 
   public:
     virtual void initialize() override;
@@ -61,8 +48,6 @@ class INET_API MpTcpReno : public MpTcpFamily
     virtual void established(bool active) override;
 
     virtual void dataSent(uint32_t fromseq) override;
-
-    virtual void recoveryDataSent(uint32_t bytes);
 
     virtual void recalculateSlowStartThreshold();
 

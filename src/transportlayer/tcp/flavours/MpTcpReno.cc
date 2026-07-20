@@ -145,89 +145,7 @@ bool MpTcpReno::isConnectionCwndLimited()
 
 void MpTcpReno::setRecoveryCongestionWindow()
 {
-    auto *pacedConnection = check_and_cast<TcpPacedConnection *>(conn);
-    const uint64_t recoveryCwnd = static_cast<uint64_t>(pacedConnection->getBytesInFlight()) +
-            state->snd_mss;
-    state->snd_cwnd = static_cast<uint32_t>(
-            std::min(recoveryCwnd, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())));
-}
-
-uint64_t MpTcpReno::packetsForBytes(uint64_t bytes) const
-{
-    if (bytes == 0 || state == nullptr || state->snd_mss == 0)
-        return 0;
-
-    return (bytes + state->snd_mss - 1) / state->snd_mss;
-}
-
-void MpTcpReno::beginPrrRecovery()
-{
-    if (state == nullptr || state->snd_mss == 0)
-        return;
-
-    prrActive = true;
-    prrDeliveredPackets = 0;
-    prrOutPackets = 0;
-    prrPriorCwndPackets = std::max<uint64_t>(state->snd_cwnd / state->snd_mss, 1);
-}
-
-void MpTcpReno::resetPrrRecovery()
-{
-    prrActive = false;
-    prrDeliveredPackets = 0;
-    prrOutPackets = 0;
-    prrPriorCwndPackets = 0;
-}
-
-void MpTcpReno::recoveryDataSent(uint32_t bytes)
-{
-    if (prrActive && state != nullptr && state->lossRecovery)
-        prrOutPackets += packetsForBytes(bytes);
-}
-
-void MpTcpReno::updatePrrCongestionWindow(uint32_t newlyDeliveredBytes,
-        bool sndUnaAdvanced, uint32_t newlyLostBytes)
-{
-    if (!prrActive || state == nullptr || !state->lossRecovery ||
-            state->snd_mss == 0 || prrPriorCwndPackets == 0)
-        return;
-
-    const uint64_t newlyDeliveredPackets = packetsForBytes(newlyDeliveredBytes);
-    if (newlyDeliveredPackets == 0)
-        return;
-
-    prrDeliveredPackets += newlyDeliveredPackets;
-
-    const uint64_t inFlightPackets = packetsForBytes(state->pipe);
-    const uint64_t ssthreshPackets = std::max<uint64_t>(state->ssthresh / state->snd_mss, 1);
-    const int64_t delta = static_cast<int64_t>(ssthreshPackets) -
-            static_cast<int64_t>(inFlightPackets);
-
-    uint64_t sendCount = 0;
-    if (delta < 0) {
-        const uint64_t targetOut =
-                (ssthreshPackets * prrDeliveredPackets + prrPriorCwndPackets - 1) /
-                prrPriorCwndPackets;
-        if (targetOut > prrOutPackets)
-            sendCount = targetOut - prrOutPackets;
-    }
-    else {
-        const uint64_t deliveredCredit = prrDeliveredPackets > prrOutPackets ?
-                prrDeliveredPackets - prrOutPackets : 0;
-        sendCount = std::max(deliveredCredit, newlyDeliveredPackets);
-        if (sndUnaAdvanced && newlyLostBytes == 0)
-            sendCount++;
-        sendCount = std::min(sendCount, static_cast<uint64_t>(delta));
-    }
-
-    // Linux always permits the first recovery retransmission.
-    if (prrOutPackets == 0)
-        sendCount = std::max<uint64_t>(sendCount, 1);
-
-    const uint64_t recoveryCwnd = static_cast<uint64_t>(state->pipe) +
-            sendCount * state->snd_mss;
-    state->snd_cwnd = static_cast<uint32_t>(
-            std::min(recoveryCwnd, static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())));
+    TcpPacedFamily::setRecoveryCongestionWindow();
 }
 
 void MpTcpReno::processRexmitTimer(TcpEventCode& event)
@@ -280,10 +198,14 @@ void MpTcpReno::rackLossDetected()
         pacedConnection->updateInFlight();
     }
 
-    // The first retransmission is forced when entering recovery. Later sends
-    // must wait for PRR to expose cwnd - pipe credit on the current ACK.
-    if (enteredRecovery && pacedConnection->doRetransmit())
-        restartRexmitTimer();
+    if (pacedConnection->isRackTimerLossDetection()) {
+        if (enteredRecovery) {
+            if (pacedConnection->doRetransmit())
+                restartRexmitTimer();
+        }
+        else
+            pacedConnection->sendPendingData();
+    }
 }
 
 void MpTcpReno::receivedDataAck(uint32_t firstSeqAcked)
@@ -357,7 +279,6 @@ void MpTcpReno::receivedDuplicateAck()
 
             recalculateSlowStartThreshold();
             setRecoveryCongestionWindow();
-            pacedConnection->doRetransmit();
         }
 
         if (state->lossRecovery)
