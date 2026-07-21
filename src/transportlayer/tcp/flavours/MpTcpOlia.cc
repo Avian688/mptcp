@@ -57,7 +57,7 @@ void MpTcpOlia::recalculateSlowStartThreshold()
     if (state->snd_mss == 0)
         return;
     const uint32_t cwndPackets = std::max(state->snd_cwnd / state->snd_mss, 1U);
-    const uint32_t thresholdPackets = std::max(cwndPackets / 2, 2U);
+    const uint32_t thresholdPackets = std::max(cwndPackets / 2, 1U);
     state->ssthresh = thresholdPackets * state->snd_mss;
     conn->emit(ssthreshSignal, state->ssthresh);
     conn->emit(cwndSegSignal, cwndPackets);
