@@ -16,6 +16,7 @@
 #ifndef TRANSPORTLAYER_TCP_SUBFLOWCONNECTION_H_
 #define TRANSPORTLAYER_TCP_SUBFLOWCONNECTION_H_
 
+#include <cstdint>
 #include <map>
 #include <queue>
 
@@ -97,13 +98,27 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual simtime_t getSchedulingRto() const;
 
-    virtual bool canAcceptScheduledData(uint32_t bytes) const;
+    virtual bool canAcceptScheduledData(uint32_t bytes);
 
-    virtual bool canAcceptRetransmission(uint32_t bytes) const;
+    virtual bool canAcceptRetransmission(uint32_t bytes);
 
-    virtual bool isActiveForDefaultScheduler() const;
+    virtual bool isActiveForDefaultScheduler();
 
-    virtual bool canUseDefaultScheduler(uint32_t bytes) const;
+    virtual bool canUseDefaultScheduler(uint32_t bytes);
+
+    virtual bool isTransportActiveForScheduler() const;
+
+    virtual bool hasPendingTcpDataForStaleCheck() const;
+
+    virtual void recordSchedulerReceiveActivity();
+
+    virtual void updateSchedulerStaleCount();
+
+    virtual void markSchedulerStale();
+
+    virtual bool isSchedulerStale() const { return schedulerStale; }
+
+    virtual uint8_t getSchedulerStaleCount() const { return schedulerStaleCount; }
 
     virtual uint32_t getDefaultSchedulerWriteLimit() const;
 
@@ -146,6 +161,13 @@ class SubflowConnection : public MpTcpConnectionBase
     std::map<uint32_t, DsnMapping> sentDsnMapping;
     std::map<uint32_t, DsnMapping> receivedDsnMapping;
     std::map<uint32_t, DsnMapping> pendingDsnMapping;
+    simtime_t schedulerHandshakeTransmitTime = SIMTIME_ZERO;
+    simtime_t schedulerHandshakeRtt = SIMTIME_ZERO;
+    bool schedulerHandshakeTransmitTimeValid = false;
+    uint64_t schedulerReceiveEpoch = 0;
+    uint64_t schedulerStaleReceiveEpoch = 0;
+    uint8_t schedulerStaleCount = 0;
+    bool schedulerStale = false;
 
     virtual void initConnection(TcpOpenCommand *openCmd) override;
 
@@ -200,6 +222,12 @@ class SubflowConnection : public MpTcpConnectionBase
     virtual bool translateAckToMetaLevel(uint32_t discardUpToSeq, uint32_t& metaAckNo);
 
     virtual bool consumePendingDsnMapping(uint32_t subflowSeqNo, uint32_t bytes, uint32_t& dsnStart);
+
+    virtual uint32_t getDataAckToSend() const;
+
+    virtual void recordSchedulerHandshakeTransmit();
+
+    virtual void completeSchedulerHandshakeRtt();
 };
 
 } // namespace tcp

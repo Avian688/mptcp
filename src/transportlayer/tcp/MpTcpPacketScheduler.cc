@@ -75,11 +75,40 @@ SubflowConnection *MpTcpPacketScheduler::schedulePacket(SubflowConnection *reque
     return scheduleDefault(requester, schedulableBytes);
 }
 
+void MpTcpPacketScheduler::pushPendingData(uint32_t bytes)
+{
+    if (connection == nullptr || bytes == 0)
+        return;
+
+    if (usesDirectPullMode()) {
+        for (SubflowConnection *subflow : connection->getSubflows()) {
+            if (subflow != nullptr && subflow->canAcceptScheduledData(bytes))
+                subflow->invokeSendCommand();
+        }
+        return;
+    }
+
+    // There is no requester in this path: the meta connection is re-entering
+    // the scheduler after a DATA_ACK opened space, so wake whichever subflows
+    // the configured scheduler selects.
+    schedulePacket(nullptr, bytes);
+}
+
 SubflowConnection *MpTcpPacketScheduler::selectRetransmissionSubflow(SubflowConnection *source, uint32_t bytes,
         bool requireIdle) const
 {
     if (connection == nullptr || bytes == 0)
         return nullptr;
+
+    // Linux updates stale state while mptcp_subflow_get_retrans() scans
+    // transport-active subflows whose TCP retransmit/write queues are not
+    // empty. Do this only for the normal idle-subflow reinjection path.
+    if (requireIdle) {
+        for (SubflowConnection *subflow : connection->getSubflows()) {
+            if (subflow != nullptr && subflow->hasPendingTcpDataForStaleCheck())
+                connection->checkSubflowStale(subflow);
+        }
+    }
 
     auto select = [&](bool requireIdle, bool excludeSource) {
         SubflowConnection *bestSubflow = nullptr;

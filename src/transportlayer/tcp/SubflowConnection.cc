@@ -14,6 +14,8 @@
 // 
 
 #include <algorithm>
+#include <iterator>
+#include <limits>
 #include "SubflowConnection.h"
 #include "MpTcpConnection.h"
 
@@ -126,6 +128,8 @@ void SubflowConnection::sendSyn()
 
     if (localPort == -1)
         throw cRuntimeError(tcpMain, "Error processing command OPEN_ACTIVE: local port unspecified");
+
+    recordSchedulerHandshakeTransmit();
 
     // create segment
     const auto& tcpHeader = makeShared<TcpHeader>();
@@ -531,6 +535,8 @@ TcpEventCode SubflowConnection::process_RCV_SEGMENT(Packet *tcpSegment, const Pt
     printSegmentBrief(tcpSegment, tcpHeader);
     EV_DETAIL << "TCB: " << state->str() << "\n";
 
+    recordSchedulerReceiveActivity();
+
     emit(rcvSeqSignal, tcpHeader->getSequenceNo());
     emit(rcvAckSignal, tcpHeader->getAckNo());
 
@@ -681,6 +687,7 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     calculateAppLimited();
 
     tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(metaSnd_nxt);
+    tcpHeader->addTagIfAbsent<DataAckTag>()->setDataAck(getDataAckToSend());
     if (isFirstTransmission)
         rememberSentDsnMapping(tcpHeader->getSequenceNo(), metaSnd_nxt, sentBytes);
 
@@ -757,7 +764,10 @@ simtime_t SubflowConnection::getSchedulingRtt() const
         return SIMTIME_MAX;
 
     const simtime_t srtt = pacedAlgorithm->getRtt();
-    return srtt > SIMTIME_ZERO ? srtt : SIMTIME_MAX;
+    if (srtt > SIMTIME_ZERO)
+        return srtt;
+
+    return schedulerHandshakeRtt > SIMTIME_ZERO ? schedulerHandshakeRtt : SIMTIME_MAX;
 }
 
 simtime_t SubflowConnection::getSchedulingRto() const
@@ -776,21 +786,40 @@ simtime_t SubflowConnection::getSchedulingRto() const
 
 uint32_t SubflowConnection::getOutstandingDsnBytes(uint32_t dsn) const
 {
-    for (const auto& entry : sentDsnMapping) {
-        const DsnMapping& mapping = entry.second;
-        if (seqLE(mapping.dsnStart, dsn) && seqLess(dsn, mapping.dsnEnd))
-            return mapping.dsnEnd - dsn;
-    }
-    return 0;
+    auto getContiguousBytes = [dsn](const std::map<uint32_t, DsnMapping>& mappings) {
+        for (auto it = mappings.begin(); it != mappings.end(); ++it) {
+            const DsnMapping& mapping = it->second;
+            if (!seqLE(mapping.dsnStart, dsn) || !seqLess(dsn, mapping.dsnEnd))
+                continue;
+
+            uint32_t dsnEnd = mapping.dsnEnd;
+            uint32_t subflowSeqEnd = it->first + mapping.dsnEnd - mapping.dsnStart;
+            for (auto next = std::next(it); next != mappings.end(); ++next) {
+                const DsnMapping& nextMapping = next->second;
+                if (next->first != subflowSeqEnd || nextMapping.dsnStart != dsnEnd)
+                    break;
+
+                dsnEnd = nextMapping.dsnEnd;
+                subflowSeqEnd = next->first + nextMapping.dsnEnd - nextMapping.dsnStart;
+            }
+            return dsnEnd - dsn;
+        }
+        return uint32_t(0);
+    };
+
+    const uint32_t sentBytes = getContiguousBytes(sentDsnMapping);
+    if (sentBytes > 0)
+        return sentBytes;
+
+    // Linux considers bytes handed to a subflow's TCP write queue to have
+    // already been sent at the MPTCP level. pendingDsnMapping is the local
+    // equivalent, even if TCP has not put those bytes on the wire yet.
+    return getContiguousBytes(pendingDsnMapping);
 }
 
-bool SubflowConnection::canAcceptScheduledData(uint32_t bytes) const
+bool SubflowConnection::canAcceptScheduledData(uint32_t bytes)
 {
-    if (state == nullptr || sendQueue == nullptr)
-        return false;
-
-    const int currentState = fsm.getState();
-    if (currentState != TCP_S_ESTABLISHED && currentState != TCP_S_CLOSE_WAIT)
+    if (!isActiveForDefaultScheduler())
         return false;
 
     const uint32_t alreadyQueued = sendQueue->getBytesAvailable(sendQueue->getBufferStartSeq());
@@ -798,9 +827,13 @@ bool SubflowConnection::canAcceptScheduledData(uint32_t bytes) const
     return alreadyQueued <= queueLimit && bytes <= queueLimit - alreadyQueued;
 }
 
-bool SubflowConnection::canAcceptRetransmission(uint32_t bytes) const
+bool SubflowConnection::canAcceptRetransmission(uint32_t bytes)
 {
-    if (!canAcceptScheduledData(bytes))
+    // Linux mptcp_subflow_get_retrans() requires an active subflow with empty
+    // TCP retransmit and write queues. It does not require an entire MPTCP
+    // fragment to fit in cwnd; TCP applies cwnd/rwnd when it transmits the
+    // bytes copied into that idle subflow's write queue.
+    if (!isTransportActiveForScheduler())
         return false;
 
     if (state->snd_una != state->snd_max || state->snd_nxt != state->snd_max)
@@ -809,10 +842,13 @@ bool SubflowConnection::canAcceptRetransmission(uint32_t bytes) const
     if (getSchedulerQueuedBytes() != 0)
         return false;
 
-    return std::max(m_bytesInFlight, state->pipe) == 0;
+    if (std::max(m_bytesInFlight, state->pipe) != 0)
+        return false;
+
+    return bytes <= getDefaultSchedulerWriteLimit();
 }
 
-bool SubflowConnection::canUseDefaultScheduler(uint32_t bytes) const
+bool SubflowConnection::canUseDefaultScheduler(uint32_t bytes)
 {
     if (!isActiveForDefaultScheduler())
         return false;
@@ -836,7 +872,7 @@ uint32_t SubflowConnection::getDefaultSchedulerWriteLimit() const
     return DEFAULT_MPTCP_SEND_QUEUE_LIMIT;
 }
 
-bool SubflowConnection::isActiveForDefaultScheduler() const
+bool SubflowConnection::isTransportActiveForScheduler() const
 {
     if (state == nullptr || sendQueue == nullptr ||
             dynamic_cast<TcpPacedFamily *>(tcpAlgorithm) == nullptr)
@@ -844,6 +880,67 @@ bool SubflowConnection::isActiveForDefaultScheduler() const
 
     const int currentState = fsm.getState();
     return currentState == TCP_S_ESTABLISHED || currentState == TCP_S_CLOSE_WAIT;
+}
+
+bool SubflowConnection::isActiveForDefaultScheduler()
+{
+    if (!isTransportActiveForScheduler())
+        return false;
+
+    if (!schedulerStale)
+        return true;
+
+    if (schedulerStaleReceiveEpoch == schedulerReceiveEpoch)
+        return false;
+
+    schedulerStale = false;
+    EV_INFO << "MPTCP subflow " << socketId << " is active again after receiving traffic\n";
+    return true;
+}
+
+bool SubflowConnection::hasPendingTcpDataForStaleCheck() const
+{
+    if (state == nullptr || sendQueue == nullptr)
+        return false;
+
+    return state->snd_una != state->snd_max ||
+            state->snd_nxt != state->snd_max ||
+            getSchedulerQueuedBytes() != 0;
+}
+
+void SubflowConnection::recordSchedulerReceiveActivity()
+{
+    schedulerReceiveEpoch++;
+}
+
+void SubflowConnection::updateSchedulerStaleCount()
+{
+    if (schedulerStaleCount == 0) {
+        schedulerStaleReceiveEpoch = schedulerReceiveEpoch;
+        schedulerStaleCount++;
+    }
+    else if (schedulerStaleReceiveEpoch == schedulerReceiveEpoch) {
+        if (schedulerStaleCount < std::numeric_limits<uint8_t>::max())
+            schedulerStaleCount++;
+    }
+    else {
+        schedulerStaleCount = 0;
+        if (schedulerStale) {
+            schedulerStale = false;
+            EV_INFO << "MPTCP subflow " << socketId << " recovered from stale state\n";
+        }
+    }
+}
+
+void SubflowConnection::markSchedulerStale()
+{
+    if (schedulerStale)
+        return;
+
+    schedulerStale = true;
+    EV_INFO << "MPTCP subflow " << socketId << " marked stale after "
+            << static_cast<unsigned int>(schedulerStaleCount)
+            << " retransmission periods without receive activity\n";
 }
 
 void SubflowConnection::enqueueScheduledData(uint32_t bytes)
@@ -923,10 +1020,32 @@ uint32_t SubflowConnection::getSchedulerQueueLimit() const
 
 double SubflowConnection::getSchedulerPacingRateBytesPerSecond() const
 {
-    if (state == nullptr || intersendingTime <= SIMTIME_ZERO)
+    if (state == nullptr || state->snd_mss == 0)
         return 0.0;
 
-    return static_cast<double>(state->snd_mss) / intersendingTime.dbl();
+    auto *pacedAlgorithm = dynamic_cast<TcpPacedFamily *>(tcpAlgorithm);
+    if (pacedAlgorithm == nullptr)
+        return 0.0;
+
+    // Once TCP has a data RTT sample, use the rate selected by the
+    // congestion-control flavour, just as Linux MPTCP reads sk_pacing_rate.
+    if (pacedAlgorithm->getRtt() > SIMTIME_ZERO && intersendingTime > SIMTIME_ZERO)
+        return static_cast<double>(state->snd_mss) / intersendingTime.dbl();
+
+    // Before the first data ACK, Linux initializes pacing from the handshake
+    // RTT and max(cwnd, packets_out), at 200% in slow start and 120% in
+    // congestion avoidance. Do not expose the simulator's 1 us bootstrap
+    // interval to the MPTCP scheduler.
+    if (schedulerHandshakeRtt <= SIMTIME_ZERO)
+        return 0.0;
+
+    const uint32_t window = std::max(pacedAlgorithm->getCwnd(), m_bytesInFlight);
+    if (window == 0)
+        return 0.0;
+
+    const uint32_t ssthresh = pacedAlgorithm->getSsthresh();
+    const double pacingRatio = ssthresh > 0 && window < ssthresh / 2 ? 2.0 : 1.2;
+    return pacingRatio * static_cast<double>(window) / schedulerHandshakeRtt.dbl();
 }
 
 bool SubflowConnection::sendPendingData()
@@ -1408,8 +1527,6 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
         return TCP_E_IGNORE;
     }
 
-    uint32_t old_snd_una = state->snd_una;
-
     TcpEventCode event = TCP_E_IGNORE;
 
     if (fsm.getState() == TCP_S_SYN_RCVD) {
@@ -1430,6 +1547,7 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
         }
 
         // notify tcpAlgorithm and app layer
+        completeSchedulerHandshakeRtt();
         tcpAlgorithm->established(false);
 
         if (isToBeAccepted())
@@ -1623,23 +1741,7 @@ TcpEventCode SubflowConnection::processSegment1stThru8th(Packet *tcpSegment, con
 
                 uint32_t old_usedRcvBuffer = state->usedRcvBuffer;
 
-                if(tcpHeader->findTag<DataSequenceNumberTag>()){
-                    dsn_rcv_nxt = receiveQueue->getRE(tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber());
-                }
-
                 state->rcv_nxt = insertPayloadAndRememberDsn(tcpSegment, tcpHeader);
-
-                if (seqGreater(state->snd_una, old_snd_una)) {
-
-                    // notify
-                    tcpAlgorithm->receivedDataAck(old_snd_una);
-
-                    metaConn->receivedUpTo(old_snd_una);
-                    // in the receivedDataAck we need the old value
-                    state->dupacks = 0;
-
-                    emit(dupAcksSignal, state->dupacks);
-                }
 
                 // out-of-order segment?
                 if (old_rcv_nxt == state->rcv_nxt) {
@@ -1862,6 +1964,13 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
     int payloadLength = tcpSegment->getByteLength() - B(tcpHeader->getHeaderLength()).get();
     beginRateSample();
 
+    bool hasDataAck = false;
+    uint32_t dataAckNo = 0;
+    if (metaConn != nullptr && tcpHeader->findTag<DataAckTag>()) {
+        hasDataAck = true;
+        dataAckNo = tcpHeader->getTag<DataAckTag>()->getDataAck();
+    }
+
     // ECN
     TcpStateVariables *state = getState();
     if (state && state->ect) {
@@ -1869,11 +1978,6 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
             EV_INFO << "Received packet with ECE\n";
 
         state->gotEce = tcpHeader->getEceBit();
-    }
-
-    if (payloadLength == 0 && metaConn != nullptr && tcpHeader->findTag<DataSequenceNumberTag>()) {
-        const uint32_t dataAckNo = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
-        metaConn->receivedUpTo(dataAckNo);
     }
 
     //
@@ -2108,11 +2212,20 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
         emit(dupAcksSignal, state->dupacks);
         return false; // means "drop"
     }
+
+    // Linux processes MPTCP options after tcp_ack(), so only update the
+    // connection-level ACK and push pending data after this subflow has
+    // completed its own ACK processing.
+    if (hasDataAck)
+        metaConn->receivedUpTo(dataAckNo);
+
     return true;
 }
 
 void SubflowConnection::sendSynAck()
 {
+    recordSchedulerHandshakeTransmit();
+
     // create segment
     const auto& tcpHeader = makeShared<TcpHeader>();
     tcpHeader->setSequenceNo(state->iss);
@@ -2198,8 +2311,7 @@ void SubflowConnection::sendAck()
     // write header options
     writeHeaderOptions(tcpHeader);
 
-    const uint32_t dataAckNo = metaConn != nullptr ? metaConn->getRcvNxt() : state->rcv_nxt;
-    tcpHeader->addTagIfAbsent<DataSequenceNumberTag>()->setDataSequenceNumber(dataAckNo);
+    tcpHeader->addTagIfAbsent<DataAckTag>()->setDataAck(getDataAckToSend());
 
     Packet *fp = new Packet("TcpAck");
 
@@ -2279,11 +2391,6 @@ TcpEventCode SubflowConnection::processSynInListen(Packet *tcpSegment, const Ptr
 
         if (hasEnoughSpaceForSegmentInReceiveQueue(tcpSegment, tcpHeader)) { // enough freeRcvBuffer in rcvQueue for new segment?
             insertPayloadAndRememberDsn(tcpSegment, tcpHeader);
-
-            if(tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber() == 0){
-               std::cout << "\n ERROR FOUND: " << endl;
-            }
-
         }
         else { // not enough freeRcvBuffer in rcvQueue for new segment
             state->tcpRcvQueueDrops++; // update current number of tcp receive queue drops
@@ -2463,6 +2570,7 @@ TcpEventCode SubflowConnection::processSegmentInSynSent(Packet *tcpSegment, cons
 
             // notify tcpAlgorithm (it has to send ACK of SYN) and app layer
             state->ack_now = true;
+            completeSchedulerHandshakeRtt();
             tcpAlgorithm->established(true);
             tcpMain->emit(Tcp::tcpConnectionAddedSignal, this);
             sendEstabIndicationToApp();
@@ -2704,7 +2812,13 @@ uint32_t SubflowConnection::insertPayloadAndRememberDsn(Packet *tcpSegment, cons
         }
     }
 
-    const uint32_t dsnStart = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
+    const auto& mappingTag = tcpHeader->findTag<DataSequenceNumberTag>();
+    if (mappingTag == nullptr)
+        throw cRuntimeError(this,
+                "MPTCP payload at subflow sequence %u has no DSS data mapping",
+                subflowSeqNo);
+
+    const uint32_t dsnStart = mappingTag->getDataSequenceNumber();
     rememberReceivedDsnMapping(subflowSeqNo + duplicatePrefix,
                                dsnStart + duplicatePrefix,
                                payloadLength - duplicatePrefix);
@@ -2763,6 +2877,31 @@ bool SubflowConnection::consumePendingDsnMapping(uint32_t subflowSeqNo, uint32_t
     }
 
     return true;
+}
+
+uint32_t SubflowConnection::getDataAckToSend() const
+{
+    if (metaConn == nullptr)
+        throw cRuntimeError(this, "MPTCP subflow cannot send a DATA_ACK without its meta connection");
+
+    return metaConn->getDataAck();
+}
+
+void SubflowConnection::recordSchedulerHandshakeTransmit()
+{
+    schedulerHandshakeTransmitTime = simTime();
+    schedulerHandshakeTransmitTimeValid = true;
+}
+
+void SubflowConnection::completeSchedulerHandshakeRtt()
+{
+    if (!schedulerHandshakeTransmitTimeValid)
+        return;
+
+    const simtime_t sample = simTime() - schedulerHandshakeTransmitTime;
+    schedulerHandshakeTransmitTimeValid = false;
+    if (sample > SIMTIME_ZERO)
+        schedulerHandshakeRtt = sample;
 }
 
 }

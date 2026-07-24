@@ -30,6 +30,7 @@ Define_Module(MpTcpConnection);
 
 namespace {
 constexpr uint32_t DEFAULT_MPTCP_SEND_QUEUE_LIMIT = 4U * 1024U * 1024U;
+constexpr uint8_t DEFAULT_MPTCP_STALE_LOSS_COUNT = 4;
 }
 
 simsignal_t MpTcpConnection::holBlockedBytesSignal = registerSignal("holBlockedBytes");
@@ -709,6 +710,7 @@ void MpTcpConnection::prepareForRemoval()
         return;
 
     teardownInProgress = true;
+    staleSubflowNeedsPush = false;
     cancelMetaRexmitTimer();
     flowScheduler.cancelPendingSubflowCreations();
 }
@@ -749,6 +751,14 @@ uint32_t MpTcpConnection::getSendBufferRemaining() const
     return outstandingBytes < sendBufferLimit ? sendBufferLimit - outstandingBytes : 0;
 }
 
+uint32_t MpTcpConnection::getDataAck() const
+{
+    if (state == nullptr)
+        throw cRuntimeError(this, "Cannot generate an MPTCP DATA_ACK before the meta receive state is initialized");
+
+    return state->rcv_nxt;
+}
+
 bool MpTcpConnection::canSchedulePartialSegment(uint32_t bytes) const
 {
     return bytes > 0 && state != nullptr && sendQueue != nullptr && state->send_fin &&
@@ -779,6 +789,35 @@ SubflowConnection *MpTcpConnection::findSubflowForDsn(uint32_t dsn) const
     return nullptr;
 }
 
+bool MpTcpConnection::checkSubflowStale(SubflowConnection *subflow)
+{
+    if (subflow == nullptr || !subflow->isTransportActiveForScheduler() ||
+            !subflow->hasPendingTcpDataForStaleCheck())
+        return false;
+
+    subflow->updateSchedulerStaleCount();
+    if (subflow->isSchedulerStale() ||
+            subflow->getSchedulerStaleCount() <= DEFAULT_MPTCP_STALE_LOSS_COUNT)
+        return false;
+
+    const uint8_t activeMaxLossCount =
+            std::max<uint8_t>(DEFAULT_MPTCP_STALE_LOSS_COUNT - 1, 1);
+    for (SubflowConnection *alternative : m_subflows) {
+        if (alternative == nullptr || alternative == subflow)
+            continue;
+
+        if (alternative->isActiveForDefaultScheduler() &&
+                alternative->getSchedulerStaleCount() < activeMaxLossCount)
+        {
+            subflow->markSchedulerStale();
+            staleSubflowNeedsPush = true;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowConnection *requester, uint32_t bytes)
 {
     Enter_Method_Silent("dispatchPendingMetaRetransmission");
@@ -794,15 +833,15 @@ SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowCon
 
     pendingMetaRetransmitDsn = dsn;
     SubflowConnection *source = findSubflowForDsn(dsn);
-    uint32_t retransmitBytes = std::min(bytes, sendQueue->getBytesAvailable(dsn));
+    uint32_t retransmitLimit = sendQueue->getBytesAvailable(dsn);
     if (source != nullptr) {
         const uint32_t mappedBytes = source->getOutstandingDsnBytes(dsn);
-        retransmitBytes = std::min(retransmitBytes, mappedBytes);
+        retransmitLimit = std::min(retransmitLimit, mappedBytes);
     }
-    if (retransmitBytes == 0)
+    if (retransmitLimit == 0)
         return nullptr;
 
-    SubflowConnection *target = packetScheduler.selectRetransmissionSubflow(source, retransmitBytes);
+    SubflowConnection *target = packetScheduler.selectRetransmissionSubflow(source, retransmitLimit);
     if (target == nullptr)
         return nullptr;
 
@@ -814,7 +853,7 @@ SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowCon
     const uint32_t writeSpace = queuedBytes < writeLimit ? writeLimit - queuedBytes : 0;
     const uint32_t outstandingBytes = state->snd_max - dsn;
     const uint32_t retransmittedBytes = std::min({
-            sendQueue->getBytesAvailable(dsn), outstandingBytes, writeSpace,
+            retransmitLimit, outstandingBytes, writeSpace,
             MpTcpPacketScheduler::DEFAULT_SEND_BURST_SIZE});
     if (retransmittedBytes == 0 ||
             !target->enqueueRetransmissionData(dsn, retransmittedBytes, true))
@@ -839,7 +878,7 @@ simtime_t MpTcpConnection::getMetaRexmitDelay() const
 {
     simtime_t delay = SimTime(200, SIMTIME_MS);
     for (SubflowConnection *subflow : m_subflows) {
-        if (subflow == nullptr)
+        if (subflow == nullptr || subflow->getSchedulerStaleCount() != 0)
             continue;
 
         const simtime_t subflowRto = subflow->getSchedulingRto();
@@ -888,6 +927,12 @@ void MpTcpConnection::processMetaRexmitTimer()
     metaRetransmissionPending = true;
     if (dispatchPendingMetaRetransmission(nullptr, state->snd_mss) == nullptr)
         metaRetransmissionPending = false;
+
+    if (staleSubflowNeedsPush) {
+        staleSubflowNeedsPush = false;
+        packetScheduler.pushPendingData(state->snd_mss);
+    }
+
     armMetaRexmitTimer(false);
 }
 
@@ -1652,13 +1697,11 @@ bool MpTcpConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const T
     //"
     // Note: should use SND.MAX instead of SND.NXT in above checks
     //
-    uint32_t dsnAckNo;
-    if(tcpHeader->findTag<DataSequenceNumberTag>()){
-        dsnAckNo = tcpHeader->getTag<DataSequenceNumberTag>()->getDataSequenceNumber();
-    }
-    else{
-        dsnAckNo = tcpHeader->getAckNo();
-    }
+    const auto& dataAckTag = tcpHeader->findTag<DataAckTag>();
+    if (dataAckTag == nullptr)
+        return true;
+
+    const uint32_t dsnAckNo = dataAckTag->getDataAck();
     if (seqGE(state->snd_una, dsnAckNo)) {
         //
         // duplicate ACK? A received TCP segment is a duplicate ACK if all of
@@ -1919,6 +1962,12 @@ void MpTcpConnection::receivedUpTo(uint32_t toSeqNo)
         }
 
     }
+
+    // Linux checks for pending MPTCP data whenever a valid DATA_ACK leaves
+    // connection-level send-window space, even if the DATA_ACK itself did not
+    // advance. schedulePacket() performs the equivalent window/data checks.
+    if (seqLE(ackNo, state->snd_max))
+        packetScheduler.pushPendingData(state->snd_mss);
 }
 
 void MpTcpConnection::receivedSynListen(uint32_t seqNo, uint32_t iss)

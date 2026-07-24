@@ -91,9 +91,14 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual SubflowConnection *dispatchPendingMetaRetransmission(SubflowConnection *requester, uint32_t bytes);
 
+    virtual bool checkSubflowStale(SubflowConnection *subflow);
+
     virtual uint32_t getSndNxt() {return state->snd_nxt;};
 
     virtual uint32_t getRcvNxt() {return state->rcv_nxt;};
+
+    /** Return the connection-level DSN ACK, equivalent to Linux msk->ack_seq. */
+    virtual uint32_t getDataAck() const;
 
     virtual const L3Address& getLocalAddressForSubflows() const { return localAddr; }
 
@@ -163,6 +168,7 @@ class MpTcpConnection : public MpTcpConnectionBase
     cMessage *metaRexmitTimer = nullptr;
     cMessage *metaRemovalTimer = nullptr;
     bool metaRetransmissionPending = false;
+    bool staleSubflowNeedsPush = false;
     bool teardownInProgress = false;
     bool issuingSubflowClose = false;
     bool subflowCloseStarted = false;

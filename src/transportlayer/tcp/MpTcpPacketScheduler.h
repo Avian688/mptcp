@@ -43,6 +43,9 @@ class MpTcpPacketScheduler
 
     SubflowConnection *schedulePacket(SubflowConnection *requester, uint32_t bytes);
 
+    /** Push newly available meta-level data through the selected scheduler. */
+    void pushPendingData(uint32_t bytes);
+
     SubflowConnection *selectRetransmissionSubflow(SubflowConnection *source, uint32_t bytes,
                                                    bool requireIdle = true) const;
 

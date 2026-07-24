@@ -504,6 +504,358 @@ void DataSequenceNumberTagDescriptor::setFieldStructValuePointer(omnetpp::any_pt
     }
 }
 
+Register_Class(DataAckTag)
+
+DataAckTag::DataAckTag() : ::inet::TagBase()
+{
+}
+
+DataAckTag::DataAckTag(const DataAckTag& other) : ::inet::TagBase(other)
+{
+    copy(other);
+}
+
+DataAckTag::~DataAckTag()
+{
+}
+
+DataAckTag& DataAckTag::operator=(const DataAckTag& other)
+{
+    if (this == &other) return *this;
+    ::inet::TagBase::operator=(other);
+    copy(other);
+    return *this;
+}
+
+void DataAckTag::copy(const DataAckTag& other)
+{
+    this->dataAck = other.dataAck;
+}
+
+void DataAckTag::parsimPack(omnetpp::cCommBuffer *b) const
+{
+    ::inet::TagBase::parsimPack(b);
+    doParsimPacking(b,this->dataAck);
+}
+
+void DataAckTag::parsimUnpack(omnetpp::cCommBuffer *b)
+{
+    ::inet::TagBase::parsimUnpack(b);
+    doParsimUnpacking(b,this->dataAck);
+}
+
+unsigned int DataAckTag::getDataAck() const
+{
+    return this->dataAck;
+}
+
+void DataAckTag::setDataAck(unsigned int dataAck)
+{
+    this->dataAck = dataAck;
+}
+
+class DataAckTagDescriptor : public omnetpp::cClassDescriptor
+{
+  private:
+    mutable const char **propertyNames;
+    enum FieldConstants {
+        FIELD_dataAck,
+    };
+  public:
+    DataAckTagDescriptor();
+    virtual ~DataAckTagDescriptor();
+
+    virtual bool doesSupport(omnetpp::cObject *obj) const override;
+    virtual const char **getPropertyNames() const override;
+    virtual const char *getProperty(const char *propertyName) const override;
+    virtual int getFieldCount() const override;
+    virtual const char *getFieldName(int field) const override;
+    virtual int findField(const char *fieldName) const override;
+    virtual unsigned int getFieldTypeFlags(int field) const override;
+    virtual const char *getFieldTypeString(int field) const override;
+    virtual const char **getFieldPropertyNames(int field) const override;
+    virtual const char *getFieldProperty(int field, const char *propertyName) const override;
+    virtual int getFieldArraySize(omnetpp::any_ptr object, int field) const override;
+    virtual void setFieldArraySize(omnetpp::any_ptr object, int field, int size) const override;
+
+    virtual const char *getFieldDynamicTypeString(omnetpp::any_ptr object, int field, int i) const override;
+    virtual std::string getFieldValueAsString(omnetpp::any_ptr object, int field, int i) const override;
+    virtual void setFieldValueAsString(omnetpp::any_ptr object, int field, int i, const char *value) const override;
+    virtual omnetpp::cValue getFieldValue(omnetpp::any_ptr object, int field, int i) const override;
+    virtual void setFieldValue(omnetpp::any_ptr object, int field, int i, const omnetpp::cValue& value) const override;
+
+    virtual const char *getFieldStructName(int field) const override;
+    virtual omnetpp::any_ptr getFieldStructValuePointer(omnetpp::any_ptr object, int field, int i) const override;
+    virtual void setFieldStructValuePointer(omnetpp::any_ptr object, int field, int i, omnetpp::any_ptr ptr) const override;
+};
+
+Register_ClassDescriptor(DataAckTagDescriptor)
+
+DataAckTagDescriptor::DataAckTagDescriptor() : omnetpp::cClassDescriptor(omnetpp::opp_typename(typeid(inet::DataAckTag)), "inet::TagBase")
+{
+    propertyNames = nullptr;
+}
+
+DataAckTagDescriptor::~DataAckTagDescriptor()
+{
+    delete[] propertyNames;
+}
+
+bool DataAckTagDescriptor::doesSupport(omnetpp::cObject *obj) const
+{
+    return dynamic_cast<DataAckTag *>(obj)!=nullptr;
+}
+
+const char **DataAckTagDescriptor::getPropertyNames() const
+{
+    if (!propertyNames) {
+        static const char *names[] = {  nullptr };
+        omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+        const char **baseNames = base ? base->getPropertyNames() : nullptr;
+        propertyNames = mergeLists(baseNames, names);
+    }
+    return propertyNames;
+}
+
+const char *DataAckTagDescriptor::getProperty(const char *propertyName) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    return base ? base->getProperty(propertyName) : nullptr;
+}
+
+int DataAckTagDescriptor::getFieldCount() const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    return base ? 1+base->getFieldCount() : 1;
+}
+
+unsigned int DataAckTagDescriptor::getFieldTypeFlags(int field) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldTypeFlags(field);
+        field -= base->getFieldCount();
+    }
+    static unsigned int fieldTypeFlags[] = {
+        FD_ISEDITABLE,    // FIELD_dataAck
+    };
+    return (field >= 0 && field < 1) ? fieldTypeFlags[field] : 0;
+}
+
+const char *DataAckTagDescriptor::getFieldName(int field) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldName(field);
+        field -= base->getFieldCount();
+    }
+    static const char *fieldNames[] = {
+        "dataAck",
+    };
+    return (field >= 0 && field < 1) ? fieldNames[field] : nullptr;
+}
+
+int DataAckTagDescriptor::findField(const char *fieldName) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    int baseIndex = base ? base->getFieldCount() : 0;
+    if (strcmp(fieldName, "dataAck") == 0) return baseIndex + 0;
+    return base ? base->findField(fieldName) : -1;
+}
+
+const char *DataAckTagDescriptor::getFieldTypeString(int field) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldTypeString(field);
+        field -= base->getFieldCount();
+    }
+    static const char *fieldTypeStrings[] = {
+        "unsigned int",    // FIELD_dataAck
+    };
+    return (field >= 0 && field < 1) ? fieldTypeStrings[field] : nullptr;
+}
+
+const char **DataAckTagDescriptor::getFieldPropertyNames(int field) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldPropertyNames(field);
+        field -= base->getFieldCount();
+    }
+    switch (field) {
+        default: return nullptr;
+    }
+}
+
+const char *DataAckTagDescriptor::getFieldProperty(int field, const char *propertyName) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldProperty(field, propertyName);
+        field -= base->getFieldCount();
+    }
+    switch (field) {
+        default: return nullptr;
+    }
+}
+
+int DataAckTagDescriptor::getFieldArraySize(omnetpp::any_ptr object, int field) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldArraySize(object, field);
+        field -= base->getFieldCount();
+    }
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    switch (field) {
+        default: return 0;
+    }
+}
+
+void DataAckTagDescriptor::setFieldArraySize(omnetpp::any_ptr object, int field, int size) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount()){
+            base->setFieldArraySize(object, field, size);
+            return;
+        }
+        field -= base->getFieldCount();
+    }
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    switch (field) {
+        default: throw omnetpp::cRuntimeError("Cannot set array size of field %d of class 'DataAckTag'", field);
+    }
+}
+
+const char *DataAckTagDescriptor::getFieldDynamicTypeString(omnetpp::any_ptr object, int field, int i) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldDynamicTypeString(object,field,i);
+        field -= base->getFieldCount();
+    }
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    switch (field) {
+        default: return nullptr;
+    }
+}
+
+std::string DataAckTagDescriptor::getFieldValueAsString(omnetpp::any_ptr object, int field, int i) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldValueAsString(object,field,i);
+        field -= base->getFieldCount();
+    }
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    switch (field) {
+        case FIELD_dataAck: return ulong2string(pp->getDataAck());
+        default: return "";
+    }
+}
+
+void DataAckTagDescriptor::setFieldValueAsString(omnetpp::any_ptr object, int field, int i, const char *value) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount()){
+            base->setFieldValueAsString(object, field, i, value);
+            return;
+        }
+        field -= base->getFieldCount();
+    }
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    switch (field) {
+        case FIELD_dataAck: pp->setDataAck(string2ulong(value)); break;
+        default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'DataAckTag'", field);
+    }
+}
+
+omnetpp::cValue DataAckTagDescriptor::getFieldValue(omnetpp::any_ptr object, int field, int i) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldValue(object,field,i);
+        field -= base->getFieldCount();
+    }
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    switch (field) {
+        case FIELD_dataAck: return (omnetpp::intval_t)(pp->getDataAck());
+        default: throw omnetpp::cRuntimeError("Cannot return field %d of class 'DataAckTag' as cValue -- field index out of range?", field);
+    }
+}
+
+void DataAckTagDescriptor::setFieldValue(omnetpp::any_ptr object, int field, int i, const omnetpp::cValue& value) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount()){
+            base->setFieldValue(object, field, i, value);
+            return;
+        }
+        field -= base->getFieldCount();
+    }
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    switch (field) {
+        case FIELD_dataAck: pp->setDataAck(omnetpp::checked_int_cast<unsigned int>(value.intValue())); break;
+        default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'DataAckTag'", field);
+    }
+}
+
+const char *DataAckTagDescriptor::getFieldStructName(int field) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldStructName(field);
+        field -= base->getFieldCount();
+    }
+    switch (field) {
+        default: return nullptr;
+    };
+}
+
+omnetpp::any_ptr DataAckTagDescriptor::getFieldStructValuePointer(omnetpp::any_ptr object, int field, int i) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount())
+            return base->getFieldStructValuePointer(object, field, i);
+        field -= base->getFieldCount();
+    }
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    switch (field) {
+        default: return omnetpp::any_ptr(nullptr);
+    }
+}
+
+void DataAckTagDescriptor::setFieldStructValuePointer(omnetpp::any_ptr object, int field, int i, omnetpp::any_ptr ptr) const
+{
+    omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
+    if (base) {
+        if (field < base->getFieldCount()){
+            base->setFieldStructValuePointer(object, field, i, ptr);
+            return;
+        }
+        field -= base->getFieldCount();
+    }
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    switch (field) {
+        default: throw omnetpp::cRuntimeError("Cannot set field %d of class 'DataAckTag'", field);
+    }
+}
+
 }  // namespace inet
 
 namespace omnetpp {

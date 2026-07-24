@@ -20,6 +20,7 @@
 namespace inet {
 
 class DataSequenceNumberTag;
+class DataAckTag;
 
 }  // namespace inet
 
@@ -68,6 +69,45 @@ class DataSequenceNumberTag : public ::inet::TagBase
 inline void doParsimPacking(omnetpp::cCommBuffer *b, const DataSequenceNumberTag& obj) {obj.parsimPack(b);}
 inline void doParsimUnpacking(omnetpp::cCommBuffer *b, DataSequenceNumberTag& obj) {obj.parsimUnpack(b);}
 
+/**
+ * Class generated from <tt>common/DataSequenceNumberTag.msg:17</tt> by opp_msgtool.
+ * <pre>
+ * // The DSS data mapping and DATA_ACK are independent fields. Keeping them in
+ * // separate tags prevents a subflow sequence mapping from being interpreted as
+ * // a connection-level acknowledgement.
+ * class DataAckTag extends TagBase
+ * {
+ *     unsigned int dataAck;
+ * }
+ * </pre>
+ */
+class DataAckTag : public ::inet::TagBase
+{
+  protected:
+    unsigned int dataAck = 0;
+
+  private:
+    void copy(const DataAckTag& other);
+
+  protected:
+    bool operator==(const DataAckTag&) = delete;
+
+  public:
+    DataAckTag();
+    DataAckTag(const DataAckTag& other);
+    virtual ~DataAckTag();
+    DataAckTag& operator=(const DataAckTag& other);
+    virtual DataAckTag *dup() const override {return new DataAckTag(*this);}
+    virtual void parsimPack(omnetpp::cCommBuffer *b) const override;
+    virtual void parsimUnpack(omnetpp::cCommBuffer *b) override;
+
+    virtual unsigned int getDataAck() const;
+    virtual void setDataAck(unsigned int dataAck);
+};
+
+inline void doParsimPacking(omnetpp::cCommBuffer *b, const DataAckTag& obj) {obj.parsimPack(b);}
+inline void doParsimUnpacking(omnetpp::cCommBuffer *b, DataAckTag& obj) {obj.parsimUnpack(b);}
+
 
 }  // namespace inet
 
@@ -75,6 +115,7 @@ inline void doParsimUnpacking(omnetpp::cCommBuffer *b, DataSequenceNumberTag& ob
 namespace omnetpp {
 
 template<> inline inet::DataSequenceNumberTag *fromAnyPtr(any_ptr ptr) { return check_and_cast<inet::DataSequenceNumberTag*>(ptr.get<cObject>()); }
+template<> inline inet::DataAckTag *fromAnyPtr(any_ptr ptr) { return check_and_cast<inet::DataAckTag*>(ptr.get<cObject>()); }
 
 }  // namespace omnetpp
 
