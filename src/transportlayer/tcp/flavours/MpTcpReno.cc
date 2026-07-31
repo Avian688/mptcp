@@ -178,13 +178,11 @@ void MpTcpReno::rackLossDetected()
         return;
 
     const uint32_t oldCwnd = state->snd_cwnd;
-    bool enteredRecovery = false;
     if (!state->lossRecovery) {
         state->recoveryPoint = state->snd_max;
         pacedConnection->updateInFlight();
         state->lossRecovery = true;
         beginPrrRecovery();
-        enteredRecovery = true;
 
         recalculateSlowStartThreshold();
         setRecoveryCongestionWindow();
@@ -198,14 +196,8 @@ void MpTcpReno::rackLossDetected()
         pacedConnection->updateInFlight();
     }
 
-    if (pacedConnection->isRackTimerLossDetection()) {
-        if (enteredRecovery) {
-            if (pacedConnection->doRetransmit())
-                restartRexmitTimer();
-        }
-        else
-            pacedConnection->sendPendingData();
-    }
+    if (pacedConnection->isRackTimerLossDetection())
+        pacedConnection->sendPendingData();
 }
 
 void MpTcpReno::receivedDataAck(uint32_t firstSeqAcked)

@@ -95,8 +95,6 @@ void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
     m_rateAppLimited = false;
     m_txItemDelivered = 0;
 
-    scoreboardUpdated = false;
-
     m_bytesInFlight = 0;
     m_bytesLoss = 0;
 

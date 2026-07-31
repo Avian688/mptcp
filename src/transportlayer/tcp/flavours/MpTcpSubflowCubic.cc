@@ -360,13 +360,11 @@ void MpTcpSubflowCubic::rackLossDetected()
         return;
 
     uint32_t old_cwnd = state->snd_cwnd;
-    bool enteredRecovery = false;
     if (!state->lossRecovery) {
         state->recoveryPoint = state->snd_max;
         pacedConn->updateInFlight();
         state->lossRecovery = true;
         beginPrrRecovery();
-        enteredRecovery = true;
 
         recalculateSlowStartThreshold();
         setRecoveryCongestionWindow();
@@ -380,14 +378,8 @@ void MpTcpSubflowCubic::rackLossDetected()
         pacedConn->updateInFlight();
     }
 
-    if (pacedConn->isRackTimerLossDetection()) {
-        if (enteredRecovery) {
-            if (pacedConn->doRetransmit())
-                restartRexmitTimer();
-        }
-        else
-            pacedConn->sendPendingData();
-    }
+    if (pacedConn->isRackTimerLossDetection())
+        pacedConn->sendPendingData();
 }
 
 void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {

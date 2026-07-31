@@ -1273,6 +1273,10 @@ uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
 {
     //ASSERT(state->sack_enabled && state->lossRecovery);
 
+    const bool isRetransmission = seqLess(seqNum, state->snd_max);
+    const simtime_t rexmitTimerExpiry = isRetransmission ?
+            getPacedAlgorithm()->getRexmitTimerExpiry() : SIMTIME_MAX;
+
     // start sending from seqNum
     state->snd_nxt = seqNum;
 
@@ -1337,8 +1341,11 @@ uint32_t SubflowConnection::sendSegmentDuringLossRecoveryPhase(uint32_t seqNum)
     else // don't measure RTT for retransmitted packets
         tcpAlgorithm->dataSent(seqNum); // seqNum = old_snd_nxt
 
-    if (sentBytes > 0)
+    if (sentBytes > 0) {
+        if (isRetransmission)
+            getPacedAlgorithm()->preserveRexmitTimerExpiry(rexmitTimerExpiry);
         getPacedAlgorithm()->recoveryDataSent(sentBytes);
+    }
 
     return sentBytes;
 }
@@ -2026,11 +2033,6 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
             // could have been changed if faulty data receiver is not respecting the "do not shrink window" rule
             if (rack_enabled)
             {
-                if (!scoreboardUpdated && rexmitQueue->findRegion(tcpHeader->getAckNo()))
-                    rackAdvance(tcpHeader->getAckNo(), tcpHeader);
-                else
-                    rackAdvance(rexmitQueue->getHighestSackedSeqNum(), tcpHeader);
-
                 const bool inLossState = state->lossRecovery || isInRtoRecovery();
                 const bool exiting = inLossState &&
                         seqGE(tcpHeader->getAckNo(), getPacedAlgorithm()->getRecoveryPoint());
@@ -2038,14 +2040,13 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
                         rexmitQueue->getTotalAmountOfSackedBytes(), 3, state->snd_mss,
                         exiting, inLossState);
             }
-            scoreboardUpdated = false;
 
             updateWndInfo(tcpHeader);
 
             if (rexmitQueue->isUpdatedSackEnabled()) {
                 std::list<uint32_t> skbDeliveredList = rexmitQueue->getDiscardList(tcpHeader->getAckNo());
                 for (uint32_t endSeqNo : skbDeliveredList) {
-                    bool wasRetransmitted = rexmitQueue->isRetransmitted(endSeqNo);
+                    bool wasRetransmitted = rexmitQueue->getRegion(endSeqNo).everRetransmitted;
                     rackAdvance(endSeqNo, tcpHeader);
                     skbDelivered(endSeqNo);
                     if ((fack_enabled || rack_enabled) && seqLess(endSeqNo, m_sndFack) && !wasRetransmitted)
@@ -2120,11 +2121,6 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
 
         if (rack_enabled)
         {
-            if (!scoreboardUpdated && rexmitQueue->findRegion(tcpHeader->getAckNo()))
-                rackAdvance(tcpHeader->getAckNo(), tcpHeader);
-            else
-                rackAdvance(rexmitQueue->getHighestSackedSeqNum(), tcpHeader);
-
             const bool inLossState = state->lossRecovery || isInRtoRecovery();
             const bool exiting = inLossState &&
                     seqGE(state->snd_una, getPacedAlgorithm()->getRecoveryPoint());
@@ -2132,14 +2128,13 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
                     rexmitQueue->getTotalAmountOfSackedBytes(), 3, state->snd_mss,
                     exiting, inLossState);
         }
-        scoreboardUpdated = false;
         // acked data no longer needed in send queue
 
         // acked data no longer needed in rexmit queue
         if (rexmitQueue->isUpdatedSackEnabled()) {
             std::list<uint32_t> skbDeliveredList = rexmitQueue->getDiscardList(discardUpToSeq);
             for (uint32_t endSeqNo : skbDeliveredList) {
-                bool wasRetransmitted = rexmitQueue->isRetransmitted(endSeqNo);
+                bool wasRetransmitted = rexmitQueue->getRegion(endSeqNo).everRetransmitted;
                 rackAdvance(endSeqNo, tcpHeader);
                 skbDelivered(endSeqNo);
                 if (state->lossRecovery && rexmitQueue->isRetransmittedDataAcked(endSeqNo))
