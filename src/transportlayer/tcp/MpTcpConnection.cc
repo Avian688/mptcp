@@ -2013,6 +2013,10 @@ NetworkInterface *MpTcpConnection::getInterfaceForSubflow(int slot) const
 {
     if (ift == nullptr || slot < 0)
         return nullptr;
+    // Logical paths can share one access interface (e.g. saved LEO K paths).
+    // In that mode retain the meta address and leave output selection to IP.
+    if (tcpMain != nullptr && !tcpMain->par("subflowInterfaceBinding").boolValue())
+        return nullptr;
 
     const std::string pppName = "ppp" + std::to_string(slot);
     if (auto *interface = ift->findInterfaceByName(pppName.c_str()))

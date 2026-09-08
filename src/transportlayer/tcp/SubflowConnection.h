@@ -83,6 +83,8 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual bool sendPendingData() override;
 
+    virtual bool isCwndLimited(uint32_t congestionWindow) const override;
+
     virtual bool sendDataDuringLossRecovery(uint32_t congestionWindow) override;
 
     /** Create and bind a new socket for this subflow. */
@@ -184,6 +186,8 @@ class SubflowConnection : public MpTcpConnectionBase
     virtual TcpEventCode processSegment1stThru8th(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader) override;
 
     virtual bool processAckInEstabEtc(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader) override;
+
+    virtual void updateAckTelemetry(const Ptr<const TcpHeader>& tcpHeader) {}
 
     /** Handle subflow state transitions. */
     virtual bool performStateTransition(const TcpEventCode& event) override;

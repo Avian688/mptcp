@@ -1066,10 +1066,22 @@ bool SubflowConnection::sendPendingData()
     return TcpPacedConnection::sendPendingData();
 }
 
+bool SubflowConnection::isCwndLimited(uint32_t congestionWindow) const
+{
+    if (TcpPacedConnection::isCwndLimited(congestionWindow))
+        return true;
+
+    return state != nullptr && metaConn != nullptr &&
+            metaConn->getBytesAvailable() > 0 &&
+            static_cast<uint64_t>(m_bytesInFlight) + state->snd_mss >=
+                    congestionWindow;
+}
+
 bool SubflowConnection::sendDataDuringLossRecovery(uint32_t congestionWindow)
 {
 
     isRetransmission = false;
+    nextSegSelectedRetransmission = false;
     // RFC 3517 pages 7 and 8: "(5) In order to take advantage of potential additional available
     // cwnd, proceed to step (C) below.
     // (...)
@@ -1092,9 +1104,14 @@ bool SubflowConnection::sendDataDuringLossRecovery(uint32_t congestionWindow)
             return false;
         }
 
+        nextSegSelectedRetransmission = isRetransmission;
         uint32_t sentBytes = sendSegmentDuringLossRecoveryPhase(seqNum);
 
         if(sentBytes > 0){
+            if (nextSegSelectedRetransmission)
+                totalRetransmittedBytesCounter += sentBytes;
+            else
+                scheduleTailLossProbe();
             return true;
         }
         else{
@@ -1248,7 +1265,8 @@ bool SubflowConnection::nextSeg(uint32_t& seqNum, bool isRecovery)
 //        }
         if(isSeqPerRule3Valid)
         {
-            std::cout << "\n WEIRD EDGE CASE HAPPENING" << endl;
+            EV_TRACE << "Using RFC 3517 NextSeg rule 3 at sequence "
+                     << seqPerRule3 << "\n";
             isRetransmission = true;
             seqNum = seqPerRule3;
             return true;
@@ -1992,6 +2010,16 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
         state->gotEce = tcpHeader->getEceBit();
     }
 
+    const bool sackOptionSeen = m_sackOptionSeenForAck;
+    const bool tlpDsackSeen = m_tlpDsackSeenForProbe;
+    m_sackOptionSeenForAck = false;
+    m_tlpDsackSeenForProbe = false;
+
+    const bool pureDuplicateAck = state->snd_una == tcpHeader->getAckNo() &&
+            payloadLength == 0 && !sackOptionSeen;
+    const bool tlpRecoveredLoss =
+            processTailLossProbeAck(tcpHeader->getAckNo(), pureDuplicateAck, tlpDsackSeen);
+
     //
     //"
     //  If SND.UNA < SEG.ACK =< SND.NXT then, set SND.UNA <- SEG.ACK.
@@ -2067,10 +2095,11 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
             updateInFlight();
 
             uint32_t lost = getNewlyDetectedLostBytes(
-                    previousTotalDetectedLostBytes, newRackLoss);
+                    previousTotalDetectedLostBytes, newRackLoss || tlpRecoveredLoss);
             updateSample(currentDelivered, lost, false, priorInFlight, connMinRtt);
 
-            if (shouldApplyRackCongestionResponse() && (rackRecovery || newRackLoss))
+            if (shouldApplyRackCongestionResponse() &&
+                    (rackRecovery || newRackLoss || tlpRecoveredLoss))
                 getPacedAlgorithm()->rackLossDetected();
 
             tcpAlgorithm->receivedDuplicateAck();
@@ -2111,6 +2140,7 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
         // elapsed time since the first segment in the retransmission
         // queue was sent.  Any segments on the retransmission queue
         // which are thereby entirely acknowledged."
+        updateAckTelemetry(tcpHeader);
         if (state->ts_enabled)
             tcpAlgorithm->rttMeasurementCompleteUsingTS(getTSecr(tcpHeader));
         // Note: If TS is disabled the RTT measurement is completed in TcpBaseAlg::receivedDataAck()
@@ -2177,10 +2207,11 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
             updateInFlight();
 
             uint32_t lost = getNewlyDetectedLostBytes(
-                    previousTotalDetectedLostBytes, newRackLoss);
+                    previousTotalDetectedLostBytes, newRackLoss || tlpRecoveredLoss);
             updateSample(currentDelivered, lost, false, priorInFlight, connMinRtt);
 
-            if (shouldApplyRackCongestionResponse() && (rackRecovery || newRackLoss))
+            if (shouldApplyRackCongestionResponse() &&
+                    (rackRecovery || newRackLoss || tlpRecoveredLoss))
                 getPacedAlgorithm()->rackLossDetected();
 
             tcpAlgorithm->receivedDataAck(old_snd_una);
@@ -2201,6 +2232,7 @@ bool SubflowConnection::processAckInEstabEtc(Packet *tcpSegment, const Ptr<const
             emit(dupAcksSignal, state->dupacks);
             emit(mDeliveredSignal, m_delivered);
         }
+        scheduleTailLossProbe();
     }
     else {
         ASSERT(seqGreater(tcpHeader->getAckNo(), state->snd_max)); // from if-ladder

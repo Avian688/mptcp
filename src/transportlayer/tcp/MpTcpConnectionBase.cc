@@ -14,7 +14,9 @@
 // 
 
 #include "MpTcpConnectionBase.h"
-#include "MpTcp.h"
+
+#include <string>
+
 namespace inet {
 namespace tcp {
 
@@ -31,117 +33,43 @@ MpTcpConnectionBase::~MpTcpConnectionBase() {
 
 void MpTcpConnectionBase::initConnection(TcpOpenCommand *openCmd)
 {
-    // create send queue
-    sendQueue = tcpMain->createSendQueue();
-    sendQueue->setConnection(this);
+    const char *configuredAlgorithm = openCmd->getTcpAlgorithmClass();
+    std::string tcpAlgorithmClass;
+    if (opp_isempty(configuredAlgorithm))
+        tcpAlgorithmClass = tcpMain->par("tcpAlgorithmClass").stringValue();
+    else
+        tcpAlgorithmClass = configuredAlgorithm;
 
-    // create receive queue
-    receiveQueue = tcpMain->createReceiveQueue();
-    receiveQueue->setConnection(this);
-
-    // create SACK retransmit queue
-    rexmitQueue = new TcpSackRexmitQueue();
-    rexmitQueue->setConnection(this);
-
-    // create algorithm
-    const char *tcpAlgorithmClass = openCmd->getTcpAlgorithmClass();
-
-    if (opp_isempty(tcpAlgorithmClass))
-        tcpAlgorithmClass = tcpMain->par("tcpAlgorithmClass");
-
-    if (strcmp(tcpAlgorithmClass, "MpTcpMetaCubic") == 0 && !this->isMeta()) {
+    if (tcpAlgorithmClass == "MpTcpMetaCubic" && !this->isMeta()) {
         tcpAlgorithmClass = "MpTcpSubflowCubic";
     }
-    else if (strcmp(tcpAlgorithmClass, "MpTcpLia") == 0 && this->isMeta()) {
+    else if (tcpAlgorithmClass == "MpTcpLia" && this->isMeta()) {
         tcpAlgorithmClass = "MpTcpMetaCubic";
     }
-    else if (strcmp(tcpAlgorithmClass, "MpTcpOlia") == 0 && this->isMeta()) {
+    else if (tcpAlgorithmClass == "MpTcpOlia" && this->isMeta()) {
         tcpAlgorithmClass = "MpTcpMetaCubic";
     }
-    else if (strcmp(tcpAlgorithmClass, "MpTcpBalia") == 0 && this->isMeta()) {
+    else if (tcpAlgorithmClass == "MpTcpBalia" && this->isMeta()) {
         tcpAlgorithmClass = "MpTcpMetaCubic";
     }
-    else if (strcmp(tcpAlgorithmClass, "MpTcpReno") == 0 && this->isMeta()) {
+    else if (tcpAlgorithmClass == "MpTcpReno" && this->isMeta()) {
         tcpAlgorithmClass = "MpTcpMetaCubic";
     }
 
-    tcpAlgorithm = check_and_cast<TcpAlgorithm *>(inet::utils::createOne(tcpAlgorithmClass));
-    tcpAlgorithm->setConnection(this);
+    // Keep MPTCP's meta/subflow algorithm mapping, then let tcpPaced own all
+    // queue, state, RACK, PRR, pacing, and accounting initialization.
+    openCmd->setTcpAlgorithmClass(tcpAlgorithmClass.c_str());
+    TcpPacedConnection::initConnection(openCmd);
 
-    // create state block
-    state = tcpAlgorithm->getStateVariables();
-    configureStateVariables();
     if (openCmd->getUserId() > 0)
         state->sendQueueLimit = openCmd->getUserId();
     else if (tcpMain != nullptr && tcpMain->hasPar("sendQueueLimit"))
         state->sendQueueLimit = tcpMain->par("sendQueueLimit").intValue();
 
-    tcpAlgorithm->initialize();
-
-    m_delivered = 0;
-    paceMsg = new cMessage("pacing message");
-    throughputTimer = new cMessage("throughputTimer");
-    rackTimer = new cMessage("rackTimer");
-    retransmissionRateTimer = new cMessage("retransmissionRateTimer"); // NEW
-    intersendingTime = 0.0000001;
-    paceValueVec.setName("paceValue");
-    retransmitOnePacket = false;
-    retransmitAfterTimeout = false;
-    throughputInterval = check_and_cast<MpTcp*>(tcpMain)->par("throughputInterval");
-    lastBytesReceived = 0;
-    prevLastBytesReceived = 0;
-    currThroughput = 0;
-    m_appLimited = false;
-    m_rateAppLimited = false;
-    m_txItemDelivered = 0;
-
-    m_bytesInFlight = 0;
-    m_bytesLoss = 0;
-
-    lastThroughputTime = simTime();
-    prevLastThroughputTime = simTime();
-
-    m_firstSentTime = simTime();
-    m_deliveredTime = simTime();
-
-    m_rack = new TcpRack();
-    m_sndFack = state->snd_una;
-    m_reorder = false;
-    m_dsackSeen = false;
-    isRetransDataAcked = false;
-
-    m_rateInterval = 0;
-    m_rateDelivered = 0;
-
-    m_lastAckedSackedBytes = 0;
-    bytesRcvd = 0;
-
-    m_rateSample.m_ackElapsed = 0;
-    m_rateSample.m_ackedSacked = 0;
-    m_rateSample.m_bytesLoss = 0;
-    m_rateSample.m_delivered = 0;
-    m_rateSample.m_deliveryRate = 0;
-    m_rateSample.m_interval = 0;
-    m_rateSample.m_isAppLimited = false;
-    m_rateSample.m_priorDelivered = 0;
-    m_rateSample.m_txInFlight = 0;
-    m_rateSample.m_priorInFlight = 0;
-    m_rateSample.m_priorTime = 0;
-    m_rateSample.m_sendElapsed = 0;
-    m_rateSample.m_lastSentTime = 0;
-    m_rateSample.m_lastEndSeq = 0;
-    m_lossNotificationSample = {};
-
-    // sender-side retransmission accounting
-    prevLastTotalRetransmittedBytes = 0;
-    lastTotalRetransmittedBytes = 0;
-    totalRetransmittedBytesCounter = 0;
-    currRetransmissionRate = 0;
-    nextSegSelectedRetransmission = false;
-    lastRetransmissionRateTime = simTime();
-    if (!isMeta())
+    // tcpPaced records receive goodput on cloned passive sockets. MPTCP does
+    // not use that clone path, so start the same timer on each real subflow.
+    if (!isMeta() && !throughputTimer->isScheduled())
         scheduleAt(simTime() + throughputInterval, throughputTimer);
-    scheduleAt(simTime() + throughputInterval, retransmissionRateTimer);
 }
 
 bool MpTcpConnectionBase::isMeta() const

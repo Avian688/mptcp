@@ -54,6 +54,7 @@ protected:
     virtual void setRecoveryCongestionWindow() override;
     uint32_t calculateCubicRoot(uint64_t number) ;
     virtual void updateCubicCwnd(uint32_t acked);
+    virtual bool isConnectionCwndLimited() const;
     virtual int32_t fls64(uint64_t x);
     virtual uint64_t __fls(uint64_t word);
 public:

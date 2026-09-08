@@ -20,6 +20,7 @@ import tcppaced.transportlayer.tcp.TcpPaced;
 simple MpTcp extends TcpPaced
 {
     parameters:
+        bool subflowInterfaceBinding = default(true); // false: share the meta address and let IP select logical paths
         @class("inet::tcp::MpTcp");
         string subflowRemoteAddresses = default("");
         int sendQueueLimit @unit(B) = default(4MiB);

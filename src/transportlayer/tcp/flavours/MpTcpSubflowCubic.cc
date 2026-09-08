@@ -7,6 +7,8 @@
 
 #include "MpTcpSubflowCubic.h"
 
+#include "../MpTcpConnection.h"
+
 namespace inet {
 namespace tcp {
 
@@ -382,6 +384,37 @@ void MpTcpSubflowCubic::rackLossDetected()
         pacedConn->sendPendingData();
 }
 
+bool MpTcpSubflowCubic::isConnectionCwndLimited() const
+{
+    if (state == nullptr || state->snd_mss == 0)
+        return false;
+
+    auto *pacedConnection = dynamic_cast<TcpPacedConnection *>(conn);
+    if (pacedConnection == nullptr)
+        return false;
+
+    const uint32_t cwndPackets = std::max(state->snd_cwnd / state->snd_mss, 1U);
+    const uint32_t sendableCwnd = cwndPackets * state->snd_mss;
+    if (pacedConnection->isCwndLimited(sendableCwnd) ||
+            pacedConnection->wasCwndLimited())
+        return true;
+
+    auto *subflow = dynamic_cast<SubflowConnection *>(conn);
+    MpTcpConnection *metaConnection =
+            subflow != nullptr ? subflow->getMetaConnection() : nullptr;
+    if (metaConnection == nullptr || metaConnection->getBytesAvailable() == 0)
+        return false;
+
+    const uint64_t usableFlight =
+            static_cast<uint64_t>(pacedConnection->getBytesInFlight()) +
+            state->snd_mss;
+    if (usableFlight >= sendableCwnd)
+        return true;
+
+    return state->snd_cwnd < state->ssthresh &&
+            2 * usableFlight >= sendableCwnd;
+}
+
 void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
     uint32_t old_cwnd = state->snd_cwnd;
     TcpTahoeRenoFamily::receivedDataAck(firstSeqAcked);
@@ -421,7 +454,8 @@ void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
         return;
     }
 
-    if (state->snd_cwnd < state->ssthresh) {
+    const bool cwndLimited = isConnectionCwndLimited();
+    if (cwndLimited && state->snd_cwnd < state->ssthresh) {
         EV_INFO << "cwnd <= ssthresh: Slow Start: increasing cwnd by one SMSS bytes to ";
 
         // perform Slow Start. RFC 2581: "During slow start, a TCP increments cwnd
@@ -432,7 +466,7 @@ void MpTcpSubflowCubic::receivedDataAck(uint32_t firstSeqAcked) {
 
         EV_INFO << "cwnd=" << state->snd_cwnd << "\n";
     }
-    else {
+    else if (cwndLimited) {
 
         updateCubicCwnd(1);
 
