@@ -2765,7 +2765,13 @@ void SubflowConnection::sendToIP(Packet *tcpSegment, const Ptr<TcpHeader>& tcpHe
     // (ECT(0) or ECT(1)) in the IP header for retransmitted data packets
     tcpSegment->addTagIfAbsent<EcnReq>()->setExplicitCongestionNotification((state->ect && !state->sndAck && !state->rexmit) ? IP_ECN_ECT_1 : IP_ECN_NOT_ECT);
 
-    tcpSegment->addTagIfAbsent<InterfaceReq>()->setInterfaceId(interfaceId); //Add MP interface
+    // Saved logical paths may share one access interface. In that mode no
+    // interface was assigned; an InterfaceReq with -1 (or an uninitialized ID)
+    // makes IPv4 fail before it can select the saved route.
+    if (interfaceId > 0)
+        tcpSegment->addTagIfAbsent<InterfaceReq>()->setInterfaceId(interfaceId);
+    else
+        tcpSegment->removeTagIfPresent<InterfaceReq>();
 
     tcpHeader->setCrc(0);
     tcpHeader->setCrcMode(tcpMain->crcMode);

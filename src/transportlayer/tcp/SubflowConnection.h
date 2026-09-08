@@ -155,7 +155,7 @@ class SubflowConnection : public MpTcpConnectionBase
     MpTcpConnection *metaConn = nullptr;  // Pointer to meta connection
     bool isMaster = false;                 // True for initial subflow
     bool isRetransmission = false;
-    int interfaceId;
+    int interfaceId = -1; // No binding: let IP select the output interface.
 
     uint32_t dsn_rcv_nxt = 0;
     uint32_t dsn_deliv_nxt = 0;
