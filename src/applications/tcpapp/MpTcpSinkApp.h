@@ -31,6 +31,8 @@ protected:
     virtual TcpSocket* createSubflowSocket();
 
     virtual void handleStartOperation(LifecycleOperation *operation) override;
+    virtual void handleStopOperation(LifecycleOperation *operation) override;
+    virtual void handleCrashOperation(LifecycleOperation *operation) override;
 };
 
 class INET_API MpTcpSinkAppThread : public TcpSinkAppThread
@@ -65,4 +67,3 @@ class INET_API MpTcpSinkAppThread : public TcpSinkAppThread
 } // namespace inet
 
 #endif
-

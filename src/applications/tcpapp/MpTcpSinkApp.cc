@@ -28,21 +28,44 @@ void MpTcpSinkApp::handleStartOperation(LifecycleOperation *operation)
     const char *localAddress = par("localAddress");
     int localPort = par("localPort");
 
-    serverSocket.setOutputGate(gate("socketOut"));
-    serverSocket.bind(localAddress[0] ? L3Address(localAddress) : L3Address(), localPort);
-    serverSocket.listen();
+    // MPTCP uses the listening socket itself as the nonforking meta connection.
+    // TcpServerThreadBase owns and deletes its socket, so it must never receive
+    // &serverSocket (an embedded member of TcpServerHostApp).
+    TcpSocket *metaSocket = new TcpSocket();
+    metaSocket->setOutputGate(gate("socketOut"));
+    metaSocket->bind(localAddress[0] ? L3Address(localAddress) : L3Address(), localPort);
+    metaSocket->listen();
 
     const char *serverThreadModuleType = par("serverThreadModuleType");
     cModuleType *moduleType = cModuleType::get(serverThreadModuleType);
     char name[80];
-    sprintf(name, "thread_%i", serverSocket.getSocketId());
+    sprintf(name, "thread_%i", metaSocket->getSocketId());
     TcpServerThreadBase *proc = check_and_cast<TcpServerThreadBase *>(moduleType->create(name, this));
     proc->finalizeParameters();
     proc->callInitialize();
-    serverSocket.setCallback(proc);
-    TcpSocket* serverSocketPtr = &serverSocket;
-    proc->init(this, serverSocketPtr);
+    metaSocket->setCallback(proc);
+    proc->init(this, metaSocket);
+    socketMap.addSocket(metaSocket);
+    threadSet.insert(proc);
 
+}
+
+void MpTcpSinkApp::handleStopOperation(LifecycleOperation *operation)
+{
+    // All live sockets, including the meta socket, belong to threads. The
+    // inherited embedded serverSocket is unused and must not be closed.
+    for (auto thread : threadSet)
+        thread->getSocket()->close();
+    delayActiveOperationFinish(par("stopOperationTimeout"));
+}
+
+void MpTcpSinkApp::handleCrashOperation(LifecycleOperation *operation)
+{
+    while (!threadSet.empty()) {
+        auto thread = *threadSet.begin();
+        thread->getSocket()->close();
+        removeThread(thread);
+    }
 }
 
 TcpSocket* MpTcpSinkApp::createSubflowSocket()
@@ -83,7 +106,7 @@ TcpSocket* MpTcpSinkApp::createSubflowSocket()
 
 
     socketMap.addSocket(newSocket);
-    ///threadSet.insert(proc);
+    threadSet.insert(proc);
 
     newSocket->listenOnce();
 
@@ -148,9 +171,6 @@ void MpTcpSinkApp::handleMessageWhenUp(cMessage *msg)
         if (socket)
             socket->processMessage(msg);
 
-        else if (serverSocket.belongsToSocket(msg)){
-            serverSocket.processMessage(msg); //TODO FIX THIS ASS THE CORRECT THREAD SHOULD PROCESS THE MESSAGE NOT THE SOCKET
-        }
         else {
 //            throw cRuntimeError("Unknown incoming message: '%s'", msg->getName());
             EV_ERROR << "message " << msg->getFullName() << "(" << msg->getClassName() << ") arrived for unknown socket \n";
