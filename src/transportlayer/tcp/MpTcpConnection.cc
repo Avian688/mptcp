@@ -239,6 +239,12 @@ void MpTcpConnection::subflowStateChange(SubflowConnection *subflowConn, const T
         if (!performStateTransition(event))
             scheduleMetaRemoval();
     }
+
+    // established() is called while the subflow FSM is still in its SYN
+    // state, when the packet scheduler must not select it. Retry after the
+    // transition so a newly usable path need not wait for another path's ACK.
+    if (oldState != newState && newState == TCP_S_ESTABLISHED)
+        packetScheduler.pushPendingData(state->snd_mss);
 }
 
 TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address srcAddr, L3Address destAddr)
@@ -558,11 +564,7 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
             EV_DETAIL << "Queueing up data for sending later.\n";
             sendQueue->enqueueAppData(packet); // queue up for later
             EV_DETAIL << sendQueue->getBytesAvailable(state->snd_una) << " bytes in queue\n";
-            for (SubflowConnection* conn : m_subflows) {
-                if (conn) {
-                    conn->sendPendingData();
-                }
-            }
+            packetScheduler.pushPendingData(state->snd_mss);
 
             break;
 
@@ -571,13 +573,9 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
             sendQueue->enqueueAppData(packet);
             EV_DETAIL << sendQueue->getBytesAvailable(state->snd_una) << " bytes in queue, plus "
                       << (state->snd_max - state->snd_una) << " bytes unacknowledged\n";
-            for (SubflowConnection* conn : m_subflows) {
-                if (conn) {
-                    if(conn->getIsMaster()){
-                        conn->invokeSendCommand();
-                    }
-                }
-            }
+            // Linux schedules application writes at the meta socket. A
+            // congested master must not gate writes to another usable path.
+            packetScheduler.pushPendingData(state->snd_mss);
             break;
 
         case TCP_S_LAST_ACK:
@@ -655,6 +653,20 @@ uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
 { //MpTcpConnection shouldnt send packets! Subflows control this.
     Enter_Method_Silent("sendSegment");
 
+    if (getPendingRecoveryBytes() > 0) {
+        ASSERT(bytes <= getPendingRecoveryBytes());
+        const uint32_t dsn = recoveryDsn;
+        recoveryDsn += bytes;
+        metaReinjectedBytes += bytes;
+        metaReinjections++;
+        emit(metaReinjectedBytesSignal, metaReinjectedBytes);
+        emit(metaReinjectionsSignal, metaReinjections);
+        // Reassign the original DSN without consuming the connection window
+        // twice or moving the high-water mark backwards.
+        armMetaRexmitTimer(false);
+        return dsn;
+    }
+
     uint32_t old_snd_nxt = state->snd_nxt;
     state->snd_nxt += bytes;
 
@@ -671,6 +683,11 @@ uint32_t MpTcpConnection::sendSegment(uint32_t bytes)
 
 uint32_t MpTcpConnection::getSegment(uint32_t bytes)
 {
+    // Failover is retransmission of admitted data, so it must work with a
+    // full meta send buffer/window and after application sending is stopped.
+    if (getPendingRecoveryBytes() > 0)
+        return std::min(bytes, getPendingRecoveryBytes());
+
     if (!tcpMain->par("sendingEnabled").boolValue())
         return 0;
 
@@ -710,7 +727,6 @@ void MpTcpConnection::prepareForRemoval()
         return;
 
     teardownInProgress = true;
-    staleSubflowNeedsPush = false;
     cancelMetaRexmitTimer();
     flowScheduler.cancelPendingSubflowCreations();
 }
@@ -725,7 +741,32 @@ void MpTcpConnection::removeClosedSubflow(SubflowConnection *subflow)
 
 uint32_t MpTcpConnection::getBytesAvailable()
 {
+    if (getPendingRecoveryBytes() > 0)
+        return getPendingRecoveryBytes();
+
     return sendQueue->getBytesAvailable(state->snd_max);
+}
+
+uint32_t MpTcpConnection::getPendingRecoveryBytes() const
+{
+    return seqLess(recoveryDsn, recoveryEndDsn) ? recoveryEndDsn - recoveryDsn : 0;
+}
+
+void MpTcpConnection::requeueOutstandingData()
+{
+    if (state == nullptr || sendQueue == nullptr || teardownInProgress)
+        return;
+
+    // Linux __mptcp_retransmit_pending_data() resets the pending cursor to
+    // the head of the entire data-level retransmit queue, including bytes
+    // still waiting in a subflow's TCP write queue. Keep a separate cursor
+    // here because INET uses snd_max/snd_nxt for ACK validation and budgets.
+    recoveryDsn = state->snd_una;
+    recoveryEndDsn = state->snd_max;
+    if (state->send_fin && seqGreater(recoveryEndDsn, state->snd_fin_seq))
+        recoveryEndDsn = state->snd_fin_seq;
+    if (!seqLess(recoveryDsn, recoveryEndDsn))
+        recoveryDsn = recoveryEndDsn;
 }
 
 uint32_t MpTcpConnection::getSendWindowRemaining() const
@@ -761,6 +802,9 @@ uint32_t MpTcpConnection::getDataAck() const
 
 bool MpTcpConnection::canSchedulePartialSegment(uint32_t bytes) const
 {
+    if (getPendingRecoveryBytes() > 0)
+        return bytes > 0 && bytes == getPendingRecoveryBytes();
+
     return bytes > 0 && state != nullptr && sendQueue != nullptr && state->send_fin &&
             state->snd_max + bytes == sendQueue->getBufferEndSeq();
 }
@@ -810,7 +854,7 @@ bool MpTcpConnection::checkSubflowStale(SubflowConnection *subflow)
                 alternative->getSchedulerStaleCount() < activeMaxLossCount)
         {
             subflow->markSchedulerStale();
-            staleSubflowNeedsPush = true;
+            requeueOutstandingData();
             return true;
         }
     }
@@ -825,7 +869,8 @@ SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowCon
     if (!metaRetransmissionPending || state == nullptr || sendQueue == nullptr || bytes == 0)
         return nullptr;
 
-    const uint32_t dsn = state->snd_una;
+    const uint32_t dsn = seqLess(pendingMetaRetransmitDsn, state->snd_una) ?
+            state->snd_una : pendingMetaRetransmitDsn;
     if (seqGE(dsn, state->snd_max)) {
         metaRetransmissionPending = false;
         return nullptr;
@@ -841,7 +886,9 @@ SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowCon
     if (retransmitLimit == 0)
         return nullptr;
 
-    SubflowConnection *target = packetScheduler.selectRetransmissionSubflow(source, retransmitLimit);
+    // Select an idle transport first. The complete DSN range can exceed its
+    // write limit; only the bounded fragment below needs to fit.
+    SubflowConnection *target = packetScheduler.selectRetransmissionSubflow(source, bytes);
     if (target == nullptr)
         return nullptr;
 
@@ -860,6 +907,7 @@ SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowCon
         return nullptr;
 
     metaRetransmissionPending = false;
+    pendingMetaRetransmitDsn = dsn + retransmittedBytes;
     metaReinjectedBytes += retransmittedBytes;
     metaReinjections++;
     emit(metaReinjectedBytesSignal, metaReinjectedBytes);
@@ -876,7 +924,7 @@ SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowCon
 
 simtime_t MpTcpConnection::getMetaRexmitDelay() const
 {
-    simtime_t delay = SimTime(200, SIMTIME_MS);
+    simtime_t delay = SIMTIME_ZERO;
     for (SubflowConnection *subflow : m_subflows) {
         if (subflow == nullptr || subflow->getSchedulerStaleCount() != 0)
             continue;
@@ -885,7 +933,9 @@ simtime_t MpTcpConnection::getMetaRexmitDelay() const
         if (subflowRto > delay)
             delay = subflowRto;
     }
-    return delay;
+    // Upstream uses rto_min only when no eligible TCP timer is pending, not
+    // as a floor on an already-running timer's remaining time.
+    return delay > SIMTIME_ZERO ? delay : SimTime(200, SIMTIME_MS);
 }
 
 void MpTcpConnection::armMetaRexmitTimer(bool restart)
@@ -923,57 +973,43 @@ void MpTcpConnection::processMetaRexmitTimer()
         return;
     }
 
-    pendingMetaRetransmitDsn = state->snd_una;
-    metaRetransmissionPending = true;
-    if (dispatchPendingMetaRetransmission(nullptr, state->snd_mss) == nullptr)
-        metaRetransmissionPending = false;
+    // Current Linux checks staleness once per meta retransmission period,
+    // independently of whether get_retrans() finds an idle subflow.
+    for (SubflowConnection *subflow : m_subflows)
+        checkSubflowStale(subflow);
 
-    if (staleSubflowNeedsPush) {
-        staleSubflowNeedsPush = false;
+    if (getPendingRecoveryBytes() > 0)
         packetScheduler.pushPendingData(state->snd_mss);
+
+    pendingMetaRetransmitDsn = state->snd_una;
+    // Upstream continues with the next fragment while another idle subflow
+    // is available. Each successful dispatch makes its target non-idle.
+    for (size_t i = 0; i < m_subflows.size() &&
+            seqLess(pendingMetaRetransmitDsn, state->snd_max); ++i) {
+        metaRetransmissionPending = true;
+        if (dispatchPendingMetaRetransmission(nullptr, state->snd_mss) == nullptr) {
+            metaRetransmissionPending = false;
+            break;
+        }
     }
+
+    // __mptcp_retrans() also retries pending writes when no idle transport
+    // was found. This includes failover data on busy but writable subflows.
+    packetScheduler.pushPendingData(state->snd_mss);
 
     armMetaRexmitTimer(false);
 }
 
 void MpTcpConnection::retransmitOutstandingSubflowData(SubflowConnection *subflowConn)
 {
-    if (subflowConn == nullptr)
+    if (subflowConn == nullptr || state == nullptr || teardownInProgress)
         return;
 
-    const auto& mappings = subflowConn->getSentDsnMappings();
-    if (mappings.empty())
-        return;
-
-    SubflowConnection *targetSubflow = nullptr;
-    uint32_t retransmittedBytes = 0;
-    uint32_t retransmittedRanges = 0;
-
-    for (const auto& entry : mappings) {
-        const uint32_t bytes = entry.second.dsnEnd - entry.second.dsnStart;
-        if (bytes == 0)
-            continue;
-
-        if (targetSubflow == nullptr || !targetSubflow->canAcceptScheduledData(bytes))
-            targetSubflow = packetScheduler.selectRetransmissionSubflow(subflowConn, bytes, false);
-
-        if (targetSubflow == nullptr)
-            break;
-
-        if (!targetSubflow->enqueueRetransmissionData(entry.second.dsnStart, bytes))
-            continue;
-
-        retransmittedBytes += bytes;
-        retransmittedRanges++;
-    }
-
-    if (targetSubflow != nullptr && retransmittedBytes > 0) {
-        EV_INFO << "Reinjected " << retransmittedBytes << " bytes across "
-                << retransmittedRanges << " MPTCP mapping(s) from subflow "
-                << subflowConn->getSocketId() << " onto subflow "
-                << targetSubflow->getSocketId() << "\n";
-        targetSubflow->invokeSendCommand();
-    }
+    // The normal scheduler retains unfinished failover work when the other
+    // subflows have no space. A one-shot scan of sent mappings lost both
+    // those retries and DSNs assigned to TCP but not yet transmitted.
+    requeueOutstandingData();
+    packetScheduler.pushPendingData(state->snd_mss);
 }
 
 TcpEventCode MpTcpConnection::processSynInListen(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address srcAddr, L3Address destAddr)
@@ -1910,6 +1946,9 @@ void MpTcpConnection::receivedUpTo(uint32_t toSeqNo)
         // ack in window.
         uint32_t old_snd_una = state->snd_una;
         state->snd_una = ackNo;
+
+        if (getPendingRecoveryBytes() > 0 && seqGreater(ackNo, recoveryDsn))
+            recoveryDsn = seqLess(ackNo, recoveryEndDsn) ? ackNo : recoveryEndDsn;
 
         if (metaRetransmissionPending && seqGreater(ackNo, pendingMetaRetransmitDsn))
             metaRetransmissionPending = false;

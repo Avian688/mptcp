@@ -83,6 +83,9 @@ class MpTcpConnection : public MpTcpConnectionBase
 
     virtual uint32_t getSendBufferRemaining() const;
 
+    /** Already assigned DSNs awaiting failover through the normal scheduler. */
+    virtual uint32_t getPendingRecoveryBytes() const;
+
     virtual bool canSchedulePartialSegment(uint32_t bytes) const;
 
     virtual Packet *createDataPacket(uint32_t dsnStart, uint32_t bytes) const;
@@ -168,11 +171,12 @@ class MpTcpConnection : public MpTcpConnectionBase
     cMessage *metaRexmitTimer = nullptr;
     cMessage *metaRemovalTimer = nullptr;
     bool metaRetransmissionPending = false;
-    bool staleSubflowNeedsPush = false;
     bool teardownInProgress = false;
     bool issuingSubflowClose = false;
     bool subflowCloseStarted = false;
     uint32_t pendingMetaRetransmitDsn = 0;
+    uint32_t recoveryDsn = 0;
+    uint32_t recoveryEndDsn = 0;
     uint64_t metaReinjectedBytes = 0;
     uint64_t metaReinjections = 0;
 
@@ -193,6 +197,8 @@ class MpTcpConnection : public MpTcpConnectionBase
     virtual void startSubflowClose();
 
     virtual SubflowConnection *findSubflowForDsn(uint32_t dsn) const;
+
+    virtual void requeueOutstandingData();
 
     virtual void initConnection(TcpOpenCommand *openCmd) override;
     /** Active open processing */

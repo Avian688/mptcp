@@ -100,16 +100,6 @@ SubflowConnection *MpTcpPacketScheduler::selectRetransmissionSubflow(SubflowConn
     if (connection == nullptr || bytes == 0)
         return nullptr;
 
-    // Linux updates stale state while mptcp_subflow_get_retrans() scans
-    // transport-active subflows whose TCP retransmit/write queues are not
-    // empty. Do this only for the normal idle-subflow reinjection path.
-    if (requireIdle) {
-        for (SubflowConnection *subflow : connection->getSubflows()) {
-            if (subflow != nullptr && subflow->hasPendingTcpDataForStaleCheck())
-                connection->checkSubflowStale(subflow);
-        }
-    }
-
     auto select = [&](bool requireIdle, bool excludeSource) {
         SubflowConnection *bestSubflow = nullptr;
         simtime_t bestRtt = SIMTIME_MAX;
@@ -187,6 +177,12 @@ SubflowConnection *MpTcpPacketScheduler::scheduleLowestRtt(SubflowConnection *re
 
 SubflowConnection *MpTcpPacketScheduler::scheduleDefault(SubflowConnection *requester, uint32_t bytes)
 {
+    // snd_burst belongs to one Linux push pass. A later ACK/pacing callback
+    // must rank the paths again, even if the previous pass stopped part-way
+    // through a burst because the meta window or buffer was full.
+    lastSubflow = nullptr;
+    remainingBurstBytes = 0;
+
     SubflowConnection *firstSubflow = nullptr;
     bool queuedOnRequester = false;
     std::vector<SubflowConnection *> activatedSubflows;
@@ -277,8 +273,10 @@ double MpTcpPacketScheduler::getAveragePacingRate(SubflowConnection *subflow)
 void MpTcpPacketScheduler::startBurst(SubflowConnection *subflow,
         uint32_t queuedBytesBeforeEnqueue, double currentPacingRate)
 {
-    const uint32_t burst = std::min({DEFAULT_SEND_BURST_SIZE,
-            connection->getSendWindowRemaining(), connection->getSendBufferRemaining()});
+    const uint32_t recoveryBytes = connection->getPendingRecoveryBytes();
+    const uint32_t burst = recoveryBytes > 0 ? std::min(DEFAULT_SEND_BURST_SIZE, recoveryBytes) :
+            std::min({DEFAULT_SEND_BURST_SIZE,
+                    connection->getSendWindowRemaining(), connection->getSendBufferRemaining()});
     const double previousPacingRate = getAveragePacingRate(subflow);
     const uint32_t totalWeight = queuedBytesBeforeEnqueue + burst;
 

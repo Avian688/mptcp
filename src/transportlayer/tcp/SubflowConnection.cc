@@ -845,7 +845,9 @@ bool SubflowConnection::canAcceptRetransmission(uint32_t bytes)
     if (std::max(m_bytesInFlight, state->pipe) != 0)
         return false;
 
-    return bytes <= getDefaultSchedulerWriteLimit();
+    // This is a transport selection test. The caller bounds the actual
+    // fragment by write space after choosing the idle subflow.
+    return bytes > 0 && getDefaultSchedulerWriteLimit() > 0;
 }
 
 bool SubflowConnection::canUseDefaultScheduler(uint32_t bytes)
@@ -958,9 +960,10 @@ void SubflowConnection::enqueueScheduledData(uint32_t bytes)
     mapping.dsnEnd = dsnStart + bytes;
     pendingDsnMapping[subflowSeqStart] = mapping;
 
-    Packet *msg = new Packet("Packet");
-    Ptr<Chunk> packetBytes = makeShared<ByteCountChunk>(B(bytes));
-    msg->insertAtBack(packetBytes);
+    // This may be an old DSN being reassigned after failover. Copy its
+    // retained payload, just as the explicit reinjection path does.
+    Packet *msg = metaConn->createDataPacket(dsnStart, bytes);
+    ASSERT(msg != nullptr);
     sendQueue->enqueueAppData(msg);
     metaConn->notifyDataScheduled();
 }
@@ -973,8 +976,14 @@ bool SubflowConnection::enqueueRetransmissionData(uint32_t dsnStart, uint32_t by
     if (metaConn == nullptr || sendQueue == nullptr || bytes == 0)
         return false;
 
-    const bool canAccept = useWriteMemory ? canUseDefaultScheduler(bytes) :
-            canAcceptScheduledData(bytes);
+    const uint32_t queuedBytes = getSchedulerQueuedBytes();
+    const uint32_t writeLimit = getDefaultSchedulerWriteLimit();
+    // get_retrans() deliberately uses transport-active rather than
+    // non-stale eligibility: an idle transport can repair data even while
+    // excluded from new-data scheduling.
+    const bool canAccept = useWriteMemory ?
+            (isTransportActiveForScheduler() && queuedBytes < writeLimit &&
+                    bytes <= writeLimit - queuedBytes) : canAcceptScheduledData(bytes);
     if (!canAccept)
         return false;
 
@@ -1029,14 +1038,16 @@ double SubflowConnection::getSchedulerPacingRateBytesPerSecond() const
 
     // Once TCP has a data RTT sample, use the rate selected by the
     // congestion-control flavour, just as Linux MPTCP reads sk_pacing_rate.
-    if (pacedAlgorithm->getRtt() > SIMTIME_ZERO && intersendingTime > SIMTIME_ZERO)
+    if (pace && pacedAlgorithm->getRtt() > SIMTIME_ZERO && intersendingTime > SIMTIME_ZERO)
         return static_cast<double>(state->snd_mss) / intersendingTime.dbl();
 
     // Before the first data ACK, Linux initializes pacing from the handshake
     // RTT and max(cwnd, packets_out), at 200% in slow start and 120% in
-    // congestion avoidance. Do not expose the simulator's 1 us bootstrap
-    // interval to the MPTCP scheduler.
-    if (schedulerHandshakeRtt <= SIMTIME_ZERO)
+    // congestion avoidance. The same estimate is needed for unpaced TCP,
+    // whose simulator interval otherwise remains at its bootstrap value.
+    const simtime_t rtt = pacedAlgorithm->getRtt() > SIMTIME_ZERO ?
+            pacedAlgorithm->getRtt() : schedulerHandshakeRtt;
+    if (rtt <= SIMTIME_ZERO)
         return 0.0;
 
     const uint32_t window = std::max(pacedAlgorithm->getCwnd(), m_bytesInFlight);
@@ -1044,8 +1055,8 @@ double SubflowConnection::getSchedulerPacingRateBytesPerSecond() const
         return 0.0;
 
     const uint32_t ssthresh = pacedAlgorithm->getSsthresh();
-    const double pacingRatio = ssthresh > 0 && window < ssthresh / 2 ? 2.0 : 1.2;
-    return pacingRatio * static_cast<double>(window) / schedulerHandshakeRtt.dbl();
+    const double pacingRatio = pacedAlgorithm->getCwnd() < ssthresh / 2 ? 2.0 : 1.2;
+    return pacingRatio * static_cast<double>(window) / rtt.dbl();
 }
 
 bool SubflowConnection::sendPendingData()
@@ -1063,7 +1074,22 @@ bool SubflowConnection::sendPendingData()
             return selected != nullptr;
     }
 
-    return TcpPacedConnection::sendPendingData();
+    bool sent = TcpPacedConnection::sendPendingData();
+    if (!pace && metaConn != nullptr &&
+            !metaConn->getPacketScheduler().usesLowestRttScheduling() &&
+            !metaConn->getPacketScheduler().usesDirectPullMode())
+    {
+        // tcp_push() lets unpaced TCP fill its available window. The paced
+        // base's ordinary sendData() sends just one segment per invocation;
+        // without this drain, default scheduling could queue plenty of data
+        // yet put only one packet on the wire until the next ACK.
+        bool progress = sent;
+        while (progress) {
+            progress = TcpPacedConnection::sendPendingData();
+            sent = sent || progress;
+        }
+    }
+    return sent;
 }
 
 bool SubflowConnection::isCwndLimited(uint32_t congestionWindow) const
