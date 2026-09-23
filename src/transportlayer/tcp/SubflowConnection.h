@@ -131,9 +131,17 @@ class SubflowConnection : public MpTcpConnectionBase
 
     virtual uint32_t getSchedulerQueuedBytes() const;
 
+    /** Data not yet transmitted, excluding retained TCP-unacknowledged bytes. */
+    virtual uint32_t getSchedulerUnsentBytes() const;
+
     virtual uint32_t getSchedulerQueueLimit() const;
 
+    /** Uncommitted cwnd/rwnd/write space, counting unsent and TCP-unacked data. */
+    virtual uint32_t getSchedulerAvailableBytes() const;
+
     virtual double getSchedulerPacingRateBytesPerSecond() const;
+
+    virtual double getSchedulerWindowRateBytesPerSecond() const;
 
     virtual const std::map<uint32_t, DsnMapping>& getSentDsnMappings() const { return sentDsnMapping; }
 
@@ -152,6 +160,8 @@ class SubflowConnection : public MpTcpConnectionBase
     virtual void updateTotalCwnd(uint32_t oldSubflowCwnd, uint32_t newSubflowCwnd);
 
   protected:
+    void verifySendQueueAssignment(uint32_t bytes, const char *origin) const;
+    static simsignal_t subflowSendQueueBytesSignal;
     MpTcpConnection *metaConn = nullptr;  // Pointer to meta connection
     bool isMaster = false;                 // True for initial subflow
     bool isRetransmission = false;

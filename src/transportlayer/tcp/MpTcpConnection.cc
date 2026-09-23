@@ -40,7 +40,7 @@ simsignal_t MpTcpConnection::metaDsnGapBytesSignal = registerSignal("metaDsnGapB
 simsignal_t MpTcpConnection::metaReinjectedBytesSignal = registerSignal("metaReinjectedBytes");
 simsignal_t MpTcpConnection::metaReinjectionsSignal = registerSignal("metaReinjections");
 
-MpTcpConnection::MpTcpConnection() : packetScheduler(this), flowScheduler(this)
+MpTcpConnection::MpTcpConnection() : packetScheduler(std::make_unique<MpTcpPacketScheduler>(this)), flowScheduler(this)
 {
 }
 
@@ -208,7 +208,7 @@ void MpTcpConnection::removeSubflow(SubflowConnection *subflowConn)
     if (it != m_subflows.end())
         m_subflows.erase(it);
 
-    packetScheduler.forgetSubflow(subflowConn);
+    packetScheduler->forgetSubflow(subflowConn);
     flowScheduler.forgetSubflow(subflowConn);
 }
 
@@ -244,7 +244,7 @@ void MpTcpConnection::subflowStateChange(SubflowConnection *subflowConn, const T
     // state, when the packet scheduler must not select it. Retry after the
     // transition so a newly usable path need not wait for another path's ACK.
     if (oldState != newState && newState == TCP_S_ESTABLISHED)
-        packetScheduler.pushPendingData(state->snd_mss);
+        packetScheduler->pushPendingData(state->snd_mss);
 }
 
 TcpEventCode MpTcpConnection::processSegmentInSynSent(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address srcAddr, L3Address destAddr)
@@ -564,7 +564,7 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
             EV_DETAIL << "Queueing up data for sending later.\n";
             sendQueue->enqueueAppData(packet); // queue up for later
             EV_DETAIL << sendQueue->getBytesAvailable(state->snd_una) << " bytes in queue\n";
-            packetScheduler.pushPendingData(state->snd_mss);
+            packetScheduler->pushPendingData(state->snd_mss);
 
             break;
 
@@ -575,7 +575,7 @@ void MpTcpConnection::process_SEND(TcpEventCode& event, TcpCommand *tcpCommand, 
                       << (state->snd_max - state->snd_una) << " bytes unacknowledged\n";
             // Linux schedules application writes at the meta socket. A
             // congested master must not gate writes to another usable path.
-            packetScheduler.pushPendingData(state->snd_mss);
+            packetScheduler->pushPendingData(state->snd_mss);
             break;
 
         case TCP_S_LAST_ACK:
@@ -888,7 +888,10 @@ SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowCon
 
     // Select an idle transport first. The complete DSN range can exceed its
     // write limit; only the bounded fragment below needs to fit.
-    SubflowConnection *target = packetScheduler.selectRetransmissionSubflow(source, bytes);
+    const uint32_t outstandingBytes = state->snd_max - dsn;
+    const uint32_t selectionBytes = packetScheduler->usesCwndBoundedScheduling() ?
+            std::min({bytes, retransmitLimit, outstandingBytes}) : bytes;
+    SubflowConnection *target = packetScheduler->selectRetransmissionSubflow(source, selectionBytes);
     if (target == nullptr)
         return nullptr;
 
@@ -897,11 +900,15 @@ SubflowConnection *MpTcpConnection::dispatchPendingMetaRetransmission(SubflowCon
     // rather than repairing one MSS or filling the entire socket write queue.
     const uint32_t queuedBytes = target->getSchedulerQueuedBytes();
     const uint32_t writeLimit = target->getDefaultSchedulerWriteLimit();
-    const uint32_t writeSpace = queuedBytes < writeLimit ? writeLimit - queuedBytes : 0;
-    const uint32_t outstandingBytes = state->snd_max - dsn;
-    const uint32_t retransmittedBytes = std::min({
+    uint32_t writeSpace = queuedBytes < writeLimit ? writeLimit - queuedBytes : 0;
+    if (packetScheduler->usesCwndBoundedScheduling())
+        writeSpace = std::min(writeSpace, packetScheduler->getBoundedAssignmentSpace(target, selectionBytes));
+    uint32_t retransmittedBytes = std::min({
             retransmitLimit, outstandingBytes, writeSpace,
             MpTcpPacketScheduler::DEFAULT_SEND_BURST_SIZE});
+    if (packetScheduler->usesCwndBoundedScheduling() &&
+            retransmittedBytes < std::min(retransmitLimit, outstandingBytes))
+        retransmittedBytes -= retransmittedBytes % selectionBytes;
     if (retransmittedBytes == 0 ||
             !target->enqueueRetransmissionData(dsn, retransmittedBytes, true))
         return nullptr;
@@ -979,7 +986,7 @@ void MpTcpConnection::processMetaRexmitTimer()
         checkSubflowStale(subflow);
 
     if (getPendingRecoveryBytes() > 0)
-        packetScheduler.pushPendingData(state->snd_mss);
+        packetScheduler->pushPendingData(state->snd_mss);
 
     pendingMetaRetransmitDsn = state->snd_una;
     // Upstream continues with the next fragment while another idle subflow
@@ -995,7 +1002,7 @@ void MpTcpConnection::processMetaRexmitTimer()
 
     // __mptcp_retrans() also retries pending writes when no idle transport
     // was found. This includes failover data on busy but writable subflows.
-    packetScheduler.pushPendingData(state->snd_mss);
+    packetScheduler->pushPendingData(state->snd_mss);
 
     armMetaRexmitTimer(false);
 }
@@ -1009,7 +1016,7 @@ void MpTcpConnection::retransmitOutstandingSubflowData(SubflowConnection *subflo
     // subflows have no space. A one-shot scan of sent mappings lost both
     // those retries and DSNs assigned to TCP but not yet transmitted.
     requeueOutstandingData();
-    packetScheduler.pushPendingData(state->snd_mss);
+    packetScheduler->pushPendingData(state->snd_mss);
 }
 
 TcpEventCode MpTcpConnection::processSynInListen(Packet *tcpSegment, const Ptr<const TcpHeader>& tcpHeader, L3Address srcAddr, L3Address destAddr)
@@ -2006,7 +2013,7 @@ void MpTcpConnection::receivedUpTo(uint32_t toSeqNo)
     // connection-level send-window space, even if the DATA_ACK itself did not
     // advance. schedulePacket() performs the equivalent window/data checks.
     if (seqLE(ackNo, state->snd_max))
-        packetScheduler.pushPendingData(state->snd_mss);
+        packetScheduler->pushPendingData(state->snd_mss);
 }
 
 void MpTcpConnection::receivedSynListen(uint32_t seqNo, uint32_t iss)
@@ -2116,13 +2123,19 @@ void MpTcpConnection::assignInterface(SubflowConnection* subflowConn)
     }
 }
 
+std::unique_ptr<MpTcpPacketScheduler> MpTcpConnection::createPacketScheduler(const char *mode)
+{
+    auto scheduler = std::make_unique<MpTcpPacketScheduler>(this);
+    scheduler->setSchedulingMode(mode);
+    return scheduler;
+}
+
 void MpTcpConnection::initConnection(TcpOpenCommand *openCmd)
 {
     MpTcpConnectionBase::initConnection(openCmd);
     metaRexmitTimer = new cMessage("MPTCP-META-REXMIT");
     metaRemovalTimer = new cMessage("MPTCP-META-REMOVE");
-    packetScheduler.setConnection(this);
-    packetScheduler.setSchedulingMode(par("schedulerMode").stringValue());
+    packetScheduler = createPacketScheduler(par("schedulerMode").stringValue());
     flowScheduler.setConnection(this);
     flowScheduler.initialize(
         par("numberOfSubflows").intValue(),

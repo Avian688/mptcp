@@ -4,6 +4,10 @@ Reviewed on 2026-09-11 against Linux mainline commit
 `08df884136f1c1197bab2a27814404fd329d9aac` (2026-09-10).
 MPORB inherits this scheduler and transport recovery from MPTCP.
 
+An optional [`defaultCwnd` mode](default-cwnd-scheduler.md) adds cwnd-bounded
+admission and small fairness turns. It is a separate simulator policy; the
+upstream comparison below describes `default`.
+
 Sources:
 
 - [Scheduling and retransmission](https://github.com/torvalds/linux/blob/08df884136f1c1197bab2a27814404fd329d9aac/net/mptcp/protocol.c):

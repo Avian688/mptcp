@@ -47,6 +47,8 @@ simple SubflowConnection extends TcpPacedConnection
         @signal[mbytesLoss]; 
         @signal[msendElapsed]; 
         @signal[mackElapsed];
+        @signal[subflowSendQueueBytes](type=long; unit=B);
+        @statistic[subflowSendQueueBytes](title="Subflow send queue bytes awaiting first transmission"; record=vector; unit=B; interpolationmode=sample-hold);
         
         @statistic[throughput](record=vector; interpolationmode=sample-hold);
         @statistic[additiveIncrease](record=vector; interpolationmode=sample-hold);

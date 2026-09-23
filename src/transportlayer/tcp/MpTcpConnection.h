@@ -34,6 +34,7 @@
 #include "MpTcpConnectionBase.h"
 #include "MpTcpFlowScheduler.h"
 #include "MpTcpPacketScheduler.h"
+#include <memory>
 #include "SubflowConnection.h"
 
 namespace inet {
@@ -66,7 +67,7 @@ class MpTcpConnection : public MpTcpConnectionBase
     /** Get data from the meta-scheduler for sending */
     virtual uint32_t getSegment(uint32_t bytes);
 
-    virtual MpTcpPacketScheduler& getPacketScheduler() { return packetScheduler; }
+    virtual MpTcpPacketScheduler& getPacketScheduler() { return *packetScheduler; }
 
     virtual MpTcpFlowScheduler& getFlowScheduler() { return flowScheduler; }
 
@@ -166,7 +167,8 @@ class MpTcpConnection : public MpTcpConnectionBase
     };
 
     std::vector<SubflowConnection*> m_subflows;
-    MpTcpPacketScheduler packetScheduler;
+    virtual std::unique_ptr<MpTcpPacketScheduler> createPacketScheduler(const char *mode);
+    std::unique_ptr<MpTcpPacketScheduler> packetScheduler;
     MpTcpFlowScheduler flowScheduler;
     cMessage *metaRexmitTimer = nullptr;
     cMessage *metaRemovalTimer = nullptr;

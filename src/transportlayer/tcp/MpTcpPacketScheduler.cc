@@ -16,6 +16,7 @@
 #include "MpTcpPacketScheduler.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <vector>
 
@@ -37,11 +38,13 @@ void MpTcpPacketScheduler::setConnection(MpTcpConnection *connection)
 void MpTcpPacketScheduler::setSchedulingMode(const char *mode)
 {
     schedulingMode = mode != nullptr ? mode : "default";
-    if (schedulingMode != "lowestRtt" && schedulingMode != "directPull")
+    if (schedulingMode != "lowestRtt" && schedulingMode != "directPull" &&
+            schedulingMode != "defaultCwnd")
         schedulingMode = "default";
 
     lastSubflow = nullptr;
     remainingBurstBytes = 0;
+    skippedCwndBursts.clear();
 }
 
 bool MpTcpPacketScheduler::usesDirectPullMode() const
@@ -52,6 +55,16 @@ bool MpTcpPacketScheduler::usesDirectPullMode() const
 bool MpTcpPacketScheduler::usesLowestRttScheduling() const
 {
     return schedulingMode == "lowestRtt";
+}
+
+bool MpTcpPacketScheduler::usesCwndBoundedScheduling() const
+{
+    return schedulingMode == "defaultCwnd";
+}
+
+uint32_t MpTcpPacketScheduler::getBoundedAssignmentSpace(SubflowConnection *subflow, uint32_t segmentBytes) const
+{
+    return subflow->getSchedulerAvailableBytes();
 }
 
 SubflowConnection *MpTcpPacketScheduler::schedulePacket(SubflowConnection *requester, uint32_t bytes)
@@ -113,6 +126,11 @@ SubflowConnection *MpTcpPacketScheduler::selectRetransmissionSubflow(SubflowConn
             if (!available)
                 continue;
 
+            // The variant also bounds timer reinjection; otherwise an idle
+            // tiny-window path could still receive a 64 KiB recovery fragment.
+            if (usesCwndBoundedScheduling() && getBoundedAssignmentSpace(subflow, bytes) < bytes)
+                continue;
+
             if (!usesLowestRttScheduling())
                 return subflow;
 
@@ -139,6 +157,7 @@ void MpTcpPacketScheduler::forgetSubflow(SubflowConnection *subflow)
         return;
 
     avgPacingRates.erase(subflow);
+    skippedCwndBursts.erase(subflow);
     if (lastSubflow == subflow) {
         lastSubflow = nullptr;
         remainingBurstBytes = 0;
@@ -221,6 +240,9 @@ SubflowConnection *MpTcpPacketScheduler::scheduleDefault(SubflowConnection *requ
 
 SubflowConnection *MpTcpPacketScheduler::selectDefaultSubflow(uint32_t bytes)
 {
+    if (usesCwndBoundedScheduling())
+        return selectCwndBoundedSubflow(bytes);
+
     if (lastSubflow != nullptr && remainingBurstBytes > 0 &&
             lastSubflow->canUseDefaultScheduler(bytes))
         return lastSubflow;
@@ -258,6 +280,81 @@ SubflowConnection *MpTcpPacketScheduler::selectDefaultSubflow(uint32_t bytes)
     return bestSubflow;
 }
 
+SubflowConnection *MpTcpPacketScheduler::selectCwndBoundedSubflow(uint32_t bytes)
+{
+    // Recheck admission for every segment, including a cached burst. A window
+    // reduction must never be bypassed by a previous scheduling decision.
+    if (lastSubflow != nullptr && remainingBurstBytes >= bytes &&
+            lastSubflow->isActiveForDefaultScheduler() &&
+            getBoundedAssignmentSpace(lastSubflow, bytes) >= bytes)
+        return lastSubflow;
+
+    SubflowConnection *bestSubflow = nullptr;
+    SubflowConnection *overdueSubflow = nullptr;
+    double bestLingerTime = std::numeric_limits<double>::infinity();
+    std::vector<SubflowConnection *> eligible;
+
+    for (SubflowConnection *subflow : connection->getSubflows()) {
+        if (subflow == nullptr)
+            continue;
+
+        if (!subflow->isActiveForDefaultScheduler() ||
+                getBoundedAssignmentSpace(subflow, bytes) < bytes) {
+            skippedCwndBursts.erase(subflow);
+            continue;
+        }
+
+        const double pacingRate = getAveragePacingRate(subflow);
+        if (pacingRate <= 0.0) {
+            skippedCwndBursts.erase(subflow);
+            continue;
+        }
+
+        eligible.push_back(subflow);
+        const uint32_t skipped = skippedCwndBursts[subflow];
+        const double lingerTime = static_cast<double>(subflow->getSchedulerQueuedBytes()) / pacingRate;
+        // Keep the default queued-memory drain score. Break exact ties
+        // with the path that has missed more selections.
+        if (bestSubflow == nullptr || lingerTime < bestLingerTime ||
+                (lingerTime == bestLingerTime && skipped > skippedCwndBursts[bestSubflow])) {
+            bestSubflow = subflow;
+            bestLingerTime = lingerTime;
+        }
+        if (skipped >= CWND_MAX_SKIPPED_BURSTS &&
+                (overdueSubflow == nullptr || skipped > skippedCwndBursts[overdueSubflow]))
+            overdueSubflow = subflow;
+    }
+
+    if (bestSubflow == nullptr)
+        return nullptr;
+    if (overdueSubflow != nullptr)
+        bestSubflow = overdueSubflow;
+
+    // Never require a full default-size burst: even a one-MSS window remains
+    // usable. Round down to whole scheduling segments so a soft burst tail
+    // cannot cross the cap. A permitted short final segment uses its own size.
+    uint32_t burstLimit = std::min(std::max(DEFAULT_SEND_BURST_SIZE, bytes),
+            getBoundedAssignmentSpace(bestSubflow, bytes));
+    burstLimit -= burstLimit % bytes;
+    if (overdueSubflow != nullptr)
+        burstLimit = bytes;
+    startBurst(bestSubflow, bestSubflow->getSchedulerQueuedBytes(),
+            bestSubflow->getSchedulerPacingRateBytesPerSecond(), burstLimit);
+
+    for (SubflowConnection *subflow : eligible) {
+        uint32_t& skipped = skippedCwndBursts[subflow];
+        if (subflow == bestSubflow)
+            skipped = 0;
+        else if (skipped < std::numeric_limits<uint32_t>::max())
+            ++skipped;
+    }
+
+    EV_INFO << "MPTCP " << schedulingMode << " scheduler selected subflow " << bestSubflow->getSocketId()
+            << " with burst=" << remainingBurstBytes
+            << " bytes, fairness turn=" << (overdueSubflow != nullptr) << "\n";
+    return bestSubflow;
+}
+
 double MpTcpPacketScheduler::getAveragePacingRate(SubflowConnection *subflow)
 {
     auto it = avgPacingRates.find(subflow);
@@ -271,11 +368,11 @@ double MpTcpPacketScheduler::getAveragePacingRate(SubflowConnection *subflow)
 }
 
 void MpTcpPacketScheduler::startBurst(SubflowConnection *subflow,
-        uint32_t queuedBytesBeforeEnqueue, double currentPacingRate)
+        uint32_t queuedBytesBeforeEnqueue, double currentPacingRate, uint32_t burstLimit)
 {
     const uint32_t recoveryBytes = connection->getPendingRecoveryBytes();
-    const uint32_t burst = recoveryBytes > 0 ? std::min(DEFAULT_SEND_BURST_SIZE, recoveryBytes) :
-            std::min({DEFAULT_SEND_BURST_SIZE,
+    const uint32_t burst = recoveryBytes > 0 ? std::min(burstLimit, recoveryBytes) :
+            std::min({burstLimit,
                     connection->getSendWindowRemaining(), connection->getSendBufferRemaining()});
     const double previousPacingRate = getAveragePacingRate(subflow);
     const uint32_t totalWeight = queuedBytesBeforeEnqueue + burst;

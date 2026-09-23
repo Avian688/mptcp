@@ -23,7 +23,8 @@ simple MpTcpConnection extends TcpPacedConnection
         @class("inet::tcp::MpTcpConnection");
         int numberOfSubflows = default(1);
         bool startAllSubflowsAtBeginning = default(true);
-        string schedulerMode = default("default");
+        // defaultCwnd adds window-bounded bursts and bounded starvation protection.
+        string schedulerMode = default("default"); // default, defaultCwnd, lowestRtt, directPull
         string subflowStartTimes = default("");
 
         @signal[holBlockedBytes];

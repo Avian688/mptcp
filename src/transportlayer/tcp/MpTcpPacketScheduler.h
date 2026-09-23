@@ -30,8 +30,13 @@ class MpTcpPacketScheduler
 {
   public:
     static constexpr uint32_t DEFAULT_SEND_BURST_SIZE = 65428;
+    // Give a continuously eligible path a one-segment turn after this many
+    // other burst selections. This is an opportunity bound, not a timer.
+    static constexpr uint32_t CWND_MAX_SKIPPED_BURSTS = 1600000;
 
     explicit MpTcpPacketScheduler(MpTcpConnection *connection = nullptr);
+
+    virtual ~MpTcpPacketScheduler() = default;
 
     void setConnection(MpTcpConnection *connection);
 
@@ -41,12 +46,17 @@ class MpTcpPacketScheduler
 
     bool usesLowestRttScheduling() const;
 
+    virtual bool usesCwndBoundedScheduling() const;
+
+    /** Shared admission cap for new data and timer reinjection. */
+    virtual uint32_t getBoundedAssignmentSpace(SubflowConnection *subflow, uint32_t segmentBytes) const;
+
     SubflowConnection *schedulePacket(SubflowConnection *requester, uint32_t bytes);
 
     /** Push newly available meta-level data through the selected scheduler. */
     void pushPendingData(uint32_t bytes);
 
-    SubflowConnection *selectRetransmissionSubflow(SubflowConnection *source, uint32_t bytes,
+    virtual SubflowConnection *selectRetransmissionSubflow(SubflowConnection *source, uint32_t bytes,
                                                    bool requireIdle = true) const;
 
     void forgetSubflow(SubflowConnection *subflow);
@@ -54,14 +64,16 @@ class MpTcpPacketScheduler
   protected:
     SubflowConnection *scheduleDefault(SubflowConnection *requester, uint32_t bytes);
 
-    SubflowConnection *selectDefaultSubflow(uint32_t bytes);
+    virtual SubflowConnection *selectDefaultSubflow(uint32_t bytes);
+
+    SubflowConnection *selectCwndBoundedSubflow(uint32_t bytes);
 
     SubflowConnection *scheduleLowestRtt(SubflowConnection *requester, uint32_t bytes);
 
     double getAveragePacingRate(SubflowConnection *subflow);
 
     void startBurst(SubflowConnection *subflow, uint32_t queuedBytesBeforeEnqueue,
-                    double currentPacingRate);
+                    double currentPacingRate, uint32_t burstLimit = DEFAULT_SEND_BURST_SIZE);
 
     void consumeBurst(uint32_t bytes);
 
@@ -70,6 +82,7 @@ class MpTcpPacketScheduler
     SubflowConnection *lastSubflow = nullptr;
     uint32_t remainingBurstBytes = 0;
     std::map<SubflowConnection *, double> avgPacingRates;
+    std::map<SubflowConnection *, uint32_t> skippedCwndBursts;
 };
 
 } // namespace tcp

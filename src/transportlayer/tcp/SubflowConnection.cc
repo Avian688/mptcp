@@ -29,6 +29,8 @@ namespace tcp {
 
 Define_Module(SubflowConnection);
 
+simsignal_t SubflowConnection::subflowSendQueueBytesSignal = registerSignal("subflowSendQueueBytes");
+
 namespace {
 constexpr uint32_t DEFAULT_MPTCP_SEND_QUEUE_LIMIT = 4U * 1024U * 1024U;
 }
@@ -66,6 +68,7 @@ void SubflowConnection::initSubflowConnection(Tcp *mod, int socketId, MpTcpConne
 void SubflowConnection::initConnection(TcpOpenCommand *openCmd)
 {
     MpTcpConnectionBase::initConnection(openCmd);
+    emit(subflowSendQueueBytesSignal, 0L);
 }
 
 bool SubflowConnection::openActive(L3Address localAddr, L3Address remoteAddr, int localPort, int remotePort)
@@ -706,8 +709,11 @@ uint32_t SubflowConnection::sendSegment(uint32_t bytes)
     // remember highest seq sent (snd_nxt may be set back on retransmission,
     // but we'll need snd_max to check validity of ACKs -- they must ack
     // something we really sent)
-    if (seqGreater(state->snd_nxt, state->snd_max))
+    if (seqGreater(state->snd_nxt, state->snd_max)) {
         state->snd_max = state->snd_nxt;
+        // Use the highest transmitted sequence, not the retransmission cursor.
+        emit(subflowSendQueueBytesSignal, static_cast<unsigned long>(getSchedulerUnsentBytes()));
+    }
 
     updateInFlight();
     return sentBytes;
@@ -945,6 +951,28 @@ void SubflowConnection::markSchedulerStale()
             << " retransmission periods without receive activity\n";
 }
 
+void SubflowConnection::verifySendQueueAssignment(uint32_t bytes, const char *origin) const
+{
+    // Independent enqueue-time diagnostic: do not rely on the scheduler's
+    // allowance calculation to verify its own decision. Check before DSN mutation.
+    const char *mode = metaConn->par("schedulerMode").stringValue();
+    if (std::string(mode) != "intBurst" || bytes == 0)
+        return;
+
+    const uint32_t cwnd = check_and_cast<TcpPacedFamily *>(tcpAlgorithm)->getCwnd();
+    const uint32_t limit = std::max(cwnd, state->snd_mss);
+    const uint32_t unsent = getSchedulerUnsentBytes();
+    const uint32_t allowance = unsent < limit ? limit - unsent : 0;
+    const bool bounded = metaConn->getPacketScheduler().usesCwndBoundedScheduling();
+    if (!bounded || bytes > allowance)
+        throw cRuntimeError("intBurst send-queue bound violation: subflow=%s socketId=%d "
+                "origin=%s schedulerMode=%s bounded=%s cwnd=%u MSS=%u unsent=%u "
+                "assignment=%u allowance=%u snd_max=%u queueEnd=%u",
+                getFullPath().c_str(), socketId, origin, mode, bounded ? "true" : "false",
+                cwnd, state->snd_mss, unsent, bytes, allowance,
+                state->snd_max, sendQueue->getBufferEndSeq());
+}
+
 void SubflowConnection::enqueueScheduledData(uint32_t bytes)
 {
     Enter_Method_Silent("enqueueScheduledData");
@@ -952,6 +980,7 @@ void SubflowConnection::enqueueScheduledData(uint32_t bytes)
     ASSERT(metaConn != nullptr);
     ASSERT(sendQueue != nullptr);
 
+    verifySendQueueAssignment(bytes, "scheduled/failover");
     const uint32_t subflowSeqStart = sendQueue->getBufferEndSeq();
     const uint32_t dsnStart = metaConn->sendSegment(bytes);
 
@@ -965,6 +994,7 @@ void SubflowConnection::enqueueScheduledData(uint32_t bytes)
     Packet *msg = metaConn->createDataPacket(dsnStart, bytes);
     ASSERT(msg != nullptr);
     sendQueue->enqueueAppData(msg);
+    emit(subflowSendQueueBytesSignal, static_cast<unsigned long>(getSchedulerUnsentBytes()));
     metaConn->notifyDataScheduled();
 }
 
@@ -987,6 +1017,7 @@ bool SubflowConnection::enqueueRetransmissionData(uint32_t dsnStart, uint32_t by
     if (!canAccept)
         return false;
 
+    verifySendQueueAssignment(bytes, "reinjection");
     Packet *msg = metaConn->createDataPacket(dsnStart, bytes);
     if (msg == nullptr)
         return false;
@@ -997,6 +1028,7 @@ bool SubflowConnection::enqueueRetransmissionData(uint32_t dsnStart, uint32_t by
     mapping.dsnEnd = dsnStart + bytes;
     pendingDsnMapping[subflowSeqStart] = mapping;
     sendQueue->enqueueAppData(msg);
+    emit(subflowSendQueueBytesSignal, static_cast<unsigned long>(getSchedulerUnsentBytes()));
     return true;
 }
 
@@ -1006,6 +1038,19 @@ uint32_t SubflowConnection::getSchedulerQueuedBytes() const
         return 0;
 
     return sendQueue->getBytesAvailable(sendQueue->getBufferStartSeq());
+}
+
+uint32_t SubflowConnection::getSchedulerUnsentBytes() const
+{
+    return state != nullptr && sendQueue != nullptr ? sendQueue->getBytesAvailable(state->snd_max) : 0;
+}
+
+double SubflowConnection::getSchedulerWindowRateBytesPerSecond() const
+{
+    auto *algorithm = dynamic_cast<TcpPacedFamily *>(tcpAlgorithm);
+    const simtime_t rtt = getSchedulingRtt();
+    return algorithm != nullptr && rtt > SIMTIME_ZERO && rtt != SIMTIME_MAX ?
+            algorithm->getCwnd() / rtt.dbl() : 0;
 }
 
 uint32_t SubflowConnection::getSchedulerQueueLimit() const
@@ -1025,6 +1070,16 @@ uint32_t SubflowConnection::getSchedulerQueueLimit() const
     // locally queued bytes. This helper is used by schedulers that need actual
     // cwnd/rwnd admission.
     return windowBudget;
+}
+
+uint32_t SubflowConnection::getSchedulerAvailableBytes() const
+{
+    if (state == nullptr || sendQueue == nullptr)
+        return 0;
+
+    const uint32_t limit = std::min(getSchedulerQueueLimit(), getDefaultSchedulerWriteLimit());
+    const uint32_t queued = getSchedulerQueuedBytes();
+    return queued < limit ? limit - queued : 0;
 }
 
 double SubflowConnection::getSchedulerPacingRateBytesPerSecond() const
@@ -1061,12 +1116,14 @@ double SubflowConnection::getSchedulerPacingRateBytesPerSecond() const
 
 bool SubflowConnection::sendPendingData()
 {
-    // Current Linux MPTCP dispatches pending meta-level data before entering
-    // a particular subflow's TCP send path. Keep retransmission handling local,
-    // but let the legacy lowest-RTT policy select any available subflow for new data.
+    // Refill an empty queue after TCP ACK processing has released its window.
+    // DATA_ACK scheduling can run before that TCP ACK is applied; with bounded
+    // admission, a one-MSS window would otherwise stay empty in unpaced mode.
+    // Keep TCP retransmission handling local to the existing recovery path.
     if (state != nullptr && sendQueue != nullptr && metaConn != nullptr &&
             !state->lossRecovery && !state->afterRto &&
-            metaConn->getPacketScheduler().usesLowestRttScheduling() &&
+            (metaConn->getPacketScheduler().usesLowestRttScheduling() ||
+                    metaConn->getPacketScheduler().usesCwndBoundedScheduling()) &&
             sendQueue->getBytesAvailable(state->snd_max) == 0)
     {
         SubflowConnection *selected = metaConn->getPacketScheduler().schedulePacket(this, state->snd_mss);
