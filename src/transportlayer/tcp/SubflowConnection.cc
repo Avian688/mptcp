@@ -953,8 +953,8 @@ void SubflowConnection::markSchedulerStale()
 
 void SubflowConnection::verifySendQueueAssignment(uint32_t bytes, const char *origin)
 {
-    // Verify scheduler assignments before DSN mutation against the burst-only
-    // cap and write memory; this deliberately imposes no cumulative cwnd bound.
+    // Verify scheduler assignments before DSN mutation against the shared
+    // unsent allowance and write memory. Flight does not consume the allowance.
     const char *mode = metaConn->par("schedulerMode").stringValue();
     if ((std::string(mode) != "intInformed" && std::string(mode) != "intBurst") || bytes == 0)
         return;

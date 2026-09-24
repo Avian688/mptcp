@@ -64,11 +64,15 @@ bool MpTcpPacketScheduler::usesCwndBoundedScheduling() const
 
 uint32_t MpTcpPacketScheduler::getBoundedAssignmentSpace(SubflowConnection *subflow, uint32_t segmentBytes) const
 {
-    // Cap one burst, not the cumulative amount committed to this subflow.
+    // Restore the original INT unsent allowance. Bytes already in flight do
+    // not consume this budget; repeated bursts must not bypass it.
     const uint32_t cwnd = check_and_cast<TcpPacedFamily *>(subflow->getTcpAlgorithm())->getCwnd();
+    const uint32_t limit = std::max(cwnd, subflow->getState()->snd_mss);
+    const uint32_t unsent = subflow->getSchedulerUnsentBytes();
+    const uint32_t allowance = unsent < limit ? limit - unsent : 0;
     const uint32_t queued = subflow->getSchedulerQueuedBytes();
     const uint32_t writeLimit = subflow->getDefaultSchedulerWriteLimit();
-    return std::min(std::max(cwnd, subflow->getState()->snd_mss),
+    return std::min(allowance,
             queued < writeLimit ? writeLimit - queued : 0);
 }
 
@@ -287,8 +291,8 @@ SubflowConnection *MpTcpPacketScheduler::selectDefaultSubflow(uint32_t bytes)
 
 SubflowConnection *MpTcpPacketScheduler::selectCwndBoundedSubflow(uint32_t bytes)
 {
-    // Recheck the per-assignment cap and write memory inside cached bursts.
-    // Existing queued and in-flight data do not consume the cwnd burst cap.
+    // Recheck unsent allowance inside cached bursts, including after cwnd falls.
+    // In-flight data consumes write memory, not the unsent cwnd allowance.
     if (lastSubflow != nullptr && remainingBurstBytes >= bytes &&
             lastSubflow->isActiveForDefaultScheduler() &&
             getBoundedAssignmentSpace(lastSubflow, bytes) >= bytes)

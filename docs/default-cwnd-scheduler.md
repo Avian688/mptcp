@@ -7,20 +7,21 @@ Select this scheduler on the connection module:
 ```
 
 It keeps the default queued-bytes / average-pacing-rate ranking and burst
-bookkeeping. The current variant uses a **burst-only** cwnd cap, shared with
+bookkeeping. The current variant uses a **unsent-queue** cwnd allowance, shared with
 MpORB's `intInformed` through `MpTcpPacketScheduler::getBoundedAssignmentSpace()`:
 
 ```text
 writeSpace = max(0, writeLimit - queuedBytes)
-cap = min(max(cwnd, MSS), writeSpace)
+unsentSpace = max(0, max(cwnd, MSS) - unsentBytes)
+cap = min(unsentSpace, writeSpace)
 burst = min(defaultBurst, cap), rounded down to scheduling segments
 ```
 
 The usual burst target is 65,428 bytes. `queuedBytes` includes unsent bytes and
-retained TCP-unacknowledged bytes. Those bytes consume write memory but are not
-subtracted from cwnd for this cap. It is not a cumulative backlog bound: repeated
-selections may queue more than one cwnd. For example, a one-MSS cwnd permits a
-one-MSS burst on each selection while write memory remains available.
+retained TCP-unacknowledged bytes. Both consume write memory; only unsent bytes
+consume the cwnd allowance. Repeated selections cannot add more than one cwnd
+of unsent payload (with an MSS floor). If cwnd shrinks below an existing backlog,
+assignment pauses until it drains. Bytes in flight do not consume this allowance.
 
 TCP still enforces its actual cwnd and advertised receive window on transmission.
 Connection-level send-window and send-buffer checks remain in the shared push
@@ -33,6 +34,5 @@ Queued data is not removed when cwnd shrinks. The bounded-scheduler empty-queue
 refill path remains enabled. `lowestRtt` retains its separate admission policy.
 
 This is a simulator extension to the default scheduler, not a claim of exact
-upstream Linux scheduling behaviour. Earlier versions of this variant subtracted
-unsent and unacknowledged bytes from cwnd; that cumulative restriction has been
-removed at the user's request for both `defaultCwnd` and `intInformed`.
+upstream Linux scheduling behaviour. This restores the original INT allowance
+for both variants. It does not restore the stricter cwnd-minus-flight admission.
