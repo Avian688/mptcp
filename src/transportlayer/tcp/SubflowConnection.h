@@ -160,7 +160,7 @@ class SubflowConnection : public MpTcpConnectionBase
     virtual void updateTotalCwnd(uint32_t oldSubflowCwnd, uint32_t newSubflowCwnd);
 
   protected:
-    void verifySendQueueAssignment(uint32_t bytes, const char *origin) const;
+    void verifySendQueueAssignment(uint32_t bytes, const char *origin);
     static simsignal_t subflowSendQueueBytesSignal;
     MpTcpConnection *metaConn = nullptr;  // Pointer to meta connection
     bool isMaster = false;                 // True for initial subflow

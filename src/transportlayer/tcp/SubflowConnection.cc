@@ -951,25 +951,26 @@ void SubflowConnection::markSchedulerStale()
             << " retransmission periods without receive activity\n";
 }
 
-void SubflowConnection::verifySendQueueAssignment(uint32_t bytes, const char *origin) const
+void SubflowConnection::verifySendQueueAssignment(uint32_t bytes, const char *origin)
 {
-    // Independent enqueue-time diagnostic: do not rely on the scheduler's
-    // allowance calculation to verify its own decision. Check before DSN mutation.
+    // Verify scheduler assignments before DSN mutation against the burst-only
+    // cap and write memory; this deliberately imposes no cumulative cwnd bound.
     const char *mode = metaConn->par("schedulerMode").stringValue();
-    if (std::string(mode) != "intBurst" || bytes == 0)
+    if ((std::string(mode) != "intInformed" && std::string(mode) != "intBurst") || bytes == 0)
         return;
 
     const uint32_t cwnd = check_and_cast<TcpPacedFamily *>(tcpAlgorithm)->getCwnd();
-    const uint32_t limit = std::max(cwnd, state->snd_mss);
     const uint32_t unsent = getSchedulerUnsentBytes();
-    const uint32_t allowance = unsent < limit ? limit - unsent : 0;
+    const uint32_t queued = getSchedulerQueuedBytes();
+    const uint32_t allowance = metaConn->getPacketScheduler().getBoundedAssignmentSpace(
+            this, bytes);
     const bool bounded = metaConn->getPacketScheduler().usesCwndBoundedScheduling();
     if (!bounded || bytes > allowance)
-        throw cRuntimeError("intBurst send-queue bound violation: subflow=%s socketId=%d "
+        throw cRuntimeError("intInformed send-queue bound violation: subflow=%s socketId=%d "
                 "origin=%s schedulerMode=%s bounded=%s cwnd=%u MSS=%u unsent=%u "
-                "assignment=%u allowance=%u snd_max=%u queueEnd=%u",
+                "queued=%u rwnd=%u assignment=%u allowance=%u snd_max=%u queueEnd=%u",
                 getFullPath().c_str(), socketId, origin, mode, bounded ? "true" : "false",
-                cwnd, state->snd_mss, unsent, bytes, allowance,
+                cwnd, state->snd_mss, unsent, queued, state->snd_wnd, bytes, allowance,
                 state->snd_max, sendQueue->getBufferEndSeq());
 }
 

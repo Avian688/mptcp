@@ -64,7 +64,12 @@ bool MpTcpPacketScheduler::usesCwndBoundedScheduling() const
 
 uint32_t MpTcpPacketScheduler::getBoundedAssignmentSpace(SubflowConnection *subflow, uint32_t segmentBytes) const
 {
-    return subflow->getSchedulerAvailableBytes();
+    // Cap one burst, not the cumulative amount committed to this subflow.
+    const uint32_t cwnd = check_and_cast<TcpPacedFamily *>(subflow->getTcpAlgorithm())->getCwnd();
+    const uint32_t queued = subflow->getSchedulerQueuedBytes();
+    const uint32_t writeLimit = subflow->getDefaultSchedulerWriteLimit();
+    return std::min(std::max(cwnd, subflow->getState()->snd_mss),
+            queued < writeLimit ? writeLimit - queued : 0);
 }
 
 SubflowConnection *MpTcpPacketScheduler::schedulePacket(SubflowConnection *requester, uint32_t bytes)
@@ -282,8 +287,8 @@ SubflowConnection *MpTcpPacketScheduler::selectDefaultSubflow(uint32_t bytes)
 
 SubflowConnection *MpTcpPacketScheduler::selectCwndBoundedSubflow(uint32_t bytes)
 {
-    // Recheck admission for every segment, including a cached burst. A window
-    // reduction must never be bypassed by a previous scheduling decision.
+    // Recheck the per-assignment cap and write memory inside cached bursts.
+    // Existing queued and in-flight data do not consume the cwnd burst cap.
     if (lastSubflow != nullptr && remainingBurstBytes >= bytes &&
             lastSubflow->isActiveForDefaultScheduler() &&
             getBoundedAssignmentSpace(lastSubflow, bytes) >= bytes)
