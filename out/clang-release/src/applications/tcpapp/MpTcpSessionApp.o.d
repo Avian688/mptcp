@@ -1,4 +1,5 @@
 ../out/clang-release/src/applications/tcpapp/MpTcpSessionApp.o: \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json \
   applications/tcpapp/MpTcpSessionApp.cc \
   applications/tcpapp/MpTcpSessionApp.h \
   ../../inet4.5/src/inet/transportlayer/contract/tcp/TcpSocket.h \
@@ -9,7 +10,7 @@
   ../../inet4.5/src/inet/common/INETDefs.h \
   ../../inet4.5/src/inet/common/precompiled_release.h \
   ../../inet4.5/src/inet/common/precompiled.h \
-  /Users/av288/omnetpp-6.3.0/include/omnetpp.h \
+  /Users/av288/omnetpp-6.4.0/include/omnetpp.h \
   ../../inet4.5/src/inet/opp_defines.h ../../inet4.5/src/inet/features.h \
   ../../inet4.5/src/inet/common/Compat.h \
   ../../inet4.5/src/inet/common/InitStages.h \
@@ -71,6 +72,7 @@
   ../../inet4.5/src/inet/queueing/base/PacketProcessorBase.h \
   ../../inet4.5/src/inet/queueing/contract/IPacketProcessor.h \
   ../../inet4.5/src/inet/queueing/contract/IPassivePacketSink.h
+/Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json:
 applications/tcpapp/MpTcpSessionApp.h:
 ../../inet4.5/src/inet/transportlayer/contract/tcp/TcpSocket.h:
 ../../inet4.5/src/inet/common/packet/ChunkQueue.h:
@@ -80,7 +82,7 @@ applications/tcpapp/MpTcpSessionApp.h:
 ../../inet4.5/src/inet/common/INETDefs.h:
 ../../inet4.5/src/inet/common/precompiled_release.h:
 ../../inet4.5/src/inet/common/precompiled.h:
-/Users/av288/omnetpp-6.3.0/include/omnetpp.h:
+/Users/av288/omnetpp-6.4.0/include/omnetpp.h:
 ../../inet4.5/src/inet/opp_defines.h:
 ../../inet4.5/src/inet/features.h:
 ../../inet4.5/src/inet/common/Compat.h:

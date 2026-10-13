@@ -1,7 +1,8 @@
 ../out/clang-release/src/transportlayer/tcp/MpTcp.o: \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json \
   transportlayer/tcp/MpTcp.cc \
   ../../inet4.5/src/inet/common/socket/SocketTag_m.h \
-  /Users/av288/omnetpp-6.3.0/include/omnetpp.h \
+  /Users/av288/omnetpp-6.4.0/include/omnetpp.h \
   ../../inet4.5/src/inet/common/INETDefs_m.h \
   ../../inet4.5/src/inet/common/INETDefs.h \
   ../../inet4.5/src/inet/common/precompiled_release.h \
@@ -124,8 +125,9 @@
   transportlayer/tcp/MpTcpPacketScheduler.h \
   transportlayer/tcp/SubflowConnection.h \
   transportlayer/tcp/../../common/DataSequenceNumberTag_m.h
+/Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json:
 ../../inet4.5/src/inet/common/socket/SocketTag_m.h:
-/Users/av288/omnetpp-6.3.0/include/omnetpp.h:
+/Users/av288/omnetpp-6.4.0/include/omnetpp.h:
 ../../inet4.5/src/inet/common/INETDefs_m.h:
 ../../inet4.5/src/inet/common/INETDefs.h:
 ../../inet4.5/src/inet/common/precompiled_release.h:

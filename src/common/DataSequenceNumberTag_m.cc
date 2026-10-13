@@ -1,5 +1,5 @@
 //
-// Generated file, do not edit! Created by opp_msgtool 6.3 from common/DataSequenceNumberTag.msg.
+// Generated file, do not edit! Created by opp_msgtool 6.4 from common/DataSequenceNumberTag.msg.
 //
 
 // Disable warnings about unused variables, empty switch stmts, etc:
@@ -150,6 +150,27 @@ void doParsimUnpacking(omnetpp::cCommBuffer *, T& t)
 
 }  // namespace omnetpp
 
+
+template<typename T>
+std::string toStringIfPrintable(const T& t) {
+    if constexpr (omnetpp::internal::is_printable<T>::value) {
+        std::ostringstream os;
+        os << t;
+        return os.str();
+    }
+    return omnetpp::cClassDescriptor::UNPRINTABLE;
+}
+
+template<typename T>
+bool fromStringIfExtractable(T& t, const char *s) {
+    if constexpr (omnetpp::internal::is_extractable<T>::value) {
+        std::istringstream is(s);
+        is >> t;
+        return true;
+    }
+    return false;
+}
+
 namespace inet {
 
 Register_Class(DataSequenceNumberTag)
@@ -216,6 +237,8 @@ class DataSequenceNumberTagDescriptor : public omnetpp::cClassDescriptor
     virtual bool doesSupport(omnetpp::cObject *obj) const override;
     virtual const char **getPropertyNames() const override;
     virtual const char *getProperty(const char *propertyName) const override;
+    virtual std::string getValueAsString(omnetpp::any_ptr object) const override;
+    virtual void setValueAsString(omnetpp::any_ptr object, const char *value) const override;
     virtual int getFieldCount() const override;
     virtual const char *getFieldName(int field) const override;
     virtual int findField(const char *fieldName) const override;
@@ -269,6 +292,19 @@ const char *DataSequenceNumberTagDescriptor::getProperty(const char *propertyNam
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     return base ? base->getProperty(propertyName) : nullptr;
+}
+
+std::string DataSequenceNumberTagDescriptor::getValueAsString(omnetpp::any_ptr object) const
+{
+    DataSequenceNumberTag *pp = omnetpp::fromAnyPtr<DataSequenceNumberTag>(object); (void)pp;
+    return ((cObject*)pp)->str();
+}
+
+void DataSequenceNumberTagDescriptor::setValueAsString(omnetpp::any_ptr object, const char *value) const
+{
+    DataSequenceNumberTag *pp = omnetpp::fromAnyPtr<DataSequenceNumberTag>(object); (void)pp;
+    if (!fromStringIfExtractable(*pp, value))
+        cClassDescriptor::setValueAsString(object, value);
 }
 
 int DataSequenceNumberTagDescriptor::getFieldCount() const
@@ -568,6 +604,8 @@ class DataAckTagDescriptor : public omnetpp::cClassDescriptor
     virtual bool doesSupport(omnetpp::cObject *obj) const override;
     virtual const char **getPropertyNames() const override;
     virtual const char *getProperty(const char *propertyName) const override;
+    virtual std::string getValueAsString(omnetpp::any_ptr object) const override;
+    virtual void setValueAsString(omnetpp::any_ptr object, const char *value) const override;
     virtual int getFieldCount() const override;
     virtual const char *getFieldName(int field) const override;
     virtual int findField(const char *fieldName) const override;
@@ -621,6 +659,19 @@ const char *DataAckTagDescriptor::getProperty(const char *propertyName) const
 {
     omnetpp::cClassDescriptor *base = getBaseClassDescriptor();
     return base ? base->getProperty(propertyName) : nullptr;
+}
+
+std::string DataAckTagDescriptor::getValueAsString(omnetpp::any_ptr object) const
+{
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    return ((cObject*)pp)->str();
+}
+
+void DataAckTagDescriptor::setValueAsString(omnetpp::any_ptr object, const char *value) const
+{
+    DataAckTag *pp = omnetpp::fromAnyPtr<DataAckTag>(object); (void)pp;
+    if (!fromStringIfExtractable(*pp, value))
+        cClassDescriptor::setValueAsString(object, value);
 }
 
 int DataAckTagDescriptor::getFieldCount() const

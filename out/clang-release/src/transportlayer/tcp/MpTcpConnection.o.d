@@ -1,4 +1,5 @@
 ../out/clang-release/src/transportlayer/tcp/MpTcpConnection.o: \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json \
   transportlayer/tcp/MpTcpConnection.cc \
   ../../inet4.5/src/inet/networklayer/common/L3AddressResolver.h \
   ../../inet4.5/src/inet/networklayer/common/L3Address.h \
@@ -6,7 +7,7 @@
   ../../inet4.5/src/inet/common/INETDefs.h \
   ../../inet4.5/src/inet/common/precompiled_release.h \
   ../../inet4.5/src/inet/common/precompiled.h \
-  /Users/av288/omnetpp-6.3.0/include/omnetpp.h \
+  /Users/av288/omnetpp-6.4.0/include/omnetpp.h \
   ../../inet4.5/src/inet/opp_defines.h ../../inet4.5/src/inet/features.h \
   ../../inet4.5/src/inet/common/Compat.h \
   ../../inet4.5/src/inet/common/InitStages.h \
@@ -122,13 +123,14 @@
   transportlayer/tcp/../../common/DataSequenceNumberTag_m.h \
   transportlayer/tcp/MpTcp.h \
   transportlayer/tcp/../../../../tcpPaced/src/transportlayer/tcp/TcpPaced.h
+/Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json:
 ../../inet4.5/src/inet/networklayer/common/L3AddressResolver.h:
 ../../inet4.5/src/inet/networklayer/common/L3Address.h:
 ../../inet4.5/src/inet/linklayer/common/MacAddress.h:
 ../../inet4.5/src/inet/common/INETDefs.h:
 ../../inet4.5/src/inet/common/precompiled_release.h:
 ../../inet4.5/src/inet/common/precompiled.h:
-/Users/av288/omnetpp-6.3.0/include/omnetpp.h:
+/Users/av288/omnetpp-6.4.0/include/omnetpp.h:
 ../../inet4.5/src/inet/opp_defines.h:
 ../../inet4.5/src/inet/features.h:
 ../../inet4.5/src/inet/common/Compat.h:

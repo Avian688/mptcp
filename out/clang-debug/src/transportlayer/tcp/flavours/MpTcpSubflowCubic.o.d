@@ -1,4 +1,5 @@
 ../out/clang-debug/src/transportlayer/tcp/flavours/MpTcpSubflowCubic.o: \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json \
   transportlayer/tcp/flavours/MpTcpSubflowCubic.cc \
   transportlayer/tcp/flavours/MpTcpSubflowCubic.h \
   ../../inet4.5/src/inet/transportlayer/tcp/TcpConnection.h \
@@ -7,7 +8,7 @@
   ../../inet4.5/src/inet/common/INETDefs.h \
   ../../inet4.5/src/inet/common/precompiled_debug.h \
   ../../inet4.5/src/inet/common/precompiled.h \
-  /Users/av288/omnetpp-6.3.0/include/omnetpp.h \
+  /Users/av288/omnetpp-6.4.0/include/omnetpp.h \
   ../../inet4.5/src/inet/opp_defines.h ../../inet4.5/src/inet/features.h \
   ../../inet4.5/src/inet/common/Compat.h \
   ../../inet4.5/src/inet/common/InitStages.h \
@@ -115,7 +116,13 @@
   ../../inet4.5/src/inet/transportlayer/tcp/TcpSackRexmitQueue.h \
   transportlayer/tcp/flavours/../../../../../tcpPaced/src/transportlayer/tcp/TcpPacedConnection.h \
   transportlayer/tcp/flavours/../flavours/MpTcpFamily.h \
-  transportlayer/tcp/flavours/../../../common/DataSequenceNumberTag_m.h
+  transportlayer/tcp/flavours/../../../common/DataSequenceNumberTag_m.h \
+  transportlayer/tcp/flavours/../MpTcpConnection.h \
+  ../../inet4.5/src/inet/common/socket/SocketMap.h \
+  ../../inet4.5/src/inet/common/socket/ISocket.h \
+  transportlayer/tcp/flavours/../MpTcpFlowScheduler.h \
+  transportlayer/tcp/flavours/../MpTcpPacketScheduler.h
+/Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json:
 transportlayer/tcp/flavours/MpTcpSubflowCubic.h:
 ../../inet4.5/src/inet/transportlayer/tcp/TcpConnection.h:
 ../../inet4.5/src/inet/networklayer/common/L3Address.h:
@@ -123,7 +130,7 @@ transportlayer/tcp/flavours/MpTcpSubflowCubic.h:
 ../../inet4.5/src/inet/common/INETDefs.h:
 ../../inet4.5/src/inet/common/precompiled_debug.h:
 ../../inet4.5/src/inet/common/precompiled.h:
-/Users/av288/omnetpp-6.3.0/include/omnetpp.h:
+/Users/av288/omnetpp-6.4.0/include/omnetpp.h:
 ../../inet4.5/src/inet/opp_defines.h:
 ../../inet4.5/src/inet/features.h:
 ../../inet4.5/src/inet/common/Compat.h:
@@ -233,3 +240,8 @@ transportlayer/tcp/flavours/../MpTcpConnectionBase.h:
 transportlayer/tcp/flavours/../../../../../tcpPaced/src/transportlayer/tcp/TcpPacedConnection.h:
 transportlayer/tcp/flavours/../flavours/MpTcpFamily.h:
 transportlayer/tcp/flavours/../../../common/DataSequenceNumberTag_m.h:
+transportlayer/tcp/flavours/../MpTcpConnection.h:
+../../inet4.5/src/inet/common/socket/SocketMap.h:
+../../inet4.5/src/inet/common/socket/ISocket.h:
+transportlayer/tcp/flavours/../MpTcpFlowScheduler.h:
+transportlayer/tcp/flavours/../MpTcpPacketScheduler.h:

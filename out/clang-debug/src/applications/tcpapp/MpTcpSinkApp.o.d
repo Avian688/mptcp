@@ -1,10 +1,11 @@
 ../out/clang-debug/src/applications/tcpapp/MpTcpSinkApp.o: \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json \
   applications/tcpapp/MpTcpSinkApp.cc \
   ../../inet4.5/src/inet/common/stlutils.h \
   ../../inet4.5/src/inet/common/INETDefs.h \
   ../../inet4.5/src/inet/common/precompiled_debug.h \
   ../../inet4.5/src/inet/common/precompiled.h \
-  /Users/av288/omnetpp-6.3.0/include/omnetpp.h \
+  /Users/av288/omnetpp-6.4.0/include/omnetpp.h \
   ../../inet4.5/src/inet/opp_defines.h ../../inet4.5/src/inet/features.h \
   ../../inet4.5/src/inet/common/Compat.h \
   ../../inet4.5/src/inet/common/InitStages.h \
@@ -55,7 +56,6 @@
   ../../inet4.5/src/inet/common/INETDefs_m.h \
   ../../inet4.5/src/inet/networklayer/common/IpProtocolId_m.h \
   ../../inet4.5/src/inet/networklayer/common/L3Address_m.h \
-  applications/tcpapp/../../transportlayer/tcp/TcpOpenSubflowCommand_m.h \
   ../../inet4.5/src/inet/networklayer/common/L3AddressResolver.h \
   ../../inet4.5/src/inet/networklayer/contract/IRoutingTable.h \
   ../../inet4.5/src/inet/networklayer/contract/IRoute.h \
@@ -71,11 +71,12 @@
   ../../inet4.5/src/inet/queueing/base/PacketProcessorBase.h \
   ../../inet4.5/src/inet/queueing/contract/IPacketProcessor.h \
   ../../inet4.5/src/inet/queueing/contract/IPassivePacketSink.h
+/Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json:
 ../../inet4.5/src/inet/common/stlutils.h:
 ../../inet4.5/src/inet/common/INETDefs.h:
 ../../inet4.5/src/inet/common/precompiled_debug.h:
 ../../inet4.5/src/inet/common/precompiled.h:
-/Users/av288/omnetpp-6.3.0/include/omnetpp.h:
+/Users/av288/omnetpp-6.4.0/include/omnetpp.h:
 ../../inet4.5/src/inet/opp_defines.h:
 ../../inet4.5/src/inet/features.h:
 ../../inet4.5/src/inet/common/Compat.h:
@@ -127,7 +128,6 @@ applications/tcpapp/MpTcpSinkApp.h:
 ../../inet4.5/src/inet/common/INETDefs_m.h:
 ../../inet4.5/src/inet/networklayer/common/IpProtocolId_m.h:
 ../../inet4.5/src/inet/networklayer/common/L3Address_m.h:
-applications/tcpapp/../../transportlayer/tcp/TcpOpenSubflowCommand_m.h:
 ../../inet4.5/src/inet/networklayer/common/L3AddressResolver.h:
 ../../inet4.5/src/inet/networklayer/contract/IRoutingTable.h:
 ../../inet4.5/src/inet/networklayer/contract/IRoute.h:

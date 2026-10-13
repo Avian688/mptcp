@@ -1,4 +1,5 @@
 ../out/clang-debug/src/transportlayer/tcp/flavours/MpTcpMetaCubic.o: \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json \
   transportlayer/tcp/flavours/MpTcpMetaCubic.cc \
   transportlayer/tcp/flavours/MpTcpMetaCubic.h \
   ../../inet4.5/src/inet/transportlayer/tcp/TcpConnection.h \
@@ -7,7 +8,7 @@
   ../../inet4.5/src/inet/common/INETDefs.h \
   ../../inet4.5/src/inet/common/precompiled_debug.h \
   ../../inet4.5/src/inet/common/precompiled.h \
-  /Users/av288/omnetpp-6.3.0/include/omnetpp.h \
+  /Users/av288/omnetpp-6.4.0/include/omnetpp.h \
   ../../inet4.5/src/inet/opp_defines.h ../../inet4.5/src/inet/features.h \
   ../../inet4.5/src/inet/common/Compat.h \
   ../../inet4.5/src/inet/common/InitStages.h \
@@ -104,6 +105,7 @@
   ../../inet4.5/src/inet/transportlayer/tcp/flavours/TcpBaseAlgState_m.h \
   ../../inet4.5/src/inet/transportlayer/tcp/flavours/TcpTahoeRenoFamilyState_m.h \
   transportlayer/tcp/flavours/MpTcpCubicState_m.h
+/Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json:
 transportlayer/tcp/flavours/MpTcpMetaCubic.h:
 ../../inet4.5/src/inet/transportlayer/tcp/TcpConnection.h:
 ../../inet4.5/src/inet/networklayer/common/L3Address.h:
@@ -111,7 +113,7 @@ transportlayer/tcp/flavours/MpTcpMetaCubic.h:
 ../../inet4.5/src/inet/common/INETDefs.h:
 ../../inet4.5/src/inet/common/precompiled_debug.h:
 ../../inet4.5/src/inet/common/precompiled.h:
-/Users/av288/omnetpp-6.3.0/include/omnetpp.h:
+/Users/av288/omnetpp-6.4.0/include/omnetpp.h:
 ../../inet4.5/src/inet/opp_defines.h:
 ../../inet4.5/src/inet/features.h:
 ../../inet4.5/src/inet/common/Compat.h:

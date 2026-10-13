@@ -1,4 +1,5 @@
 ../out/clang-debug/src/transportlayer/tcp/flavours/MpTcpFamily.o: \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json \
   transportlayer/tcp/flavours/MpTcpFamily.cc \
   transportlayer/tcp/flavours/MpTcpFamily.h \
   transportlayer/tcp/flavours/../../../../../tcpPaced/src/transportlayer/tcp/flavours/TcpPacedFamily.h \
@@ -7,7 +8,7 @@
   ../../inet4.5/src/inet/common/INETDefs.h \
   ../../inet4.5/src/inet/common/precompiled_debug.h \
   ../../inet4.5/src/inet/common/precompiled.h \
-  /Users/av288/omnetpp-6.3.0/include/omnetpp.h \
+  /Users/av288/omnetpp-6.4.0/include/omnetpp.h \
   ../../inet4.5/src/inet/opp_defines.h ../../inet4.5/src/inet/features.h \
   ../../inet4.5/src/inet/common/Compat.h \
   ../../inet4.5/src/inet/common/InitStages.h \
@@ -101,6 +102,7 @@
   ../../inet4.5/src/inet/transportlayer/tcp/TcpAlgorithm.h \
   ../../inet4.5/src/inet/transportlayer/tcp/flavours/TcpBaseAlgState_m.h \
   ../../inet4.5/src/inet/transportlayer/tcp/flavours/TcpTahoeRenoFamilyState_m.h
+/Library/Developer/CommandLineTools/SDKs/MacOSX27.sdk/SDKSettings.json:
 transportlayer/tcp/flavours/MpTcpFamily.h:
 transportlayer/tcp/flavours/../../../../../tcpPaced/src/transportlayer/tcp/flavours/TcpPacedFamily.h:
 transportlayer/tcp/flavours/../../../../../tcpPaced/src/transportlayer/tcp/flavours/../TcpPacedConnection.h:
@@ -108,7 +110,7 @@ transportlayer/tcp/flavours/../../../../../tcpPaced/src/transportlayer/tcp/flavo
 ../../inet4.5/src/inet/common/INETDefs.h:
 ../../inet4.5/src/inet/common/precompiled_debug.h:
 ../../inet4.5/src/inet/common/precompiled.h:
-/Users/av288/omnetpp-6.3.0/include/omnetpp.h:
+/Users/av288/omnetpp-6.4.0/include/omnetpp.h:
 ../../inet4.5/src/inet/opp_defines.h:
 ../../inet4.5/src/inet/features.h:
 ../../inet4.5/src/inet/common/Compat.h:
